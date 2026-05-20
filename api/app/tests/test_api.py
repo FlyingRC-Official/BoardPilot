@@ -628,6 +628,28 @@ def test_ask_creates_retrieval_evidence_answer_and_citations():
     assert cited_ids <= evidence_ids
 
 
+def test_uncited_answer_routes_to_review_as_unsupported_claim(monkeypatch):
+    import app.answers.service as answer_service
+    from app.providers.base import LLMResult
+
+    product, _source, _chunks = seed_source()
+
+    def answer_without_visible_citation(_question, _evidence_quotes):
+        return LLMResult("fake", "fake-citation-llm", 0, answer_text="USB power is for configuration only.")
+
+    monkeypatch.setattr(answer_service.llm_provider, "answer", answer_without_visible_citation)
+    payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can I power servos from the USB connector?"},
+    ).json()
+
+    assert payload["evidence"]
+    assert payload["answer"]["status"] == "unsupported_claim_risk"
+    assert payload["answer"]["citation_map_json"] == {}
+    assert payload["answer"]["confidence"] <= 0.2
+    assert payload["review_item"]["failure_category"] == "unsupported_claim"
+
+
 def test_question_attachments_link_artifacts_and_show_in_review_detail():
     product, source, _chunks = seed_source()
     version_id = client.get(f"/sources/{source['id']}/versions").json()[0]["id"]

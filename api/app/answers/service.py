@@ -1,6 +1,6 @@
 import hashlib
 
-from app.answers.citation import citation_map, verify_citations
+from app.answers.citation import citation_map, has_visible_citations, verify_citations
 from app.answers.sufficiency import assess_sufficiency
 from app.db.store import InMemoryStore
 from app.models.schemas import Answer, ModelRun, Question
@@ -46,10 +46,14 @@ def generate_answer(store: InMemoryStore, question: Question, retrieval_run_id, 
             error_message=llm_result.error_message,
         )
     )
-    citations = citation_map(evidence)
+    citations = citation_map(evidence, llm_result.answer_text)
+    unsupported_claim_risk = bool(evidence and not citations)
+    if unsupported_claim_risk:
+        confidence = min(confidence, 0.2)
     answer = Answer(
         question_id=question.id,
         retrieval_run_id=retrieval_run_id,
+        status="unsupported_claim_risk" if unsupported_claim_risk else "candidate",
         answer_text=llm_result.answer_text,
         citation_map_json=citations,
         evidence_sufficiency=sufficiency,
@@ -58,6 +62,9 @@ def generate_answer(store: InMemoryStore, question: Question, retrieval_run_id, 
         model_name=model_name,
         model_run_id=model_run.id,
     )
-    if not verify_citations(answer.citation_map_json, evidence):
-        raise ValueError("answer cites evidence that was not saved")
+    if not verify_citations(answer.citation_map_json, evidence) or not has_visible_citations(
+        answer.answer_text,
+        answer.citation_map_json,
+    ):
+        raise ValueError("answer cites invalid or invisible evidence")
     return store.add_answer(answer)
