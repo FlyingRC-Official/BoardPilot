@@ -29,6 +29,7 @@ Updated: 2026-05-20
 - Added product alias detection during Ask with normalized query expansion and soft product boosts.
 - Added minimal role-aware request context through `X-BoardPilot-User` and `X-BoardPilot-Role` headers.
 - Guarded protected mutating endpoints for admin, support, and reviewer roles while keeping local development defaulted to admin.
+- Added saved LLM ModelRun records for answer generation and linked Answers to `model_run_id`.
 
 ## Verified
 
@@ -59,6 +60,7 @@ Results:
 - EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - Minimal role-aware access control is present; it is header-based for MVP and still needs real authentication/session management.
+- Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval; it still needs durable database persistence and richer review detail UX.

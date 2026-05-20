@@ -239,6 +239,21 @@ class ApprovedFAQ(BaseModel):
     updated_at: datetime = Field(default_factory=now)
 
 
+class ModelRun(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    provider_type: str
+    provider_name: str
+    model_name: str
+    input_hash: str
+    prompt_version: str = ""
+    latency_ms: int = 0
+    token_usage_json: Dict[str, Any] = Field(default_factory=dict)
+    cost_json: Dict[str, Any] = Field(default_factory=dict)
+    status: str = "completed"
+    error_message: str = ""
+    created_at: datetime = Field(default_factory=now)
+
+
 class AskRequest(BaseModel):
     question: str
     product_id: Optional[UUID] = None

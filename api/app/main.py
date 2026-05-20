@@ -293,6 +293,13 @@ def get_answer_evidence(answer_id: UUID) -> list:
     return store.evidence_for_run(answer.retrieval_run_id)
 
 
+@app.get("/model-runs/{model_run_id}")
+def get_model_run(model_run_id: UUID):
+    if model_run_id not in store.model_runs:
+        raise not_found()
+    return store.model_runs[model_run_id]
+
+
 @app.post("/answers/{answer_id}/feedback")
 def post_feedback(answer_id: UUID, payload: Dict[str, Any], _user: CurrentUser = Depends(get_current_user)) -> ReviewItem:
     if answer_id not in store.answers:

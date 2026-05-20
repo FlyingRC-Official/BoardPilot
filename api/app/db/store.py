@@ -12,6 +12,7 @@ from app.models.schemas import (
     Evidence,
     Product,
     ProductAlias,
+    ModelRun,
     Question,
     RetrievalCandidate,
     RetrievalRun,
@@ -38,6 +39,7 @@ class InMemoryStore:
         self.retrieval_candidates: Dict[UUID, RetrievalCandidate] = {}
         self.evidences: Dict[UUID, Evidence] = {}
         self.answers: Dict[UUID, Answer] = {}
+        self.model_runs: Dict[UUID, ModelRun] = {}
         self.review_items: Dict[UUID, ReviewItem] = {}
         self.approved_faqs: Dict[UUID, ApprovedFAQ] = {}
         self.eval_cases: Dict[UUID, EvalCase] = {}
@@ -121,6 +123,10 @@ class InMemoryStore:
     def add_answer(self, answer: Answer) -> Answer:
         self.answers[answer.id] = answer
         return answer
+
+    def add_model_run(self, model_run: ModelRun) -> ModelRun:
+        self.model_runs[model_run.id] = model_run
+        return model_run
 
     def add_review_item(self, item: ReviewItem) -> ReviewItem:
         self.review_items[item.id] = item

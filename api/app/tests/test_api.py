@@ -149,6 +149,13 @@ def test_ask_creates_retrieval_evidence_answer_and_citations():
     assert payload["retrieval_run"]["status"] == "completed"
     assert payload["evidence"]
     assert payload["answer"]["citation_map_json"]
+    assert payload["answer"]["model_run_id"]
+
+    model_run = client.get(f"/model-runs/{payload['answer']['model_run_id']}").json()
+    assert model_run["provider_type"] == "llm"
+    assert model_run["provider_name"] == "fake"
+    assert model_run["status"] == "completed"
+    assert model_run["token_usage_json"]["output_words"] > 0
 
     evidence_ids = {item["id"] for item in payload["evidence"]}
     cited_ids = {ids[0] for ids in payload["answer"]["citation_map_json"].values()}
