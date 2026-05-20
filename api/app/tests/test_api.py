@@ -1,10 +1,12 @@
 import json
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.db.session import store
 from app.main import app
+from app.workers.ingestion_worker import decode_ingestion_job, encode_ingestion_job
 
 
 client = TestClient(app)
@@ -45,6 +47,13 @@ def test_health_endpoint():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_ingestion_worker_message_round_trip():
+    source_version_id = uuid4()
+    encoded = encode_ingestion_job(source_version_id)
+    decoded = decode_ingestion_job(encoded)
+    assert decoded.source_version_id == source_version_id
 
 
 def test_role_context_and_mutation_guards():

@@ -56,6 +56,7 @@ Updated: 2026-05-20
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
 - Audit logs can optionally be appended to a durable JSONL file through `BOARDPILOT_AUDIT_LOG_PATH`.
+- Added a Redis ingestion worker entrypoint and Docker Compose worker service scaffold.
 
 ## Verified
 
@@ -72,7 +73,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 30 passed.
+- API tests: 31 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -81,7 +82,7 @@ Results:
 ## Important MVP Gaps
 
 - API runtime persistence is still in-memory; SQLAlchemy models and Alembic migration exist but the service layer has not yet been switched to database-backed repositories.
-- IngestionJob APIs now persist job status in memory and support retry; execution still runs inline instead of through Redis-backed workers.
+- IngestionJob APIs now persist job status in memory and support retry; a Redis worker entrypoint exists, but API enqueueing and database-backed cross-process job execution remain pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.

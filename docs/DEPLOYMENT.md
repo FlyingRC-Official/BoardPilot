@@ -4,6 +4,7 @@ BoardPilot is designed as a small private stack:
 
 - `web`: Next.js workbench.
 - `api`: FastAPI backend.
+- `worker`: ingestion worker process for Redis queue jobs.
 - `db`: Postgres with pgvector.
 - `redis`: queue backend for ingestion and embedding work.
 - `storage`: local filesystem mount for originals and derived artifacts.
@@ -22,4 +23,3 @@ The default provider config is fake/local. Source content should not leave the d
 ## MVP Gaps
 
 The current implementation is a runnable development slice. Before production use, replace in-memory persistence with Postgres migrations, move ingestion into Redis-backed workers, add authentication, and enforce durable audit retention.
-
