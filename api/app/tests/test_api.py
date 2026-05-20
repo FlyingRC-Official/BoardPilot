@@ -1812,6 +1812,13 @@ def test_review_approval_requires_failure_category():
     assert missing_category.status_code == 422
     assert "failure_category" in missing_category.json()["detail"]
 
+    invalid_category = client.post(
+        f"/review-items/{review_item['id']}/approve",
+        json={"failure_category": "not_a_failure_category"},
+    )
+    assert invalid_category.status_code == 422
+    assert invalid_category.json()["detail"] == "invalid failure_category"
+
     patched = client.patch(
         f"/review-items/{review_item['id']}",
         json={"failure_category": "bad_rerank", "reviewer_notes": "Reranker missed the useful quote."},
@@ -1847,6 +1854,13 @@ def test_review_reject_requires_failure_category_and_is_audited():
     assert missing_category.status_code == 422
     assert "failure_category" in missing_category.json()["detail"]
 
+    invalid_category = client.post(
+        f"/review-items/{review_item['id']}/reject",
+        json={"failure_category": "not_a_failure_category"},
+    )
+    assert invalid_category.status_code == 422
+    assert invalid_category.json()["detail"] == "invalid failure_category"
+
     rejected = client.post(
         f"/review-items/{review_item['id']}/reject",
         json={"failure_category": "unsupported_claim"},
@@ -1866,6 +1880,13 @@ def test_review_reject_requires_failure_category_and_is_audited():
 def test_review_can_be_marked_as_needing_source_update():
     ask_payload = client.post("/ask", json={"question": "What source needs updating?"}).json()
     review_item = ask_payload["review_item"]
+    invalid_category = client.post(
+        f"/review-items/{review_item['id']}/source-update-needed",
+        json={"failure_category": "not_a_failure_category"},
+    )
+    assert invalid_category.status_code == 422
+    assert invalid_category.json()["detail"] == "invalid failure_category"
+
     marked = client.post(
         f"/review-items/{review_item['id']}/source-update-needed",
         json={"failure_category": "stale_source"},

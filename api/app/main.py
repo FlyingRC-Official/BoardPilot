@@ -124,6 +124,13 @@ def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="not found")
 
 
+def parse_failure_category(value: Any) -> FailureCategory:
+    try:
+        return FailureCategory(value)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid failure_category")
+
+
 def save_runtime_job(session: Session, job: IngestionJob) -> None:
     try:
         RuntimeRepository(session).add_ingestion_job(job)
@@ -1704,10 +1711,7 @@ def patch_review_item(
         if key not in allowed_fields:
             continue
         if key == "failure_category" and value:
-            try:
-                value = FailureCategory(value)
-            except ValueError:
-                raise HTTPException(status_code=422, detail="invalid failure_category")
+            value = parse_failure_category(value)
         setattr(item, key, value)
     item.updated_at = now()
     store.review_items[item.id] = item
@@ -1726,7 +1730,7 @@ def patch_review_item(
 @app.post("/review-items/{item_id}/approve", response_model=ReviewItem)
 def post_review_approve(
     item_id: UUID,
-    payload: Dict[str, FailureCategory],
+    payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
@@ -1734,7 +1738,7 @@ def post_review_approve(
         raise HTTPException(status_code=422, detail="failure_category is required")
     if not hydrate_review_item_for_service(session, item_id):
         raise not_found()
-    item = approve_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    item = approve_review_item(store, item_id, parse_failure_category(payload["failure_category"]), reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
 
@@ -1742,7 +1746,7 @@ def post_review_approve(
 @app.post("/review-items/{item_id}/reject", response_model=ReviewItem)
 def post_review_reject(
     item_id: UUID,
-    payload: Dict[str, FailureCategory],
+    payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
@@ -1750,7 +1754,7 @@ def post_review_reject(
         raise HTTPException(status_code=422, detail="failure_category is required")
     if not hydrate_review_item_for_service(session, item_id):
         raise not_found()
-    item = reject_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    item = reject_review_item(store, item_id, parse_failure_category(payload["failure_category"]), reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
 
@@ -1758,7 +1762,7 @@ def post_review_reject(
 @app.post("/review-items/{item_id}/source-update-needed", response_model=ReviewItem)
 def post_review_source_update_needed(
     item_id: UUID,
-    payload: Dict[str, FailureCategory],
+    payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
@@ -1766,7 +1770,7 @@ def post_review_source_update_needed(
         raise HTTPException(status_code=422, detail="failure_category is required")
     if not hydrate_review_item_for_service(session, item_id):
         raise not_found()
-    item = mark_source_update_needed(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    item = mark_source_update_needed(store, item_id, parse_failure_category(payload["failure_category"]), reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
 
