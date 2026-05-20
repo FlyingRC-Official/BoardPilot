@@ -460,6 +460,52 @@ def test_json_source_version_uses_source_type_parser():
     assert "Question: Can I use USB for servos?" in payload["chunks"][0]["content"]
 
 
+def test_webpage_snapshot_import_extracts_visible_text_and_metadata():
+    product = client.post(
+        "/products",
+        json={"name": "FlyingRC F4", "slug": "flyingrc-f4", "description": "Flight controller"},
+    ).json()
+    source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "FlyingRC F4 Web Manual",
+            "source_type": "webpage",
+            "trust_level": "official",
+        },
+    ).json()
+    response = client.post(
+        f"/sources/{source['id']}/versions/webpage",
+        json={
+            "url": "https://example.com/flyingrc-f4",
+            "version_label": "web-2026-05-20",
+            "html": (
+                "<html><head><title>FlyingRC F4</title><style>.x{}</style></head>"
+                "<body><h1>USB_WEB_SNAPSHOT</h1><p>USB is for configuration only.</p>"
+                "<script>throw new Error('ignore me')</script></body></html>"
+            ),
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"]["parser_version"] == "mvp-webpage-parser-v1"
+    assert payload["artifact"]["artifact_type"] == "webpage_snapshot"
+    assert payload["artifact"]["storage_uri"] == "https://example.com/flyingrc-f4"
+    assert payload["artifact"]["metadata_json"]["snapshot_url"] == "https://example.com/flyingrc-f4"
+    chunk_text = payload["chunks"][0]["content"]
+    assert "USB_WEB_SNAPSHOT" in chunk_text
+    assert "USB is for configuration only." in chunk_text
+    assert "throw new Error" not in chunk_text
+
+    updated_source = client.get(f"/sources/{source['id']}").json()
+    assert updated_source["canonical_uri"] == "https://example.com/flyingrc-f4"
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "What is USB_WEB_SNAPSHOT?"},
+    ).json()
+    assert any("USB_WEB_SNAPSHOT" in item["quote"] for item in ask_payload["evidence"])
+
+
 def test_ask_creates_retrieval_evidence_answer_and_citations():
     product, _source, chunks = seed_source()
     response = client.post(

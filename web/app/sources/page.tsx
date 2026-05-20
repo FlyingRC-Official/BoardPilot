@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { SourceViewer } from "@/components/source-viewer/SourceViewer";
 import {
   addSourceVersion,
+  addWebpageSnapshot,
   createProduct,
   createProductAlias,
   createSource,
@@ -35,6 +36,8 @@ export default function SourcesPage() {
   const [sourceType, setSourceType] = useState("markdown");
   const [sourceId, setSourceId] = useState("");
   const [content, setContent] = useState("USB power is for configuration. Do not power servos from the USB connector.");
+  const [webpageUrl, setWebpageUrl] = useState("https://example.com/flyingrc-f4");
+  const [webpageHtml, setWebpageHtml] = useState("<h1>FlyingRC F4</h1><p>USB power is for configuration only.</p>");
   const [file, setFile] = useState<File | null>(null);
   const [disableReason, setDisableReason] = useState("bad import");
   const [message, setMessage] = useState("");
@@ -163,6 +166,24 @@ export default function SourcesPage() {
     setMessage("Uploaded artifact stored and ingested into chunks.");
   }
 
+  async function submitWebpage(event: FormEvent) {
+    event.preventDefault();
+    const targetSource =
+      sources.find((source) => source.id === sourceId && source.source_type === "webpage") ||
+      sources.find((source) => source.source_type === "webpage");
+    if (!targetSource || !webpageUrl.trim() || !webpageHtml.trim()) {
+      setMessage("Choose a webpage source, URL, and HTML snapshot first.");
+      return;
+    }
+    await addWebpageSnapshot(targetSource.id, {
+      url: webpageUrl,
+      html: webpageHtml,
+      version_label: "webpage-snapshot"
+    });
+    await refresh();
+    setMessage("Webpage snapshot stored and ingested into chunks.");
+  }
+
   return (
     <>
       <header className="page-header">
@@ -194,6 +215,7 @@ export default function SourcesPage() {
             <span>Type</span>
             <select className="select" value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
               <option value="markdown">Markdown</option>
+              <option value="webpage">Webpage snapshot</option>
               <option value="csv_faq">CSV/FAQ</option>
               <option value="text_log">Text log</option>
               <option value="pdf">PDF text</option>
@@ -212,7 +234,7 @@ export default function SourcesPage() {
           <p className="muted">{aliases.length} aliases on the first product.</p>
         </form>
       </section>
-      <section className="grid two" style={{ marginTop: 16 }}>
+      <section className="grid three" style={{ marginTop: 16 }}>
         <form className="panel form" onSubmit={submitVersion}>
           <h2>Version</h2>
           <label className="field">
@@ -222,15 +244,27 @@ export default function SourcesPage() {
           <button className="button">Ingest Version</button>
         </form>
         <section className="panel">
-        <form className="form" onSubmit={submitUpload}>
-          <h2>Upload Artifact</h2>
-          <label className="field">
-            <span>File</span>
-            <input className="input" type="file" onChange={(event) => setFile(event.target.files?.[0] || null)} />
-          </label>
-          <button className="button secondary">Upload and Ingest</button>
-        </form>
+          <form className="form" onSubmit={submitUpload}>
+            <h2>Upload Artifact</h2>
+            <label className="field">
+              <span>File</span>
+              <input className="input" type="file" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+            </label>
+            <button className="button secondary">Upload and Ingest</button>
+          </form>
         </section>
+        <form className="panel form" onSubmit={submitWebpage}>
+          <h2>Webpage Snapshot</h2>
+          <label className="field">
+            <span>URL</span>
+            <input className="input" value={webpageUrl} onChange={(event) => setWebpageUrl(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>HTML snapshot</span>
+            <textarea className="textarea" value={webpageHtml} onChange={(event) => setWebpageHtml(event.target.value)} />
+          </label>
+          <button className="button secondary">Import Snapshot</button>
+        </form>
       </section>
       {message ? <p className="status" style={{ marginTop: 16 }}>{message}</p> : null}
       <section className="panel" style={{ marginTop: 16 }}>

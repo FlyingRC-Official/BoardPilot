@@ -92,6 +92,10 @@ export function addSourceVersion(sourceId: string, payload: { version_label: str
   return request(`/sources/${sourceId}/versions`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+export function addWebpageSnapshot(sourceId: string, payload: { url: string; html: string; version_label?: string }) {
+  return request(`/sources/${sourceId}/versions/webpage`, { method: "POST", body: JSON.stringify(payload) });
+}
+
 export function listSourceVersions(sourceId: string) {
   return request<SourceVersion[]>(`/sources/${sourceId}/versions`);
 }

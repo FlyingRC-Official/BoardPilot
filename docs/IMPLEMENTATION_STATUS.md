@@ -54,6 +54,7 @@ Updated: 2026-05-20
 - Review detail now surfaces Eval failure metrics when a ReviewItem originates from an EvalResult.
 - Sources page now inspects source version history, latest-version artifacts, ingestion status, and chunk previews.
 - Sources page can re-run ingestion for the latest source version through the IngestionJob API.
+- Sources page can import webpage snapshots by URL, store the HTML artifact, and ingest extracted visible text into chunks.
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
@@ -99,7 +100,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 53 passed.
+- API tests: 54 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -109,7 +110,7 @@ Results:
 
 - API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
-- File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
+- File upload handling exists for parser-aware text sources and PDFs, and webpage snapshots can be imported from captured HTML; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.

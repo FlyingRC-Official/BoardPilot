@@ -61,6 +61,7 @@ from app.models.schemas import (
     SourceVersionCreate,
     Ticket,
     TicketCreate,
+    WebpageSnapshotCreate,
     now,
 )
 from app.products.service import create_alias, create_product, get_product, list_products
@@ -69,7 +70,7 @@ from app.retrieval.query_normalization import normalize_query, product_alias_exp
 from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
 from app.review.service import approve_review_item, mark_source_update_needed, reject_review_item, review_to_eval_case, review_to_faq
-from app.sources.service import create_source, create_source_version, create_uploaded_source_version, list_sources
+from app.sources.service import create_source, create_source_version, create_uploaded_source_version, create_webpage_snapshot_version, list_sources
 from app.providers.ocr import ocr_provider
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
@@ -963,6 +964,31 @@ async def upload_source_version(
         )
     except KeyError:
         raise not_found()
+    save_source_version_bundle_to_database(session, version, artifact, chunks)
+    return {"version": version, "artifact": artifact, "chunks": chunks}
+
+
+@app.post("/sources/{source_id}/versions/webpage")
+def post_webpage_snapshot_version(
+    source_id: UUID,
+    payload: WebpageSnapshotCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
+) -> dict:
+    database_source = get_source_from_database(session, source_id)
+    if database_source and source_id not in store.sources:
+        store.sources[source_id] = database_source
+    try:
+        version, artifact, chunks = create_webpage_snapshot_version(store, source_id, payload)
+    except KeyError:
+        raise not_found()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    source = store.sources[source_id]
+    if payload.url and not source.canonical_uri:
+        source.canonical_uri = payload.url
+        store.sources[source_id] = source
+        save_source_to_database(session, source)
     save_source_version_bundle_to_database(session, version, artifact, chunks)
     return {"version": version, "artifact": artifact, "chunks": chunks}
 

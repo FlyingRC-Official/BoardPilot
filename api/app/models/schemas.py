@@ -102,6 +102,12 @@ class SourceVersionCreate(BaseModel):
     parser_version: str = "mvp-text-v1"
 
 
+class WebpageSnapshotCreate(BaseModel):
+    url: str
+    html: str
+    version_label: str = "snapshot"
+
+
 class SourceVersion(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     source_id: UUID

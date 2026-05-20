@@ -9,8 +9,9 @@ from app.ingestion.parsers.image_stub import parse_image_description
 from app.ingestion.parsers.markdown import parse_markdown
 from app.ingestion.parsers.pdf import parse_pdf_bytes, parse_pdf_text
 from app.ingestion.parsers.text_log import parse_text_log
+from app.ingestion.parsers.webpage import parse_webpage_snapshot
 from app.ingestion.tasks import ingest_source_version
-from app.models.schemas import Source, SourceArtifact, SourceCreate, SourceType, SourceVersion, SourceVersionCreate
+from app.models.schemas import Source, SourceArtifact, SourceCreate, SourceType, SourceVersion, SourceVersionCreate, WebpageSnapshotCreate
 from app.storage.local import LocalStorageProvider
 
 
@@ -33,7 +34,7 @@ def parse_source_content(source_type: SourceType, text: str) -> str:
         SourceType.image: parse_image_description,
         SourceType.approved_faq: parse_markdown,
         SourceType.manual_note: parse_markdown,
-        SourceType.webpage: parse_markdown,
+        SourceType.webpage: parse_webpage_snapshot,
     }
     return parsers.get(source_type, parse_markdown)(text)
 
@@ -119,6 +120,43 @@ def create_uploaded_source_version(
             size_bytes=len(content),
             checksum=checksum,
             metadata_json={"original_filename": filename, "source_type": source.source_type.value},
+            content=parsed_text,
+        )
+    )
+    chunks = ingest_source_version(store, version.id)
+    return version, artifact, chunks
+
+
+def create_webpage_snapshot_version(
+    store: InMemoryStore,
+    source_id: UUID,
+    payload: WebpageSnapshotCreate,
+) -> tuple[SourceVersion, SourceArtifact, list]:
+    if source_id not in store.sources:
+        raise KeyError("source not found")
+    source = store.sources[source_id]
+    if source.source_type != SourceType.webpage:
+        raise ValueError("webpage snapshots require a webpage source")
+    checksum = hashlib.sha256(f"{payload.url}\n{payload.html}".encode("utf-8")).hexdigest()
+    parsed_text = parse_webpage_snapshot(payload.html)
+    version = store.add_source_version(
+        SourceVersion(
+            source_id=source_id,
+            version_label=payload.version_label or "snapshot",
+            content_hash=checksum,
+            parser_version=parser_version_for(SourceType.webpage),
+            status="created",
+        )
+    )
+    artifact = store.add_artifact(
+        SourceArtifact(
+            source_version_id=version.id,
+            artifact_type="webpage_snapshot",
+            storage_uri=payload.url,
+            mime_type="text/html",
+            size_bytes=len(payload.html.encode("utf-8")),
+            checksum=checksum,
+            metadata_json={"source_type": source.source_type.value, "snapshot_url": payload.url},
             content=parsed_text,
         )
     )
