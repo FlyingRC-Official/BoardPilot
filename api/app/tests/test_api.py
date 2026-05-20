@@ -78,6 +78,28 @@ def test_role_context_and_mutation_guards():
     assert allowed.status_code == 200
 
 
+def test_configured_api_key_is_required_for_role_context(monkeypatch):
+    monkeypatch.setattr(settings, "api_key", "test-secret")
+    try:
+        missing = client.get("/me", headers={"X-BoardPilot-User": "viewer-1", "X-BoardPilot-Role": "viewer"})
+        assert missing.status_code == 401
+
+        wrong = client.get(
+            "/me",
+            headers={"X-BoardPilot-User": "viewer-1", "X-BoardPilot-Role": "viewer", "X-BoardPilot-API-Key": "wrong"},
+        )
+        assert wrong.status_code == 401
+
+        allowed = client.get(
+            "/me",
+            headers={"X-BoardPilot-User": "viewer-1", "X-BoardPilot-Role": "viewer", "X-BoardPilot-API-Key": "test-secret"},
+        )
+        assert allowed.status_code == 200
+        assert allowed.json() == {"user_id": "viewer-1", "role": "viewer"}
+    finally:
+        monkeypatch.setattr(settings, "api_key", "")
+
+
 def test_provider_config_creation_is_admin_only_and_audited():
     forbidden = client.post(
         "/provider-configs",

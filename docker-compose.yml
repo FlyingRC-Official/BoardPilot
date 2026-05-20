@@ -6,6 +6,7 @@ services:
       BOARDPILOT_ENV: ${BOARDPILOT_ENV:-local}
       BOARDPILOT_STORAGE_ROOT: /app/storage
       BOARDPILOT_AUDIT_LOG_PATH: ${BOARDPILOT_AUDIT_LOG_PATH:-/app/storage/audit/audit.jsonl}
+      BOARDPILOT_API_KEY: ${BOARDPILOT_API_KEY:-}
       BOARDPILOT_DATABASE_URL: ${BOARDPILOT_DATABASE_URL:-postgresql+psycopg://boardpilot:boardpilot@db:5432/boardpilot}
       BOARDPILOT_REDIS_URL: ${BOARDPILOT_REDIS_URL:-redis://redis:6379/0}
     ports:
@@ -21,6 +22,7 @@ services:
       context: ./web
     environment:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_BOARDPILOT_API_KEY: ${NEXT_PUBLIC_BOARDPILOT_API_KEY:-}
     ports:
       - "3000:3000"
     depends_on:
@@ -34,6 +36,7 @@ services:
       BOARDPILOT_ENV: ${BOARDPILOT_ENV:-local}
       BOARDPILOT_STORAGE_ROOT: /app/storage
       BOARDPILOT_AUDIT_LOG_PATH: ${BOARDPILOT_AUDIT_LOG_PATH:-/app/storage/audit/audit.jsonl}
+      BOARDPILOT_API_KEY: ${BOARDPILOT_API_KEY:-}
       BOARDPILOT_DATABASE_URL: ${BOARDPILOT_DATABASE_URL:-postgresql+psycopg://boardpilot:boardpilot@db:5432/boardpilot}
       BOARDPILOT_REDIS_URL: ${BOARDPILOT_REDIS_URL:-redis://redis:6379/0}
     volumes:

@@ -17,12 +17,14 @@ import type {
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_KEY = process.env.NEXT_PUBLIC_BOARDPILOT_API_KEY || "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(API_KEY ? { "X-BoardPilot-API-Key": API_KEY } : {}),
       ...(init?.headers || {})
     }
   });

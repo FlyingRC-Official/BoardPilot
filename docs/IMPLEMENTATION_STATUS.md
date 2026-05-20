@@ -28,6 +28,7 @@ Updated: 2026-05-20
 - Added reviewer-edited answer controls before ApprovedFAQ conversion.
 - Added product alias detection during Ask with normalized query expansion and soft product boosts.
 - Added minimal role-aware request context through `X-BoardPilot-User` and `X-BoardPilot-Role` headers.
+- Added optional `BOARDPILOT_API_KEY` enforcement for private deployments, with web workbench support through `NEXT_PUBLIC_BOARDPILOT_API_KEY`.
 - Guarded protected mutating endpoints for admin, support, and reviewer roles while keeping local development defaulted to admin.
 - Added saved LLM ModelRun records for answer generation and linked Answers to `model_run_id`.
 - Added saved fake ChunkEmbedding records during ingestion and a chunk embedding inspection endpoint.
@@ -95,7 +96,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 49 passed.
+- API tests: 50 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -109,13 +110,13 @@ Results:
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
-- Minimal role-aware access control is present; it is header-based for MVP and still needs real authentication/session management.
+- Minimal role-aware access control is present; it is header-based for MVP and can require a configured API key, but still needs real user/session management.
 - Core audit events are inspectable through `GET /audit-logs`; audit writes mirror to SQLAlchemy when available and can still be mirrored to JSONL.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing, with variable provider dimensions supported in new migrations.
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI remains minimal.
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
-- Real authentication/session management is not implemented; MVP role enforcement is header-based.
+- Real user/session management is not implemented; MVP role enforcement is header-based with an optional deployment API-key gate.
 - Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors reads/writes through SQLAlchemy when the schema is available.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
