@@ -258,8 +258,21 @@ class ReviewEvalRepository:
     def add_provider_config(self, config: ProviderConfig) -> ProviderConfig:
         return self._merge(config, ProviderConfigOrm, ProviderConfig)
 
+    def get_provider_config(self, config_id: UUID) -> ProviderConfig | None:
+        row = self.session.get(ProviderConfigOrm, str(config_id))
+        return _orm_to_model(row, ProviderConfig) if row else None
+
     def list_provider_configs(self) -> list[ProviderConfig]:
         return self._list(ProviderConfigOrm, ProviderConfig)
+
+    def delete_provider_config(self, config_id: UUID) -> ProviderConfig | None:
+        row = self.session.get(ProviderConfigOrm, str(config_id))
+        if not row:
+            return None
+        deleted = _orm_to_model(row, ProviderConfig)
+        self.session.delete(row)
+        self.session.flush()
+        return deleted
 
     def add_ticket(self, ticket: Ticket) -> Ticket:
         return self._merge(ticket, TicketOrm, Ticket)

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.answers.service import generate_answer
 from app.core.config import settings
 from app.core.security import CurrentUser, get_current_user, require_roles
-from app.db.repositories import RuntimeRepository
+from app.db.repositories import ReviewEvalRepository, RuntimeRepository
 from app.db.session import get_session
 from app.db.session import store
 from app.eval.runs import run_eval_batch
@@ -90,6 +90,40 @@ def get_runtime_job(session: Session, job_id: UUID) -> Optional[IngestionJob]:
         return None
 
 
+def save_provider_config_to_database(session: Session, config: ProviderConfig) -> None:
+    try:
+        ReviewEvalRepository(session).add_provider_config(config)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_provider_configs_from_database(session: Session) -> list[ProviderConfig]:
+    try:
+        return ReviewEvalRepository(session).list_provider_configs()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def get_provider_config_from_database(session: Session, config_id: UUID) -> Optional[ProviderConfig]:
+    try:
+        return ReviewEvalRepository(session).get_provider_config(config_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def delete_provider_config_from_database(session: Session, config_id: UUID) -> Optional[ProviderConfig]:
+    try:
+        deleted = ReviewEvalRepository(session).delete_provider_config(config_id)
+        session.commit()
+        return deleted
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "boardpilot-api"}
@@ -101,13 +135,13 @@ def version() -> dict:
 
 
 @app.get("/providers")
-def providers() -> dict:
+def providers(session: Session = Depends(get_session)) -> dict:
     return {
         "llm": settings.llm_provider,
         "embedding": settings.embedding_provider,
         "reranker": settings.reranker_provider,
         "ocr": settings.ocr_provider,
-        "configs": list(store.provider_configs.values()),
+        "configs": list_provider_configs_from_database(session) or list(store.provider_configs.values()),
     }
 
 
@@ -120,13 +154,19 @@ def me(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
 def post_provider_config(
     payload: ProviderConfigCreate,
     user: CurrentUser = Depends(require_roles("admin")),
+    session: Session = Depends(get_session),
 ) -> ProviderConfig:
-    return store.add_provider_config(ProviderConfig(**payload.model_dump()), user_id=user.user_id)
+    config = store.add_provider_config(ProviderConfig(**payload.model_dump()), user_id=user.user_id)
+    save_provider_config_to_database(session, config)
+    return config
 
 
 @app.get("/provider-configs", response_model=list[ProviderConfig])
-def get_provider_configs(_user: CurrentUser = Depends(require_roles("admin"))) -> list[ProviderConfig]:
-    return list(store.provider_configs.values())
+def get_provider_configs(
+    _user: CurrentUser = Depends(require_roles("admin")),
+    session: Session = Depends(get_session),
+) -> list[ProviderConfig]:
+    return list_provider_configs_from_database(session) or list(store.provider_configs.values())
 
 
 @app.patch("/provider-configs/{config_id}", response_model=ProviderConfig)
@@ -134,16 +174,21 @@ def patch_provider_config(
     config_id: UUID,
     payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin")),
+    session: Session = Depends(get_session),
 ) -> ProviderConfig:
-    if config_id not in store.provider_configs:
+    if config_id in store.provider_configs:
+        config = store.provider_configs[config_id]
+    else:
+        config = get_provider_config_from_database(session, config_id)
+    if not config:
         raise not_found()
-    config = store.provider_configs[config_id]
     before_json = config.model_dump(mode="json")
     allowed_fields = {"provider_type", "provider_name", "model_name", "config_json", "enabled"}
     for key, value in payload.items():
         if key in allowed_fields:
             setattr(config, key, value)
     store.provider_configs[config_id] = config
+    save_provider_config_to_database(session, config)
     store.add_audit_log(
         "provider_config_updated",
         "ProviderConfig",
@@ -159,10 +204,13 @@ def patch_provider_config(
 def delete_provider_config(
     config_id: UUID,
     user: CurrentUser = Depends(require_roles("admin")),
+    session: Session = Depends(get_session),
 ) -> dict:
-    if config_id not in store.provider_configs:
+    config = store.provider_configs.pop(config_id, None)
+    database_config = delete_provider_config_from_database(session, config_id)
+    config = config or database_config
+    if not config:
         raise not_found()
-    config = store.provider_configs.pop(config_id)
     store.add_audit_log(
         "provider_config_deleted",
         "ProviderConfig",

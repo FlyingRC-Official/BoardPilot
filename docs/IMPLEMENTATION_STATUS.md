@@ -67,6 +67,7 @@ Updated: 2026-05-20
 - Added SQLAlchemy retrieval repository coverage for questions, attachments, retrieval runs, candidates, evidence, model runs, and answers.
 - Added SQLAlchemy review/eval/support repository coverage and persisted imported log source content.
 - Ingestion job endpoints now mirror job state into the SQLAlchemy runtime repository when the database schema is available.
+- Provider configuration APIs now read and mirror provider configs through SQLAlchemy when the database schema is available.
 
 ## Verified
 
@@ -83,7 +84,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 39 passed.
+- API tests: 40 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

@@ -4,7 +4,15 @@ from sqlalchemy.orm import sessionmaker
 import app.models.orm  # noqa: F401
 from app.db.base import Base
 from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
-from app.main import get_runtime_job, list_runtime_jobs, save_runtime_job
+from app.main import (
+    delete_provider_config_from_database,
+    get_provider_config_from_database,
+    get_runtime_job,
+    list_provider_configs_from_database,
+    list_runtime_jobs,
+    save_provider_config_to_database,
+    save_runtime_job,
+)
 from app.models.schemas import (
     Answer,
     ApprovedFAQ,
@@ -210,6 +218,21 @@ def test_runtime_job_api_helpers_use_database_when_available():
 
     assert list_runtime_jobs(session)[0].id == job.id
     assert get_runtime_job(session, job.id).source_version_id == version.id
+
+
+def test_provider_config_api_helpers_use_database_when_available():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["provider_configs"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    config = ProviderConfig(provider_type="llm", provider_name="fake", model_name="fake-citation-llm")
+
+    save_provider_config_to_database(session, config)
+    session.expire_all()
+
+    assert list_provider_configs_from_database(session)[0].id == config.id
+    assert get_provider_config_from_database(session, config.id).model_name == "fake-citation-llm"
+    assert delete_provider_config_from_database(session, config.id).id == config.id
+    assert list_provider_configs_from_database(session) == []
 
 
 def test_retrieval_repository_round_trips_ask_records_in_sqlite():
