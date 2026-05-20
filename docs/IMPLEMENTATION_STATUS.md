@@ -27,6 +27,8 @@ Updated: 2026-05-20
 - Added a repeatable 20-case hardware-support Eval seed corpus and Eval page seed action.
 - Added reviewer-edited answer controls before ApprovedFAQ conversion.
 - Added product alias detection during Ask with normalized query expansion and soft product boosts.
+- Added minimal role-aware request context through `X-BoardPilot-User` and `X-BoardPilot-Role` headers.
+- Guarded protected mutating endpoints for admin, support, and reviewer roles while keeping local development defaulted to admin.
 
 ## Verified
 
@@ -43,7 +45,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 14 passed.
+- API tests: 15 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -56,6 +58,7 @@ Results:
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
+- Minimal role-aware access control is present; it is header-based for MVP and still needs real authentication/session management.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval; it still needs durable database persistence and richer review detail UX.
@@ -66,6 +69,6 @@ Results:
 1. Replace the in-memory API store with SQLAlchemy-backed repositories.
 2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
 3. Move ingestion and embedding jobs to Redis-backed workers.
-4. Add authentication with role-aware guards for admin, support, reviewer, and viewer.
+4. Replace header-based local role context with real authentication/session management.
 5. Add EvalRun comparison and failure-category reporting UI.
 6. Add reviewer notes, failure-category editing, and richer review detail layout.

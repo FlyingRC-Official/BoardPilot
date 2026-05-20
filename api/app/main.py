@@ -1,10 +1,11 @@
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 
 from app.answers.service import generate_answer
 from app.core.config import settings
+from app.core.security import CurrentUser, get_current_user, require_roles
 from app.db.session import store
 from app.eval.runs import run_eval_batch
 from app.eval.seeds import seed_eval_cases
@@ -60,8 +61,13 @@ def providers() -> dict:
     }
 
 
+@app.get("/me", response_model=CurrentUser)
+def me(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    return user
+
+
 @app.post("/products", response_model=Product)
-def post_product(payload: ProductCreate) -> Product:
+def post_product(payload: ProductCreate, _user: CurrentUser = Depends(require_roles("admin"))) -> Product:
     return create_product(store, payload)
 
 
@@ -79,7 +85,7 @@ def get_product_endpoint(product_id: UUID) -> Product:
 
 
 @app.patch("/products/{product_id}", response_model=Product)
-def patch_product(product_id: UUID, payload: Dict[str, Any]) -> Product:
+def patch_product(product_id: UUID, payload: Dict[str, Any], _user: CurrentUser = Depends(require_roles("admin"))) -> Product:
     if product_id not in store.products:
         raise not_found()
     product = store.products[product_id]
@@ -91,7 +97,11 @@ def patch_product(product_id: UUID, payload: Dict[str, Any]) -> Product:
 
 
 @app.post("/products/{product_id}/aliases", response_model=ProductAlias)
-def post_alias(product_id: UUID, payload: ProductAliasCreate) -> ProductAlias:
+def post_alias(
+    product_id: UUID,
+    payload: ProductAliasCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> ProductAlias:
     try:
         return create_alias(store, product_id, payload)
     except KeyError:
@@ -104,7 +114,7 @@ def get_aliases(product_id: UUID) -> list[ProductAlias]:
 
 
 @app.post("/sources", response_model=Source)
-def post_source(payload: SourceCreate) -> Source:
+def post_source(payload: SourceCreate, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> Source:
     try:
         return create_source(store, payload)
     except KeyError:
@@ -124,7 +134,11 @@ def get_source(source_id: UUID) -> Source:
 
 
 @app.patch("/sources/{source_id}", response_model=Source)
-def patch_source(source_id: UUID, payload: Dict[str, Any]) -> Source:
+def patch_source(
+    source_id: UUID,
+    payload: Dict[str, Any],
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> Source:
     if source_id not in store.sources:
         raise not_found()
     source = store.sources[source_id]
@@ -136,7 +150,11 @@ def patch_source(source_id: UUID, payload: Dict[str, Any]) -> Source:
 
 
 @app.post("/sources/{source_id}/versions")
-def post_source_version(source_id: UUID, payload: SourceVersionCreate) -> dict:
+def post_source_version(
+    source_id: UUID,
+    payload: SourceVersionCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> dict:
     try:
         version, artifact, chunks = create_source_version(store, source_id, payload)
     except KeyError:
@@ -149,6 +167,7 @@ async def upload_source_version(
     source_id: UUID,
     version_label: str = Form("uploaded"),
     file: UploadFile = File(...),
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
 ) -> dict:
     try:
         content = await file.read()
@@ -171,7 +190,12 @@ def get_source_versions(source_id: UUID) -> list:
 
 
 @app.post("/sources/{source_id}/versions/{version_id}/artifacts")
-def post_source_artifact(source_id: UUID, version_id: UUID, payload: SourceVersionCreate) -> dict:
+def post_source_artifact(
+    source_id: UUID,
+    version_id: UUID,
+    payload: SourceVersionCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> dict:
     if source_id not in store.sources or version_id not in store.source_versions:
         raise not_found()
     version, artifact, chunks = create_source_version(store, source_id, payload)
@@ -184,7 +208,10 @@ def get_chunks(version_id: UUID) -> list:
 
 
 @app.post("/ingestion/jobs")
-def post_ingestion_job(payload: Dict[str, UUID]) -> dict:
+def post_ingestion_job(
+    payload: Dict[str, UUID],
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> dict:
     chunks = ingest_source_version(store, payload["source_version_id"])
     return {"status": "completed", "chunk_count": len(chunks)}
 
@@ -200,7 +227,7 @@ def get_ingestion_job(job_id: UUID) -> dict:
 
 
 @app.post("/ingestion/jobs/{job_id}/retry")
-def retry_ingestion_job(job_id: UUID) -> dict:
+def retry_ingestion_job(job_id: UUID, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
     return {"id": job_id, "status": "retry_not_required_for_inline_mvp"}
 
 
@@ -267,7 +294,7 @@ def get_answer_evidence(answer_id: UUID) -> list:
 
 
 @app.post("/answers/{answer_id}/feedback")
-def post_feedback(answer_id: UUID, payload: Dict[str, Any]) -> ReviewItem:
+def post_feedback(answer_id: UUID, payload: Dict[str, Any], _user: CurrentUser = Depends(get_current_user)) -> ReviewItem:
     if answer_id not in store.answers:
         raise not_found()
     answer = store.answers[answer_id]
@@ -281,7 +308,10 @@ def post_feedback(answer_id: UUID, payload: Dict[str, Any]) -> ReviewItem:
 
 
 @app.post("/eval-cases", response_model=EvalCase)
-def post_eval_case(payload: EvalCaseCreate) -> EvalCase:
+def post_eval_case(
+    payload: EvalCaseCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+) -> EvalCase:
     return store.add_eval_case(EvalCase(**payload.model_dump()))
 
 
@@ -291,7 +321,7 @@ def get_eval_cases() -> list[EvalCase]:
 
 
 @app.post("/eval-cases/seed")
-def post_seed_eval_cases() -> dict:
+def post_seed_eval_cases(_user: CurrentUser = Depends(require_roles("admin", "support", "reviewer"))) -> dict:
     product, source, cases = seed_eval_cases(store)
     return {"product": product, "source": source, "cases": cases, "case_count": len(cases)}
 
@@ -304,7 +334,11 @@ def get_eval_case(case_id: UUID) -> EvalCase:
 
 
 @app.patch("/eval-cases/{case_id}", response_model=EvalCase)
-def patch_eval_case(case_id: UUID, payload: Dict[str, Any]) -> EvalCase:
+def patch_eval_case(
+    case_id: UUID,
+    payload: Dict[str, Any],
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+) -> EvalCase:
     if case_id not in store.eval_cases:
         raise not_found()
     case = store.eval_cases[case_id]
@@ -315,7 +349,10 @@ def patch_eval_case(case_id: UUID, payload: Dict[str, Any]) -> EvalCase:
 
 
 @app.post("/eval-runs")
-def post_eval_run(payload: Optional[Dict[str, Any]] = None) -> dict:
+def post_eval_run(
+    payload: Optional[Dict[str, Any]] = None,
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+) -> dict:
     run, results = run_eval_batch(store, (payload or {}).get("name", "MVP eval"))
     return {"eval_run": run, "results": results}
 
@@ -338,7 +375,10 @@ def get_eval_results(run_id: UUID) -> list:
 
 
 @app.post("/eval-results/{result_id}/to-review")
-def eval_result_to_review(result_id: UUID) -> ReviewItem:
+def eval_result_to_review(
+    result_id: UUID,
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+) -> ReviewItem:
     if result_id not in store.eval_results:
         raise not_found()
     result = store.eval_results[result_id]
@@ -366,7 +406,11 @@ def get_review_item(item_id: UUID) -> ReviewItem:
 
 
 @app.patch("/review-items/{item_id}", response_model=ReviewItem)
-def patch_review_item(item_id: UUID, payload: Dict[str, Any]) -> ReviewItem:
+def patch_review_item(
+    item_id: UUID,
+    payload: Dict[str, Any],
+    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+) -> ReviewItem:
     if item_id not in store.review_items:
         raise not_found()
     item = store.review_items[item_id]
@@ -377,17 +421,25 @@ def patch_review_item(item_id: UUID, payload: Dict[str, Any]) -> ReviewItem:
 
 
 @app.post("/review-items/{item_id}/approve", response_model=ReviewItem)
-def post_review_approve(item_id: UUID, payload: Dict[str, FailureCategory]) -> ReviewItem:
+def post_review_approve(
+    item_id: UUID,
+    payload: Dict[str, FailureCategory],
+    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+) -> ReviewItem:
     return approve_review_item(store, item_id, payload.get("failure_category", FailureCategory.human_policy_required))
 
 
 @app.post("/review-items/{item_id}/reject", response_model=ReviewItem)
-def post_review_reject(item_id: UUID, payload: Dict[str, FailureCategory]) -> ReviewItem:
+def post_review_reject(
+    item_id: UUID,
+    payload: Dict[str, FailureCategory],
+    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+) -> ReviewItem:
     return reject_review_item(store, item_id, payload.get("failure_category", FailureCategory.human_policy_required))
 
 
 @app.post("/review-items/{item_id}/to-faq")
-def post_review_to_faq(item_id: UUID) -> dict:
+def post_review_to_faq(item_id: UUID, _user: CurrentUser = Depends(require_roles("admin", "reviewer"))) -> dict:
     try:
         faq, source, chunks = review_to_faq(store, item_id)
     except KeyError:
@@ -398,12 +450,15 @@ def post_review_to_faq(item_id: UUID) -> dict:
 
 
 @app.post("/review-items/{item_id}/to-eval-case", response_model=EvalCase)
-def post_review_to_eval_case(item_id: UUID) -> EvalCase:
+def post_review_to_eval_case(
+    item_id: UUID,
+    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+) -> EvalCase:
     return review_to_eval_case(store, item_id)
 
 
 @app.post("/tickets")
-def post_ticket(payload: Dict[str, Any]) -> dict:
+def post_ticket(payload: Dict[str, Any], _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
     store.tickets.append(payload)
     return payload
 
@@ -414,7 +469,7 @@ def get_tickets() -> list[dict]:
 
 
 @app.post("/log-sources")
-def post_log_source(payload: Dict[str, Any]) -> dict:
+def post_log_source(payload: Dict[str, Any], _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
     store.log_sources.append(payload)
     return payload
 
@@ -425,7 +480,7 @@ def get_log_sources() -> list[dict]:
 
 
 @app.post("/image-assets")
-def post_image_asset(payload: Dict[str, Any]) -> dict:
+def post_image_asset(payload: Dict[str, Any], _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
     store.image_assets.append(payload)
     return payload
 
@@ -436,5 +491,5 @@ def get_image_assets() -> list[dict]:
 
 
 @app.post("/image-assets/{image_id}/ocr")
-def post_image_ocr(image_id: UUID) -> dict:
+def post_image_ocr(image_id: UUID, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
     return {"image_asset_id": image_id, "provider_name": "fake", "model_name": "fake-ocr-placeholder", "ocr_text": ""}

@@ -44,6 +44,25 @@ def test_health_endpoint():
     assert response.json()["status"] == "ok"
 
 
+def test_role_context_and_mutation_guards():
+    viewer = client.get("/me", headers={"X-BoardPilot-User": "viewer-1", "X-BoardPilot-Role": "viewer"})
+    assert viewer.json() == {"user_id": "viewer-1", "role": "viewer"}
+
+    forbidden = client.post(
+        "/products",
+        json={"name": "Blocked", "slug": "blocked", "description": ""},
+        headers={"X-BoardPilot-Role": "viewer"},
+    )
+    assert forbidden.status_code == 403
+
+    allowed = client.post(
+        "/products",
+        json={"name": "Allowed", "slug": "allowed", "description": ""},
+        headers={"X-BoardPilot-Role": "admin"},
+    )
+    assert allowed.status_code == 200
+
+
 def test_product_source_ingestion_and_dedup():
     product, source, chunks = seed_source()
     assert product["name"] == "FlyingRC F4"
