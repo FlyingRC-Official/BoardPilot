@@ -167,6 +167,15 @@ def test_eval_run_records_metrics_and_can_route_failure_to_review():
     assert review["source_type"] == "eval_failure"
 
 
+def test_seed_eval_cases_run_batch_with_at_least_20_cases():
+    seed_payload = client.post("/eval-cases/seed").json()
+    assert seed_payload["case_count"] >= 20
+
+    run_payload = client.post("/eval-runs", json={"name": "seed corpus"}).json()
+    assert run_payload["eval_run"]["summary_metrics_json"]["case_count"] >= 20
+    assert len(run_payload["results"]) >= 20
+
+
 def test_review_to_faq_reingests_approved_answer_as_source_material():
     product, _source, _chunks = seed_source()
     ask_payload = client.post(

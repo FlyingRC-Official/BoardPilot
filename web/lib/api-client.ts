@@ -63,6 +63,10 @@ export function createEvalCase(payload: { question_text: string; product_id?: st
   return request("/eval-cases", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export function seedEvalCases() {
+  return request<{ case_count: number }>("/eval-cases/seed", { method: "POST" });
+}
+
 export function runEval(name: string) {
   return request<EvalRunResponse>("/eval-runs", { method: "POST", body: JSON.stringify({ name }) });
 }

@@ -24,6 +24,7 @@ Updated: 2026-05-20
 - Implemented ReviewItem to ApprovedFAQ conversion with FAQ source re-ingestion.
 - Added source-type parser routing for Markdown, CSV/FAQ, ticket exports, text logs, image descriptions, approved FAQs, and text-extracted PDFs.
 - Added `pypdf`-backed PDF text extraction with a decoded-text fallback.
+- Added a repeatable 20-case hardware-support Eval seed corpus and Eval page seed action.
 
 ## Verified
 
@@ -40,7 +41,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 11 passed.
+- API tests: 12 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -51,6 +52,7 @@ Results:
 - API runtime persistence is still in-memory; SQLAlchemy models and Alembic migration exist but the service layer has not yet been switched to database-backed repositories.
 - Redis-backed background workers are scaffolded but ingestion currently runs inline.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
+- EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
 - ApprovedFAQ conversion re-ingests FAQ content into retrieval; it still needs reviewer editing UI polish and durable database persistence.
@@ -62,5 +64,5 @@ Results:
 2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Add authentication with role-aware guards for admin, support, reviewer, and viewer.
-5. Expand eval seed data to the required 20 cases and add failure-category reporting UI.
+5. Add EvalRun comparison and failure-category reporting UI.
 6. Add reviewer editing controls before FAQ conversion.

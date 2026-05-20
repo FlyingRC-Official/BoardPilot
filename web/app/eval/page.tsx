@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { MetricsPanel } from "@/components/eval/MetricsPanel";
-import { createEvalCase, runEval } from "@/lib/api-client";
+import { createEvalCase, runEval, seedEvalCases } from "@/lib/api-client";
 import type { EvalRunResponse } from "@/lib/types";
 
 export default function EvalPage() {
@@ -22,6 +22,11 @@ export default function EvalPage() {
     setMessage("EvalRun completed.");
   }
 
+  async function submitSeed() {
+    const response = await seedEvalCases();
+    setMessage(`${response.case_count} seed EvalCases are ready.`);
+  }
+
   return (
     <>
       <header className="page-header">
@@ -29,9 +34,14 @@ export default function EvalPage() {
           <h1>Eval</h1>
           <p>Measure whether expected chunks enter recall and reranked Top 5, then inspect answer grounding metrics.</p>
         </div>
-        <button className="button" onClick={submitRun}>
-          Run Eval
-        </button>
+        <div className="button-row">
+          <button className="button secondary" onClick={submitSeed}>
+            Seed 20 Cases
+          </button>
+          <button className="button" onClick={submitRun}>
+            Run Eval
+          </button>
+        </div>
       </header>
       <section className="grid two">
         <form className="panel form" onSubmit={submitCase}>
@@ -60,4 +70,3 @@ export default function EvalPage() {
     </>
   );
 }
-

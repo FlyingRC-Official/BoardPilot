@@ -7,6 +7,7 @@ from app.answers.service import generate_answer
 from app.core.config import settings
 from app.db.session import store
 from app.eval.runs import run_eval_batch
+from app.eval.seeds import seed_eval_cases
 from app.ingestion.tasks import ingest_source_version
 from app.models.schemas import (
     AskRequest,
@@ -283,6 +284,12 @@ def post_eval_case(payload: EvalCaseCreate) -> EvalCase:
 @app.get("/eval-cases", response_model=list[EvalCase])
 def get_eval_cases() -> list[EvalCase]:
     return list(store.eval_cases.values())
+
+
+@app.post("/eval-cases/seed")
+def post_seed_eval_cases() -> dict:
+    product, source, cases = seed_eval_cases(store)
+    return {"product": product, "source": source, "cases": cases, "case_count": len(cases)}
 
 
 @app.get("/eval-cases/{case_id}", response_model=EvalCase)
