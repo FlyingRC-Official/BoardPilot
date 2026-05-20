@@ -981,6 +981,7 @@ def disable_source(
         raise not_found()
     before = source.model_dump(mode="json")
     source.status = "disabled"
+    source.updated_at = now()
     store.sources[source_id] = source
     save_source_to_database(session, source)
     store.add_audit_log(

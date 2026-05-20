@@ -621,6 +621,7 @@ def test_source_disable_is_audited():
     )
     assert disabled.status_code == 200
     assert disabled.json()["status"] == "disabled"
+    assert disabled.json()["updated_at"] != source["updated_at"]
     audit_logs = client.get("/audit-logs").json()
     audit = [log for log in audit_logs if log["action"] == "source_disabled"]
     assert audit[-1]["user_id"] == "maintainer-1"
@@ -1441,6 +1442,9 @@ def test_review_to_faq_reingests_approved_answer_as_source_material():
     assert faq_payload["approved_faq"]["answer_text"].startswith("Use the documented calibration")
     assert faq_payload["source"]["source_type"] == "approved_faq"
     assert faq_payload["chunks"]
+    converted_item = client.get(f"/review-items/{review_item['id']}").json()
+    assert converted_item["status"] == "converted_to_faq"
+    assert converted_item["updated_at"] != review_item["updated_at"]
 
     rerun = client.post(
         "/ask",
@@ -1471,6 +1475,9 @@ def test_review_to_eval_case_preserves_expected_evidence_and_answer_points():
     assert eval_case["expected_source_ids_json"]
     assert eval_case["expected_answer_points_json"][0].startswith("USB is for configuration")
     assert "review_regression" in eval_case["tags_json"]
+    converted_item = client.get(f"/review-items/{review_item['id']}").json()
+    assert converted_item["status"] == "converted_to_eval_case"
+    assert converted_item["updated_at"] != review_item["updated_at"]
 
 
 def test_review_item_detail_links_question_answer_evidence_and_trace():
@@ -1536,6 +1543,7 @@ def test_review_approval_requires_failure_category():
     )
     assert approved.status_code == 200
     assert approved.json()["failure_category"] == "insufficient_evidence"
+    assert approved.json()["updated_at"] != patched.json()["updated_at"]
     audit_actions = [item["action"] for item in client.get("/audit-logs").json()]
     assert "review_item_updated" in audit_actions
 
@@ -1562,6 +1570,7 @@ def test_review_reject_requires_failure_category_and_is_audited():
     assert rejected.status_code == 200
     assert rejected.json()["status"] == "rejected"
     assert rejected.json()["failure_category"] == "unsupported_claim"
+    assert rejected.json()["updated_at"] != review_item["updated_at"]
     audit_logs = client.get("/audit-logs").json()
     review_audit = [log for log in audit_logs if log["action"] == "review_rejected"]
     assert review_audit
@@ -1580,6 +1589,7 @@ def test_review_can_be_marked_as_needing_source_update():
     assert marked.status_code == 200
     assert marked.json()["status"] == "needs_source_update"
     assert marked.json()["failure_category"] == "stale_source"
+    assert marked.json()["updated_at"] != review_item["updated_at"]
     audit_actions = [item["action"] for item in client.get("/audit-logs").json()]
     assert "review_marked_source_update_needed" in audit_actions
 

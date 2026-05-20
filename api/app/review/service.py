@@ -13,6 +13,7 @@ from app.models.schemas import (
     SourceType,
     SourceVersion,
     SourceVersionCreate,
+    now,
 )
 from app.sources.service import create_source_version
 
@@ -22,6 +23,7 @@ def approve_review_item(store: InMemoryStore, item_id: UUID, failure_category: F
     item.failure_category = failure_category
     item.reviewer_id = reviewer_id
     item.status = ReviewStatus.approved
+    item.updated_at = now()
     store.add_audit_log(
         "review_approved",
         "ReviewItem",
@@ -37,6 +39,7 @@ def reject_review_item(store: InMemoryStore, item_id: UUID, failure_category: Fa
     item.failure_category = failure_category
     item.reviewer_id = reviewer_id
     item.status = ReviewStatus.rejected
+    item.updated_at = now()
     store.add_audit_log(
         "review_rejected",
         "ReviewItem",
@@ -57,6 +60,7 @@ def mark_source_update_needed(
     item.failure_category = failure_category
     item.reviewer_id = reviewer_id
     item.status = ReviewStatus.needs_source_update
+    item.updated_at = now()
     store.add_audit_log(
         "review_marked_source_update_needed",
         "ReviewItem",
@@ -93,6 +97,7 @@ def review_to_eval_case(store: InMemoryStore, item_id: UUID) -> EvalCase:
         )
     )
     item.status = ReviewStatus.converted_to_eval_case
+    item.updated_at = now()
     store.add_audit_log(
         "review_converted_to_eval_case",
         "ReviewItem",
@@ -140,6 +145,7 @@ def review_to_faq(store: InMemoryStore, item_id: UUID) -> tuple[ApprovedFAQ, Sou
         )
     )
     item.status = ReviewStatus.converted_to_faq
+    item.updated_at = now()
     store.add_audit_log(
         "review_converted_to_faq",
         "ReviewItem",
