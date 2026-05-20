@@ -91,13 +91,29 @@ export type ReviewItem = {
   edited_answer_text?: string;
 };
 
+export type EvalResult = {
+  id: string;
+  eval_run_id: string;
+  eval_case_id: string;
+  question_id: string;
+  retrieval_run_id: string;
+  answer_id: string;
+  recall_at_20: number;
+  rerank_at_5: number;
+  citation_support_rate: number;
+  unsupported_claim_rate: number;
+  need_review: boolean;
+  failure_category?: string | null;
+  metrics_json: Record<string, unknown>;
+};
+
 export type ReviewItemDetail = {
   item: ReviewItem;
   question?: Question | null;
   answer?: Answer | null;
   evidence: Evidence[];
   candidates: RetrievalCandidate[];
-  eval_result?: Record<string, unknown> | null;
+  eval_result?: EvalResult | null;
 };
 
 export type AuditLog = {

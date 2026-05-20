@@ -536,6 +536,26 @@ def test_review_item_detail_links_question_answer_evidence_and_trace():
     assert detail["candidates"]
 
 
+def test_review_item_detail_includes_eval_failure_context():
+    product, _source, chunks = seed_source()
+    case = client.post(
+        "/eval-cases",
+        json={
+            "product_id": product["id"],
+            "question_text": "How should I treat USB power?",
+            "expected_chunk_ids_json": [chunks[-1]["id"]],
+        },
+    ).json()
+    run_payload = client.post("/eval-runs", json={"name": "review detail eval"}).json()
+    result = run_payload["results"][0]
+    review = client.post(f"/eval-results/{result['id']}/to-review").json()
+
+    detail = client.get(f"/review-items/{review['id']}/detail").json()
+    assert detail["eval_result"]["eval_case_id"] == case["id"]
+    assert "recall_at_20" in detail["eval_result"]
+    assert detail["question"]["raw_text"] == "How should I treat USB power?"
+
+
 def test_review_approval_requires_failure_category():
     ask_payload = client.post("/ask", json={"question": "What is undocumented?"}).json()
     review_item = ask_payload["review_item"]

@@ -49,6 +49,7 @@ Updated: 2026-05-20
 - Enabled LLM provider configs to set answer/model-run identity and estimate model cost in EvalRun summaries.
 - Extended enabled provider config identity to saved chunk embeddings, reranked candidate metadata, and OCR results.
 - Added explicit source-disable audit logging and a Review action for marking source updates needed.
+- Review detail now surfaces Eval failure metrics when a ReviewItem originates from an EvalResult.
 
 ## Verified
 
@@ -65,7 +66,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 25 passed.
+- API tests: 26 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -87,7 +88,7 @@ Results:
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
-- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace; review still needs durable database persistence and richer eval-result context.
+- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics; review still needs durable database persistence.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
 
 ## Recommended Next Subtasks
@@ -96,5 +97,5 @@ Results:
 2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Replace header-based local role context with real authentication/session management.
-5. Add richer eval-result context to Review detail.
-6. Replace fake provider execution with real provider adapters when credentials are configured.
+5. Replace fake provider execution with real provider adapters when credentials are configured.
+6. Add durable database-backed repositories for runtime data.

@@ -131,6 +131,35 @@ export default function ReviewPage() {
               <p>{detail.question?.raw_text || "No linked question."}</p>
               <h3>Generated Answer</h3>
               <p>{detail.answer?.answer_text || "No linked answer."}</p>
+              {detail.eval_result ? (
+                <>
+                  <h3>Eval Result</h3>
+                  <table className="table">
+                    <tbody>
+                      <tr>
+                        <td>Recall@20</td>
+                        <td>{detail.eval_result.recall_at_20.toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td>Rerank@5</td>
+                        <td>{detail.eval_result.rerank_at_5.toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td>Citation support</td>
+                        <td>{detail.eval_result.citation_support_rate.toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td>Unsupported claims</td>
+                        <td>{detail.eval_result.unsupported_claim_rate.toFixed(2)}</td>
+                      </tr>
+                      <tr>
+                        <td>Failure</td>
+                        <td>{detail.eval_result.failure_category || "none"}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </>
+              ) : null}
             </div>
             <div>
               <h3>Evidence</h3>
