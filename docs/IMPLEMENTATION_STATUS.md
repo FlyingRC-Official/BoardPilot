@@ -40,6 +40,7 @@ Updated: 2026-05-20
 - Added Sources page controls for creating product aliases used by Ask-time alias detection.
 - Added provider configuration records, admin-only provider config APIs, and provider config audit events.
 - Implemented typed ticket, log, image, and OCR records that create source material and chunks for retrieval.
+- Added EvalRun comparison endpoint and Eval page delta table for comparing consecutive runs.
 
 ## Verified
 
@@ -68,7 +69,7 @@ Results:
 - IngestionJob APIs now persist job status in memory and support retry; execution still runs inline instead of through Redis-backed workers.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
-- EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
+- EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - Minimal role-aware access control is present; it is header-based for MVP and still needs real authentication/session management.
 - Core audit events are inspectable through `GET /audit-logs`; persistence remains in-memory until SQLAlchemy repositories are wired.

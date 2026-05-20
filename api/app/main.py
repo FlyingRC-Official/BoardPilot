@@ -431,6 +431,20 @@ def get_eval_runs() -> list:
     return list(store.eval_runs.values())
 
 
+@app.get("/eval-runs/compare")
+def compare_eval_runs(run_a: UUID, run_b: UUID) -> dict:
+    if run_a not in store.eval_runs or run_b not in store.eval_runs:
+        raise not_found()
+    baseline = store.eval_runs[run_a]
+    candidate = store.eval_runs[run_b]
+    deltas = {}
+    for key, candidate_value in candidate.summary_metrics_json.items():
+        baseline_value = baseline.summary_metrics_json.get(key)
+        if isinstance(candidate_value, (int, float)) and isinstance(baseline_value, (int, float)):
+            deltas[key] = candidate_value - baseline_value
+    return {"baseline": baseline, "candidate": candidate, "deltas": deltas}
+
+
 @app.get("/eval-runs/{run_id}")
 def get_eval_run(run_id: UUID):
     if run_id not in store.eval_runs:

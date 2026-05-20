@@ -96,7 +96,15 @@ export type EvalRunResponse = {
   eval_run: {
     id: string;
     name: string;
-    summary_metrics_json: Record<string, number>;
+    summary_metrics_json: Record<string, number | Record<string, number>>;
   };
   results: Array<Record<string, unknown>>;
+};
+
+export type EvalRunSummary = EvalRunResponse["eval_run"];
+
+export type EvalRunComparison = {
+  baseline: EvalRunSummary;
+  candidate: EvalRunSummary;
+  deltas: Record<string, number>;
 };

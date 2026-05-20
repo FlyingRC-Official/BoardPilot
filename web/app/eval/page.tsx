@@ -2,12 +2,14 @@
 
 import { FormEvent, useState } from "react";
 import { MetricsPanel } from "@/components/eval/MetricsPanel";
-import { createEvalCase, runEval, seedEvalCases } from "@/lib/api-client";
-import type { EvalRunResponse } from "@/lib/types";
+import { compareEvalRuns, createEvalCase, runEval, seedEvalCases } from "@/lib/api-client";
+import type { EvalRunComparison, EvalRunResponse } from "@/lib/types";
 
 export default function EvalPage() {
   const [question, setQuestion] = useState("How should USB power be used?");
   const [run, setRun] = useState<EvalRunResponse | null>(null);
+  const [previousRunId, setPreviousRunId] = useState("");
+  const [comparison, setComparison] = useState<EvalRunComparison | null>(null);
   const [message, setMessage] = useState("");
 
   async function submitCase(event: FormEvent) {
@@ -18,6 +20,10 @@ export default function EvalPage() {
 
   async function submitRun() {
     const response = await runEval("Workbench eval");
+    if (run?.eval_run.id) {
+      setPreviousRunId(run.eval_run.id);
+      setComparison(await compareEvalRuns(run.eval_run.id, response.eval_run.id));
+    }
     setRun(response);
     setMessage("EvalRun completed.");
   }
@@ -66,6 +72,31 @@ export default function EvalPage() {
             <div className="empty">Create cases and run an EvalRun to see aggregate metrics.</div>
           )}
         </div>
+      </section>
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>Compare Runs</h2>
+        {comparison ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Delta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(comparison.deltas).map(([key, value]) => (
+                <tr key={key}>
+                  <td>{key.replaceAll("_", " ")}</td>
+                  <td>{value.toFixed(3)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="empty">
+            Run Eval twice in this session to compare the latest run against {previousRunId ? "the previous run" : "a previous run"}.
+          </div>
+        )}
       </section>
     </>
   );

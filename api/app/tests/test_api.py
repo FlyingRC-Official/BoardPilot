@@ -373,6 +373,15 @@ def test_seed_eval_cases_run_batch_with_at_least_20_cases():
     assert run_payload["eval_run"]["summary_metrics_json"]["case_count"] >= 20
     assert len(run_payload["results"]) >= 20
 
+    second_run = client.post("/eval-runs", json={"name": "seed corpus second"}).json()
+    comparison = client.get(
+        "/eval-runs/compare",
+        params={"run_a": run_payload["eval_run"]["id"], "run_b": second_run["eval_run"]["id"]},
+    ).json()
+    assert comparison["baseline"]["id"] == run_payload["eval_run"]["id"]
+    assert comparison["candidate"]["id"] == second_run["eval_run"]["id"]
+    assert "recall_at_20" in comparison["deltas"]
+
 
 def test_review_to_faq_reingests_approved_answer_as_source_material():
     product, _source, _chunks = seed_source()

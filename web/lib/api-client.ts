@@ -1,4 +1,4 @@
-import type { AskResponse, AuditLog, EvalRunResponse, Product, ProductAlias, ReviewItem, Source } from "./types";
+import type { AskResponse, AuditLog, EvalRunComparison, EvalRunResponse, Product, ProductAlias, ReviewItem, Source } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -77,6 +77,10 @@ export function seedEvalCases() {
 
 export function runEval(name: string) {
   return request<EvalRunResponse>("/eval-runs", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export function compareEvalRuns(runA: string, runB: string) {
+  return request<EvalRunComparison>(`/eval-runs/compare?run_a=${runA}&run_b=${runB}`);
 }
 
 export function listReviewItems() {
