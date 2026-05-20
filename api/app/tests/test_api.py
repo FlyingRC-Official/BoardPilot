@@ -331,6 +331,14 @@ def test_ask_creates_retrieval_evidence_answer_and_citations():
     assert cited_ids <= evidence_ids
 
 
+def test_ask_persists_metadata_filters():
+    payload = client.post(
+        "/ask",
+        json={"question": "Filter this query", "metadata_filters_json": {"firmware": "1.0", "page": 3}},
+    ).json()
+    assert payload["question"]["metadata_filters_json"] == {"firmware": "1.0", "page": 3}
+
+
 def test_ask_detects_product_alias_without_hard_filtering():
     product, source, _chunks = seed_source()
     client.post(

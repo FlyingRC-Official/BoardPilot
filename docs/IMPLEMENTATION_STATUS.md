@@ -54,6 +54,7 @@ Updated: 2026-05-20
 - Sources page can re-run ingestion for the latest source version through the IngestionJob API.
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
+- Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
 
 ## Verified
 
@@ -70,7 +71,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 28 passed.
+- API tests: 29 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

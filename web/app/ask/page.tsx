@@ -10,6 +10,7 @@ export default function AskPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productId, setProductId] = useState("");
   const [question, setQuestion] = useState("Can I power servos from the USB connector?");
+  const [metadataFilters, setMetadataFilters] = useState("{}");
   const [result, setResult] = useState<AskResponse | null>(null);
   const [feedbackNote, setFeedbackNote] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -25,7 +26,19 @@ export default function AskPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await askQuestion({ question, product_id: productId || undefined });
+      let parsedFilters: Record<string, unknown> = {};
+      try {
+        parsedFilters = metadataFilters.trim() ? JSON.parse(metadataFilters) : {};
+      } catch {
+        setError("Metadata filters JSON is invalid");
+        setLoading(false);
+        return;
+      }
+      const response = await askQuestion({
+        question,
+        product_id: productId || undefined,
+        metadata_filters_json: parsedFilters
+      });
       setResult(response);
       setFeedbackNote("");
       setFeedbackMessage("");
@@ -73,6 +86,15 @@ export default function AskPage() {
             <label className="field">
               <span>Question text</span>
               <textarea className="textarea" value={question} onChange={(event) => setQuestion(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>Metadata filters JSON</span>
+              <textarea
+                className="textarea"
+                style={{ minHeight: 84 }}
+                value={metadataFilters}
+                onChange={(event) => setMetadataFilters(event.target.value)}
+              />
             </label>
             <div className="button-row">
               <button className="button" disabled={loading || !question.trim()}>
