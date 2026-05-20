@@ -24,7 +24,7 @@ The `.env.example` file documents the required private-deployment variables. `BO
 
 The default provider config is fake/local. Source content should not leave the deployment unless an admin intentionally enables an external LLM, embedding, reranker, or OCR provider.
 
-LLM provider configs support an OpenAI-compatible chat-completions adapter by setting `provider_name` to `openai` or `openai_compatible`. Use `config_json` such as `{"api_key_env":"OPENAI_API_KEY","base_url":"https://api.openai.com/v1"}` so credentials stay in environment variables instead of stored provider records.
+LLM provider configs support an OpenAI-compatible chat-completions adapter by setting `provider_name` to `openai` or `openai_compatible`. Embedding provider configs support the same provider names through the OpenAI-compatible embeddings endpoint. Use `config_json` such as `{"api_key_env":"OPENAI_API_KEY","base_url":"https://api.openai.com/v1"}` so credentials stay in environment variables instead of stored provider records.
 
 ## API Key Gate
 

@@ -693,9 +693,9 @@ def test_unsupported_embedding_provider_config_fails_ingestion_and_routes_review
         "/provider-configs",
         json={
             "provider_type": "embedding",
-            "provider_name": "openai",
-            "model_name": "text-embedding-example",
-            "config_json": {"api_key_env": "OPENAI_API_KEY"},
+            "provider_name": "anthropic",
+            "model_name": "embedding-example",
+            "config_json": {"api_key_env": "ANTHROPIC_API_KEY"},
         },
     )
     product = client.post(
@@ -718,7 +718,7 @@ def test_unsupported_embedding_provider_config_fails_ingestion_and_routes_review
     ).json()
 
     assert payload["version"]["status"] == "failed"
-    assert "Embedding provider 'openai' is configured but no adapter is installed." == payload["version"]["error_message"]
+    assert "Embedding provider 'anthropic' is configured but no adapter is installed." == payload["version"]["error_message"]
     assert payload["chunks"] == []
     assert payload["review_item"]["source_type"] == "source_issue"
     assert payload["review_item"]["failure_category"] == "bad_parse"
@@ -729,6 +729,45 @@ def test_unsupported_embedding_provider_config_fails_ingestion_and_routes_review
         json={"product_id": product["id"], "question": "What does USB power do?"},
     ).json()
     assert ask_payload["evidence"] == []
+
+
+def test_openai_compatible_embedding_provider_ingests_and_reuses_saved_vectors(monkeypatch):
+    import app.providers.openai_compatible as openai_module
+
+    embedding_inputs = []
+
+    def fake_post_json(_url, _headers, payload, _timeout):
+        text = payload["input"]
+        embedding_inputs.append(text)
+        if "USB" in text or "usb" in text:
+            return {"data": [{"embedding": [1.0, 0.0, 0.0]}]}
+        return {"data": [{"embedding": [0.0, 1.0, 0.0]}]}
+
+    monkeypatch.setattr(openai_module, "_post_json", fake_post_json)
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "embedding",
+            "provider_name": "openai_compatible",
+            "model_name": "hardware-embed",
+            "config_json": {"api_key": "test-key", "base_url": "https://llm.internal/v1"},
+        },
+    )
+
+    product, _source, chunks = seed_source()
+    embedding = client.get(f"/chunks/{chunks[0]['id']}/embeddings").json()[0]
+    assert embedding["provider_name"] == "openai_compatible"
+    assert embedding["model_name"] == "hardware-embed"
+    assert embedding["embedding_dimension"] == 3
+
+    payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "What does USB power do?"},
+    ).json()
+
+    assert payload["evidence"]
+    assert len([text for text in embedding_inputs if "USB power is for configuration" in text]) == 1
+    assert "usb power" in embedding_inputs[-1].lower()
 
 
 def test_failed_source_version_ingestion_saves_error_reason(monkeypatch):

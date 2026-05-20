@@ -5,7 +5,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from .base import LLMResult
+from .base import EmbeddingResult, LLMResult
 
 
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
@@ -23,6 +23,11 @@ def _api_key(config_json: dict[str, Any]) -> str:
 def _chat_url(config_json: dict[str, Any]) -> str:
     base_url = str(config_json.get("base_url", DEFAULT_BASE_URL) or DEFAULT_BASE_URL).rstrip("/")
     return f"{base_url}/chat/completions"
+
+
+def _embeddings_url(config_json: dict[str, Any]) -> str:
+    base_url = str(config_json.get("base_url", DEFAULT_BASE_URL) or DEFAULT_BASE_URL).rstrip("/")
+    return f"{base_url}/embeddings"
 
 
 def _post_json(url: str, headers: dict[str, str], payload: dict[str, Any], timeout: float) -> dict[str, Any]:
@@ -122,3 +127,67 @@ class OpenAICompatibleLLMProvider:
                 answer_text="Answer generation failed because the configured LLM provider returned an empty answer.",
             )
         return LLMResult(self.provider_name, self.model_name, latency_ms, answer_text=answer_text)
+
+
+class OpenAICompatibleEmbeddingProvider:
+    def __init__(self, provider_name: str, model_name: str, config_json: dict[str, Any]) -> None:
+        self.provider_name = provider_name
+        self.model_name = model_name
+        self.config_json = config_json
+
+    def embed(self, text: str) -> EmbeddingResult:
+        started = time.monotonic()
+        api_key = _api_key(self.config_json)
+        if not api_key:
+            return EmbeddingResult(
+                self.provider_name,
+                self.model_name,
+                0,
+                error_message="OpenAI-compatible embedding provider is configured but no API key is available.",
+                vector=[],
+            )
+
+        try:
+            response = _post_json(
+                _embeddings_url(self.config_json),
+                {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                {
+                    "model": self.model_name,
+                    "input": text,
+                },
+                float(self.config_json.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS) or DEFAULT_TIMEOUT_SECONDS),
+            )
+        except HTTPError as exc:
+            latency_ms = int((time.monotonic() - started) * 1000)
+            error_detail = exc.read().decode("utf-8", errors="replace").strip()
+            return EmbeddingResult(
+                self.provider_name,
+                self.model_name,
+                latency_ms,
+                error_message=error_detail or f"OpenAI-compatible embedding request failed with HTTP {exc.code}.",
+                vector=[],
+            )
+        except (TimeoutError, URLError, OSError) as exc:
+            latency_ms = int((time.monotonic() - started) * 1000)
+            return EmbeddingResult(
+                self.provider_name,
+                self.model_name,
+                latency_ms,
+                error_message=str(exc) or exc.__class__.__name__,
+                vector=[],
+            )
+
+        latency_ms = int((time.monotonic() - started) * 1000)
+        vector = response.get("data", [{}])[0].get("embedding", [])
+        if not vector:
+            return EmbeddingResult(
+                self.provider_name,
+                self.model_name,
+                latency_ms,
+                error_message="OpenAI-compatible embedding response did not include a vector.",
+                vector=[],
+            )
+        return EmbeddingResult(self.provider_name, self.model_name, latency_ms, vector=[float(value) for value in vector])

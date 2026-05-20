@@ -61,7 +61,8 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
         if _chunk_matches_metadata_filters(store, chunk, question.metadata_filters_json)
     ]
     keyword_hits = keyword_recall(question.normalized_text, chunks)
-    vector_hits = vector_recall(question.normalized_text, chunks)
+    embedding_config = store.active_provider_config("embedding")
+    vector_hits = vector_recall(question.normalized_text, chunks, embedding_config, store)
     merged = merge_candidates(keyword_hits, vector_hits)
     soft_boost_products = {
         item["product_id"]: item["confidence"] for item in question.detected_entities_json.get("products", [])

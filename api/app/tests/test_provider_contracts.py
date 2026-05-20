@@ -2,7 +2,7 @@ import math
 
 from app.providers.base import EmbeddingProvider, LLMProvider, OCRProvider, RerankerProvider
 from app.providers.fake import FakeEmbeddingProvider, FakeLLMProvider, FakeOCRProvider, FakeRerankerProvider
-from app.providers.openai_compatible import OpenAICompatibleLLMProvider
+from app.providers.openai_compatible import OpenAICompatibleEmbeddingProvider, OpenAICompatibleLLMProvider
 
 
 def test_fake_embedding_provider_returns_structured_normalized_result():
@@ -92,6 +92,45 @@ def test_openai_compatible_llm_provider_parses_chat_completion(monkeypatch):
     assert captured["payload"]["model"] == "hardware-chat"
     assert "[E1] USB is for configuration only." in captured["payload"]["messages"][1]["content"]
     assert captured["timeout"] == 7
+
+
+def test_openai_compatible_embedding_provider_requires_credentials(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    provider = OpenAICompatibleEmbeddingProvider("openai", "embed-test", {})
+
+    result = provider.embed("USB power")
+
+    assert result.provider_name == "openai"
+    assert result.model_name == "embed-test"
+    assert result.vector == []
+    assert result.error_message == "OpenAI-compatible embedding provider is configured but no API key is available."
+
+
+def test_openai_compatible_embedding_provider_parses_embedding_response(monkeypatch):
+    captured = {}
+
+    def fake_post_json(url, headers, payload, timeout):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = payload
+        captured["timeout"] = timeout
+        return {"data": [{"embedding": [0.25, 0.5, 0.75]}]}
+
+    monkeypatch.setattr("app.providers.openai_compatible._post_json", fake_post_json)
+    provider = OpenAICompatibleEmbeddingProvider(
+        "openai_compatible",
+        "hardware-embed",
+        {"api_key": "test-key", "base_url": "https://llm.internal/v1", "timeout_seconds": 9},
+    )
+
+    result = provider.embed("USB power")
+
+    assert result.error_message == ""
+    assert result.vector == [0.25, 0.5, 0.75]
+    assert captured["url"] == "https://llm.internal/v1/embeddings"
+    assert captured["headers"]["Authorization"] == "Bearer test-key"
+    assert captured["payload"] == {"model": "hardware-embed", "input": "USB power"}
+    assert captured["timeout"] == 9
 
 
 def test_fake_ocr_provider_returns_structured_placeholder_result():
