@@ -743,12 +743,15 @@ def post_image_ocr(
         raise not_found()
     image_asset = store.image_assets[image_id]
     provider_result = ocr_provider.ocr(image_asset.storage_uri)
+    provider_config = store.active_provider_config("ocr")
+    provider_name = provider_config.provider_name if provider_config else provider_result.provider_name
+    model_name = provider_config.model_name if provider_config else provider_result.model_name
     ocr_text = payload.ocr_text or ""
     ocr_result = store.add_ocr_result(
         OcrResult(
             image_asset_id=image_id,
-            provider_name=provider_result.provider_name,
-            model_name=provider_result.model_name,
+            provider_name=provider_name,
+            model_name=model_name,
             ocr_text=ocr_text,
             confidence=payload.confidence,
         )

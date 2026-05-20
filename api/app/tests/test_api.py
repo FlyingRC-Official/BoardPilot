@@ -114,6 +114,10 @@ def test_ticket_log_and_image_text_enter_source_pipeline():
         "/products",
         json={"name": "Pipeline Board", "slug": "pipeline-board", "description": ""},
     ).json()
+    client.post(
+        "/provider-configs",
+        json={"provider_type": "ocr", "provider_name": "fake", "model_name": "fake-ocr-configured"},
+    )
 
     ticket_payload = client.post(
         "/tickets",
@@ -158,7 +162,7 @@ def test_ticket_log_and_image_text_enter_source_pipeline():
         f"/image-assets/{image_id}/ocr",
         json={"ocr_text": "OCR label: USB CONFIG ONLY", "confidence": 0.75},
     ).json()
-    assert ocr_payload["ocr_result"]["model_name"] == "fake-ocr-placeholder"
+    assert ocr_payload["ocr_result"]["model_name"] == "fake-ocr-configured"
     assert "USB CONFIG ONLY" in ocr_payload["chunks"][0]["content"]
 
     ask_payload = client.post(
@@ -170,6 +174,14 @@ def test_ticket_log_and_image_text_enter_source_pipeline():
 
 
 def test_product_source_ingestion_and_dedup():
+    client.post(
+        "/provider-configs",
+        json={"provider_type": "embedding", "provider_name": "fake", "model_name": "fake-embedding-configured"},
+    )
+    client.post(
+        "/provider-configs",
+        json={"provider_type": "reranker", "provider_name": "fake", "model_name": "fake-reranker-configured"},
+    )
     product, source, chunks = seed_source()
     assert product["name"] == "FlyingRC F4"
     assert source["source_type"] == "markdown"
@@ -181,8 +193,15 @@ def test_product_source_ingestion_and_dedup():
     assert len(chunk_list) == len(chunks)
     embeddings = client.get(f"/chunks/{chunk_list[0]['id']}/embeddings").json()
     assert embeddings[0]["provider_name"] == "fake"
-    assert embeddings[0]["model_name"] == "fake-hash-embedding"
+    assert embeddings[0]["model_name"] == "fake-embedding-configured"
     assert embeddings[0]["embedding_dimension"] == 16
+
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+    ).json()
+    reranked = [item for item in ask_payload["candidates"] if item["stage"] == "reranked"]
+    assert reranked[0]["metadata_json"]["reranker_model_name"] == "fake-reranker-configured"
 
     duplicate = client.post(
         f"/sources/{source['id']}/versions/{version_id}/artifacts",

@@ -47,6 +47,7 @@ Updated: 2026-05-20
 - Added a Settings page for creating, editing, deleting, and listing provider configuration records.
 - Added ReviewItem detail API/UI that shows the linked question, generated answer, evidence pack, and retrieval trace.
 - Enabled LLM provider configs to set answer/model-run identity and estimate model cost in EvalRun summaries.
+- Extended enabled provider config identity to saved chunk embeddings, reranked candidate metadata, and OCR results.
 
 ## Verified
 
@@ -95,4 +96,4 @@ Results:
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Replace header-based local role context with real authentication/session management.
 5. Add richer eval-result context to Review detail.
-6. Extend provider-selection wiring to embedding, reranker, and OCR runtime calls.
+6. Replace fake provider execution with real provider adapters when credentials are configured.

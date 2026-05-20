@@ -25,7 +25,8 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
         boost = soft_boost_products.get(product_id, 0.0) * 0.15 if question.product_id is None else 0.0
         item["soft_boost_score"] = boost
         item["merged_score"] += boost
-    reranked = rerank(question.normalized_text, merged)
+    reranker_config = store.active_provider_config("reranker")
+    reranked = rerank(question.normalized_text, merged, reranker_config)
 
     run = RetrievalRun(
         question_id=question.id,
@@ -57,13 +58,16 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
                 retrieval_run_id=run.id,
                 chunk_id=item["chunk"].id,
                 stage="reranked",
-                source="fake_reranker",
+                source=item.get("reranker_provider_name", "fake"),
                 keyword_score=item["keyword_score"],
                 vector_score=item["vector_score"],
                 merged_score=item["merged_score"],
                 rerank_score=item["rerank_score"],
                 rank=rank,
-                metadata_json={"soft_boost_score": item.get("soft_boost_score", 0.0)},
+                metadata_json={
+                    "soft_boost_score": item.get("soft_boost_score", 0.0),
+                    "reranker_model_name": item.get("reranker_model_name", "fake-overlap-reranker"),
+                },
             )
         )
     store.add_candidates(candidates)
