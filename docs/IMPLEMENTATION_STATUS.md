@@ -9,6 +9,7 @@ Updated: 2026-05-21
 - Added in-memory persistence for local development and tests.
 - Added core schemas for products, aliases, sources, versions, artifacts, chunks, questions, retrieval runs, candidates, evidence, answers, eval, and review.
 - Added fake LLM, embedding, reranker, and OCR provider abstractions.
+- Added direct fake-provider contract tests for structured LLM, embedding, reranker, and OCR result metadata.
 - Added source ingestion from text content into deduplicated chunks.
 - Added hybrid retrieval using keyword overlap, fake vector similarity, merge/dedup, rerank, and saved evidence.
 - Retrieval now saves keyword, vector, merged, and reranked candidate stages for trace inspection.
@@ -156,7 +157,7 @@ headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 
 Results:
 
-- API tests: 93 passed.
+- API tests: 98 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
