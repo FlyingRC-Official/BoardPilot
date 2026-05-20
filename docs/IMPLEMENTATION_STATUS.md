@@ -22,6 +22,8 @@ Updated: 2026-05-20
 - Added SQLAlchemy ORM models for the required MVP schema.
 - Added an initial Alembic migration foundation with pgvector extension setup for Postgres.
 - Added multipart source artifact upload backed by local filesystem storage.
+- Source artifact attachment now honors the requested SourceVersion URL id instead of creating a separate SourceVersion.
+- Source-version service hydration now restores existing artifacts, chunks, and chunk hashes before re-ingestion.
 - Added Sources page upload control for storing and ingesting source artifacts.
 - Implemented ReviewItem to ApprovedFAQ conversion with FAQ source re-ingestion.
 - Added source-type parser routing for Markdown, CSV/FAQ, ticket exports, text logs, image descriptions, approved FAQs, and text-extracted PDFs.
@@ -105,7 +107,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 55 passed.
+- API tests: 57 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

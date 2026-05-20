@@ -87,6 +87,37 @@ def create_source_version(store: InMemoryStore, source_id: UUID, payload: Source
     return version, artifact, chunks
 
 
+def add_text_artifact_to_source_version(
+    store: InMemoryStore,
+    source_id: UUID,
+    version_id: UUID,
+    payload: SourceVersionCreate,
+) -> tuple[SourceVersion, SourceArtifact, list]:
+    if source_id not in store.sources or version_id not in store.source_versions:
+        raise KeyError("source version not found")
+    source = store.sources[source_id]
+    version = store.source_versions[version_id]
+    if version.source_id != source_id:
+        raise KeyError("source version not found")
+    checksum = hashlib.sha256(payload.content.encode("utf-8")).hexdigest()
+    parser_version = payload.parser_version if payload.parser_version != "mvp-text-v1" else parser_version_for(source.source_type)
+    version.parser_version = parser_version
+    parsed_content = parse_source_content(source.source_type, payload.content)
+    artifact = store.add_artifact(
+        SourceArtifact(
+            source_version_id=version.id,
+            artifact_type="original",
+            storage_uri=f"memory://sources/{source_id}/{version.id}/artifacts/{checksum}",
+            size_bytes=len(payload.content.encode("utf-8")),
+            checksum=checksum,
+            metadata_json={"source_type": source.source_type.value, "version_label": payload.version_label},
+            content=parsed_content,
+        )
+    )
+    chunks = ingest_source_version(store, version.id)
+    return version, artifact, chunks
+
+
 def create_uploaded_source_version(
     store: InMemoryStore,
     source_id: UUID,

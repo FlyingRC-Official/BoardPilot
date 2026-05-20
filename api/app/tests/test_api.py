@@ -311,7 +311,12 @@ def test_product_source_ingestion_and_dedup():
         f"/sources/{source['id']}/versions/{version_id}/artifacts",
         json={"version_label": "v1-duplicate", "content": chunks[0]["content"]},
     ).json()
+    assert duplicate["version"]["id"] == version_id
     assert len(duplicate["chunks"]) == 1
+    assert len(client.get(f"/sources/{source['id']}/versions").json()) == 1
+    version_artifacts = client.get(f"/source-versions/{version_id}/artifacts").json()
+    assert len(version_artifacts) == 2
+    assert all(artifact["source_version_id"] == version_id for artifact in version_artifacts)
 
 
 def test_source_disable_is_audited():

@@ -540,9 +540,56 @@ def test_ingestion_job_can_hydrate_source_version_from_database_and_persist_outp
         session.expire_all()
 
         assert hydrated.id == version.id
+        assert artifact.id in main_app.store.source_artifacts
         assert job.status == "completed"
         assert get_source_version_from_database(session, version.id).status == "ingested"
         assert list_chunks_from_database(session, version.id)
+    finally:
+        main_app.store.reset()
+
+
+def test_source_version_hydration_tracks_existing_chunk_hashes():
+    import app.main as main_app
+    from app.ingestion.chunking import content_hash
+    from app.ingestion.jobs import run_ingestion_job
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown, trust_level="official")
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="b" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+    chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content=artifact.content,
+        content_hash=content_hash(artifact.content),
+        token_count=4,
+    )
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    main_app.store.reset()
+    try:
+        hydrated = hydrate_source_version_for_service(session, version.id)
+        job, chunks = run_ingestion_job(version.id)
+
+        assert hydrated.id == version.id
+        assert chunk.id in main_app.store.chunks
+        assert chunk.content_hash in main_app.store.chunk_hashes_by_version[version.id]
+        assert job.status == "completed"
+        assert chunks == []
     finally:
         main_app.store.reset()
 

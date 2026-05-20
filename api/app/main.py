@@ -72,6 +72,7 @@ from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
 from app.review.service import approve_review_item, mark_source_update_needed, reject_review_item, review_to_eval_case, review_to_faq
 from app.sources.service import (
+    add_text_artifact_to_source_version,
     create_source,
     create_source_version,
     create_uploaded_source_version,
@@ -348,6 +349,7 @@ def hydrate_source_version_for_service(session: Session, source_version_id: UUID
         store.source_artifacts[artifact.id] = artifact
     for chunk in list_chunks_from_database(session, version.id):
         store.chunks[chunk.id] = chunk
+        store.chunk_hashes_by_version[chunk.source_version_id].add(chunk.content_hash)
     return version
 
 
@@ -1050,15 +1052,18 @@ def post_source_artifact(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
-    database_source = get_source_from_database(session, source_id)
-    database_version = get_source_version_from_database(session, version_id)
-    if database_source and source_id not in store.sources:
-        store.sources[source_id] = database_source
-    if database_version and version_id not in store.source_versions:
-        store.source_versions[version_id] = database_version
+    if version_id not in store.source_versions:
+        hydrate_source_version_for_service(session, version_id)
+    elif source_id not in store.sources:
+        database_source = get_source_from_database(session, source_id)
+        if database_source:
+            store.sources[source_id] = database_source
     if source_id not in store.sources or version_id not in store.source_versions:
         raise not_found()
-    version, artifact, chunks = create_source_version(store, source_id, payload)
+    try:
+        version, artifact, chunks = add_text_artifact_to_source_version(store, source_id, version_id, payload)
+    except KeyError:
+        raise not_found() from None
     save_source_version_bundle_to_database(session, version, artifact, chunks)
     return {"version": version, "artifact": artifact, "chunks": chunks}
 
