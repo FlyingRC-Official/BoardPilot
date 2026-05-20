@@ -75,6 +75,7 @@ Updated: 2026-05-20
 - Review item queue, detail, update, and decision endpoints now read, hydrate, and mirror through SQLAlchemy when available.
 - Eval case, run, comparison, result, and result-to-review endpoints now read and mirror through SQLAlchemy when available.
 - Ticket, log source, image asset, and OCR import endpoints now read and mirror through SQLAlchemy when available.
+- ReviewItem to ApprovedFAQ and ReviewItem to EvalCase conversions now hydrate linked database context and persist generated FAQ/source/eval outputs through SQLAlchemy when available.
 
 ## Verified
 
@@ -91,7 +92,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 46 passed.
+- API tests: 47 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -99,7 +100,7 @@ Results:
 
 ## Important MVP Gaps
 
-- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but the full service layer has not yet been switched to database-backed repositories.
+- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
 - IngestionJob APIs now persist job status in memory, support retry, can enqueue Redis worker messages, and mirror job state to SQLAlchemy when available; full database-backed cross-process job execution remains pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
@@ -111,9 +112,9 @@ Results:
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing.
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI remains minimal.
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
-- Authentication and role enforcement are not implemented.
-- Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors writes to SQLAlchemy when the schema is available; the read path still needs a full database-first switch.
-- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics; review still needs durable database persistence.
+- Real authentication/session management is not implemented; MVP role enforcement is header-based.
+- Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors reads/writes through SQLAlchemy when the schema is available.
+- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
 
 ## Recommended Next Subtasks

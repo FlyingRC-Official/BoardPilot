@@ -1,7 +1,19 @@
 from uuid import UUID
 
 from app.db.store import InMemoryStore
-from app.models.schemas import ApprovedFAQ, EvalCase, EvalCaseCreate, FailureCategory, ReviewItem, ReviewStatus, Source, SourceType, SourceVersionCreate
+from app.models.schemas import (
+    ApprovedFAQ,
+    EvalCase,
+    EvalCaseCreate,
+    FailureCategory,
+    ReviewItem,
+    ReviewStatus,
+    Source,
+    SourceArtifact,
+    SourceType,
+    SourceVersion,
+    SourceVersionCreate,
+)
 from app.sources.service import create_source_version
 
 
@@ -90,7 +102,7 @@ def review_to_eval_case(store: InMemoryStore, item_id: UUID) -> EvalCase:
     return case
 
 
-def review_to_faq(store: InMemoryStore, item_id: UUID) -> tuple[ApprovedFAQ, Source, list]:
+def review_to_faq(store: InMemoryStore, item_id: UUID) -> tuple[ApprovedFAQ, Source, SourceVersion, SourceArtifact, list]:
     item = store.review_items[item_id]
     if item.question_id is None or item.answer_id is None:
         raise ValueError("review item must reference a question and answer")
@@ -109,7 +121,7 @@ def review_to_faq(store: InMemoryStore, item_id: UUID) -> tuple[ApprovedFAQ, Sou
             trust_level="approved",
         )
     )
-    version, _artifact, chunks = create_source_version(
+    version, artifact, chunks = create_source_version(
         store,
         source.id,
         SourceVersionCreate(
@@ -134,4 +146,4 @@ def review_to_faq(store: InMemoryStore, item_id: UUID) -> tuple[ApprovedFAQ, Sou
         str(item.id),
         after_json={"approved_faq_id": str(faq.id), "source_id": str(source.id), "source_version_id": str(version.id)},
     )
-    return faq, source, chunks
+    return faq, source, version, artifact, chunks

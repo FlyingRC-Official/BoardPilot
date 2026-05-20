@@ -146,6 +146,10 @@ class CatalogRepository:
     def add_chunks(self, chunks: Iterable[Chunk]) -> list[Chunk]:
         return [self._merge(chunk, ChunkOrm, Chunk) for chunk in chunks]
 
+    def get_chunk(self, chunk_id: UUID) -> Chunk | None:
+        row = self.session.get(ChunkOrm, str(chunk_id))
+        return _orm_to_model(row, Chunk) if row else None
+
     def chunks_for_version(self, source_version_id: UUID) -> list[Chunk]:
         rows = self.session.scalars(select(ChunkOrm).where(ChunkOrm.source_version_id == str(source_version_id))).all()
         return [_orm_to_model(row, Chunk) for row in rows]
@@ -301,6 +305,10 @@ class ReviewEvalRepository:
 
     def add_approved_faq(self, faq: ApprovedFAQ) -> ApprovedFAQ:
         return self._merge(faq, ApprovedFAQOrm, ApprovedFAQ)
+
+    def get_approved_faq(self, faq_id: UUID) -> ApprovedFAQ | None:
+        row = self.session.get(ApprovedFAQOrm, str(faq_id))
+        return _orm_to_model(row, ApprovedFAQ) if row else None
 
     def add_provider_config(self, config: ProviderConfig) -> ProviderConfig:
         return self._merge(config, ProviderConfigOrm, ProviderConfig)

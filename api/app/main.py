@@ -20,6 +20,7 @@ from app.models.schemas import (
     AskRequest,
     AskResponse,
     Answer,
+    ApprovedFAQ,
     AuditLog,
     Chunk,
     EvalCase,
@@ -278,6 +279,14 @@ def list_chunks_from_database(session: Session, version_id: UUID) -> list[Chunk]
         return []
 
 
+def get_chunk_from_database(session: Session, chunk_id: UUID) -> Optional[Chunk]:
+    try:
+        return CatalogRepository(session).get_chunk(chunk_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
 def save_ask_response_to_database(
     session: Session,
     question: Question,
@@ -475,6 +484,67 @@ def hydrate_review_item_for_service(session: Session, item_id: UUID) -> Optional
     if item:
         store.review_items[item.id] = item
     return item
+
+
+def hydrate_review_context_for_service(session: Session, item_id: UUID) -> Optional[ReviewItem]:
+    item = hydrate_review_item_for_service(session, item_id)
+    if not item:
+        return None
+
+    eval_result = get_eval_result_from_database(session, item.eval_result_id) if item.eval_result_id else None
+    if eval_result:
+        store.eval_results[eval_result.id] = eval_result
+
+    answer_id = item.answer_id or (eval_result.answer_id if eval_result else None)
+    answer = (store.answers.get(answer_id) or get_answer_from_database(session, answer_id)) if answer_id else None
+    if answer:
+        store.answers[answer.id] = answer
+
+    question_id = item.question_id or (answer.question_id if answer else None) or (eval_result.question_id if eval_result else None)
+    question = (store.questions.get(question_id) or get_question_from_database(session, question_id)) if question_id else None
+    if question:
+        store.questions[question.id] = question
+        if question.product_id and question.product_id not in store.products:
+            product = get_product_from_database(session, question.product_id)
+            if product:
+                store.products[product.id] = product
+
+    retrieval_run_id = (answer.retrieval_run_id if answer else None) or (eval_result.retrieval_run_id if eval_result else None)
+    retrieval_run = (store.retrieval_runs.get(retrieval_run_id) or get_retrieval_run_from_database(session, retrieval_run_id)) if retrieval_run_id else None
+    if retrieval_run:
+        store.retrieval_runs[retrieval_run.id] = retrieval_run
+        for candidate in list_retrieval_candidates_from_database(session, retrieval_run.id):
+            store.retrieval_candidates[candidate.id] = candidate
+        for evidence in list_evidence_from_database(session, retrieval_run.id):
+            store.evidences[evidence.id] = evidence
+            chunk = store.chunks.get(evidence.chunk_id) or get_chunk_from_database(session, evidence.chunk_id)
+            if not chunk:
+                continue
+            store.chunks[chunk.id] = chunk
+            version = store.source_versions.get(chunk.source_version_id) or get_source_version_from_database(session, chunk.source_version_id)
+            if not version:
+                continue
+            store.source_versions[version.id] = version
+            source = store.sources.get(version.source_id) or get_source_from_database(session, version.source_id)
+            if source:
+                store.sources[source.id] = source
+    return item
+
+
+def save_approved_faq_to_database(session: Session, faq: ApprovedFAQ) -> None:
+    try:
+        ReviewEvalRepository(session).add_approved_faq(faq)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def get_approved_faq_from_database(session: Session, faq_id: UUID) -> Optional[ApprovedFAQ]:
+    try:
+        return ReviewEvalRepository(session).get_approved_faq(faq_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
 
 
 def save_ticket_to_database(session: Session, ticket: Ticket) -> None:
@@ -1391,22 +1461,38 @@ def post_review_source_update_needed(
 
 
 @app.post("/review-items/{item_id}/to-faq")
-def post_review_to_faq(item_id: UUID, _user: CurrentUser = Depends(require_roles("admin", "reviewer"))) -> dict:
+def post_review_to_faq(
+    item_id: UUID,
+    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    session: Session = Depends(get_session),
+) -> dict:
+    if not hydrate_review_context_for_service(session, item_id):
+        raise not_found()
     try:
-        faq, source, chunks = review_to_faq(store, item_id)
+        faq, source, version, artifact, chunks = review_to_faq(store, item_id)
     except KeyError:
         raise not_found()
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
-    return {"status": "converted_to_faq", "approved_faq": faq, "source": source, "chunks": chunks}
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, chunks)
+    save_approved_faq_to_database(session, faq)
+    save_review_item_to_database(session, store.review_items[item_id])
+    return {"status": "converted_to_faq", "approved_faq": faq, "source": source, "version": version, "chunks": chunks}
 
 
 @app.post("/review-items/{item_id}/to-eval-case", response_model=EvalCase)
 def post_review_to_eval_case(
     item_id: UUID,
     _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> EvalCase:
-    return review_to_eval_case(store, item_id)
+    if not hydrate_review_context_for_service(session, item_id):
+        raise not_found()
+    case = review_to_eval_case(store, item_id)
+    save_eval_case_to_database(session, case)
+    save_review_item_to_database(session, store.review_items[item_id])
+    return case
 
 
 @app.post("/tickets")

@@ -9,6 +9,8 @@ from app.main import (
     delete_provider_config_from_database,
     get_answer_from_database,
     get_artifact_from_database,
+    get_approved_faq_from_database,
+    get_chunk_from_database,
     get_eval_case_from_database,
     get_eval_result_from_database,
     get_eval_run_from_database,
@@ -22,6 +24,7 @@ from app.main import (
     get_runtime_job,
     get_source_from_database,
     get_source_version_from_database,
+    hydrate_review_context_for_service,
     hydrate_review_item_for_service,
     list_aliases_from_database,
     list_artifacts_from_database,
@@ -45,6 +48,7 @@ from app.main import (
     list_tickets_from_database,
     save_alias_to_database,
     save_ask_response_to_database,
+    save_approved_faq_to_database,
     save_chunks_to_database,
     save_eval_case_to_database,
     save_eval_run_results_to_database,
@@ -364,6 +368,69 @@ def test_review_item_helper_hydrates_database_item_for_service():
     assert hydrated.id == review_item.id
     assert approved.status == ReviewStatus.approved
     assert approved.reviewer_id == "reviewer-3"
+
+
+def test_review_conversion_helpers_use_database_context_and_persist_outputs():
+    import app.main as main_app
+    from app.review.service import review_to_eval_case, review_to_faq
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown)
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="7" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+    chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content=artifact.content,
+        content_hash="6" * 64,
+        token_count=4,
+    )
+    question = Question(product_id=product.id, raw_text="Can USB power servos?", normalized_text="usb servos")
+    retrieval_run = RetrievalRun(question_id=question.id, normalized_query=question.normalized_text)
+    candidate = RetrievalCandidate(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, stage="reranked", source="fake", rank=1)
+    evidence = Evidence(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, rank=1, score=1.0, quote=chunk.content, selection_reason="top")
+    answer = Answer(
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_text="USB is for configuration only.",
+        citation_map_json={"usb": [evidence.id]},
+        evidence_sufficiency=EvidenceSufficiency.sufficient,
+        confidence=0.9,
+    )
+    review_item = ReviewItem(
+        source_type="user_feedback",
+        question_id=question.id,
+        answer_id=answer.id,
+        edited_answer_text="USB is for configuration only. Do not power servos from USB.",
+    )
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    save_ask_response_to_database(session, question, retrieval_run, [candidate], [evidence], answer, review_item)
+    main_app.store.reset()
+    try:
+        hydrated = hydrate_review_context_for_service(session, review_item.id)
+        eval_case = review_to_eval_case(main_app.store, review_item.id)
+        faq, faq_source, faq_version, faq_artifact, faq_chunks = review_to_faq(main_app.store, review_item.id)
+        save_eval_case_to_database(session, eval_case)
+        save_source_to_database(session, faq_source)
+        save_source_version_bundle_to_database(session, faq_version, faq_artifact, faq_chunks)
+        save_approved_faq_to_database(session, faq)
+        session.expire_all()
+
+        assert hydrated.id == review_item.id
+        assert get_chunk_from_database(session, chunk.id).id == chunk.id
+        assert get_eval_case_from_database(session, eval_case.id).expected_chunk_ids_json == [chunk.id]
+        assert get_approved_faq_from_database(session, faq.id).answer_text.startswith("USB is for configuration")
+        assert list_chunks_from_database(session, faq_version.id)
+    finally:
+        main_app.store.reset()
 
 
 def test_catalog_api_helpers_use_database_when_available():
