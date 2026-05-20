@@ -39,6 +39,7 @@ Updated: 2026-05-20
 - Added a recent audit-event table to the Review page.
 - Added Sources page controls for creating product aliases used by Ask-time alias detection.
 - Added provider configuration records, admin-only provider config APIs, and provider config audit events.
+- Implemented typed ticket, log, image, and OCR records that create source material and chunks for retrieval.
 
 ## Verified
 
@@ -55,7 +56,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 19 passed.
+- API tests: 20 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -66,6 +67,7 @@ Results:
 - API runtime persistence is still in-memory; SQLAlchemy models and Alembic migration exist but the service layer has not yet been switched to database-backed repositories.
 - IngestionJob APIs now persist job status in memory and support retry; execution still runs inline instead of through Redis-backed workers.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
+- Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - Minimal role-aware access control is present; it is header-based for MVP and still needs real authentication/session management.

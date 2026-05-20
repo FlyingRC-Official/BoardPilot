@@ -18,8 +18,14 @@ from app.models.schemas import (
     EvalCase,
     EvalCaseCreate,
     FailureCategory,
+    ImageAsset,
+    ImageAssetCreate,
     IngestionJob,
     IngestionJobCreate,
+    LogSource,
+    LogSourceCreate,
+    OcrResult,
+    OcrResultCreate,
     Product,
     ProductAlias,
     ProductAliasCreate,
@@ -30,7 +36,10 @@ from app.models.schemas import (
     ReviewItem,
     Source,
     SourceCreate,
+    SourceType,
     SourceVersionCreate,
+    Ticket,
+    TicketCreate,
 )
 from app.products.service import create_alias, create_product, get_product, list_products
 from app.retrieval.entity_extraction import detect_product_aliases
@@ -39,6 +48,7 @@ from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
 from app.review.service import approve_review_item, reject_review_item, review_to_eval_case, review_to_faq
 from app.sources.service import create_source, create_source_version, create_uploaded_source_version, list_sources
+from app.providers.ocr import ocr_provider
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
 
@@ -526,38 +536,129 @@ def post_review_to_eval_case(
 
 
 @app.post("/tickets")
-def post_ticket(payload: Dict[str, Any], _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
-    store.tickets.append(payload)
-    return payload
+def post_ticket(payload: TicketCreate, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
+    if payload.product_id is None or payload.product_id not in store.products:
+        raise HTTPException(status_code=422, detail="valid product_id is required")
+    source = create_source(
+        store,
+        SourceCreate(
+            product_id=payload.product_id,
+            title=payload.title or f"Ticket {payload.external_id or 'import'}",
+            source_type=SourceType.ticket_export,
+            canonical_uri=f"ticket://{payload.external_id}" if payload.external_id else "",
+            trust_level="ticket",
+        ),
+    )
+    version, _artifact, chunks = create_source_version(
+        store,
+        source.id,
+        SourceVersionCreate(
+            version_label=payload.external_id or "ticket",
+            content=f"Title: {payload.title}\n\nStatus: {payload.status}\n\nTags: {', '.join(payload.tags_json)}\n\n{payload.body}",
+            parser_version="ticket-v1",
+        ),
+    )
+    ticket = store.add_ticket(Ticket(**payload.model_dump(), source_id=source.id))
+    return {"ticket": ticket, "source": source, "version": version, "chunks": chunks}
 
 
 @app.get("/tickets")
-def get_tickets() -> list[dict]:
-    return store.tickets
+def get_tickets() -> list[Ticket]:
+    return list(store.tickets.values())
 
 
 @app.post("/log-sources")
-def post_log_source(payload: Dict[str, Any], _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
-    store.log_sources.append(payload)
-    return payload
+def post_log_source(payload: LogSourceCreate, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
+    if payload.product_id is None or payload.product_id not in store.products:
+        raise HTTPException(status_code=422, detail="valid product_id is required")
+    source = create_source(
+        store,
+        SourceCreate(
+            product_id=payload.product_id,
+            title=f"{payload.log_type or 'Device'} log",
+            source_type=SourceType.text_log,
+            trust_level="log",
+        ),
+    )
+    version, _artifact, chunks = create_source_version(
+        store,
+        source.id,
+        SourceVersionCreate(
+            version_label="log",
+            content=f"Log type: {payload.log_type}\n\nDevice context: {payload.device_context_json}\n\nTime range: {payload.time_range_json}\n\n{payload.content}",
+            parser_version="text-log-v1",
+        ),
+    )
+    log_source = store.add_log_source(LogSource(**payload.model_dump(), source_id=source.id))
+    return {"log_source": log_source, "source": source, "version": version, "chunks": chunks}
 
 
 @app.get("/log-sources")
-def get_log_sources() -> list[dict]:
-    return store.log_sources
+def get_log_sources() -> list[LogSource]:
+    return list(store.log_sources.values())
 
 
 @app.post("/image-assets")
-def post_image_asset(payload: Dict[str, Any], _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
-    store.image_assets.append(payload)
-    return payload
+def post_image_asset(payload: ImageAssetCreate, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
+    if payload.product_id is None or payload.product_id not in store.products:
+        raise HTTPException(status_code=422, detail="valid product_id is required")
+    source = create_source(
+        store,
+        SourceCreate(
+            product_id=payload.product_id,
+            title=f"{payload.image_type or 'Image'} asset",
+            source_type=SourceType.image,
+            canonical_uri=payload.storage_uri,
+            trust_level="image",
+        ),
+    )
+    chunks = []
+    version = None
+    if payload.manual_description.strip():
+        version, _artifact, chunks = create_source_version(
+            store,
+            source.id,
+            SourceVersionCreate(
+                version_label="manual-description",
+                content=payload.manual_description,
+                parser_version="image-description-v1",
+            ),
+        )
+    image_asset = store.add_image_asset(ImageAsset(**payload.model_dump(), source_id=source.id))
+    return {"image_asset": image_asset, "source": source, "version": version, "chunks": chunks}
 
 
 @app.get("/image-assets")
-def get_image_assets() -> list[dict]:
-    return store.image_assets
+def get_image_assets() -> list[ImageAsset]:
+    return list(store.image_assets.values())
 
 
 @app.post("/image-assets/{image_id}/ocr")
-def post_image_ocr(image_id: UUID, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
-    return {"image_asset_id": image_id, "provider_name": "fake", "model_name": "fake-ocr-placeholder", "ocr_text": ""}
+def post_image_ocr(
+    image_id: UUID,
+    payload: OcrResultCreate = OcrResultCreate(),
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> dict:
+    if image_id not in store.image_assets:
+        raise not_found()
+    image_asset = store.image_assets[image_id]
+    provider_result = ocr_provider.ocr(image_asset.storage_uri)
+    ocr_text = payload.ocr_text or ""
+    ocr_result = store.add_ocr_result(
+        OcrResult(
+            image_asset_id=image_id,
+            provider_name=provider_result.provider_name,
+            model_name=provider_result.model_name,
+            ocr_text=ocr_text,
+            confidence=payload.confidence,
+        )
+    )
+    chunks = []
+    version = None
+    if ocr_text.strip() and image_asset.source_id:
+        version, _artifact, chunks = create_source_version(
+            store,
+            image_asset.source_id,
+            SourceVersionCreate(version_label="ocr", content=ocr_text, parser_version="fake-ocr-v1"),
+        )
+    return {"ocr_result": ocr_result, "version": version, "chunks": chunks}

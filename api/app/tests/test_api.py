@@ -92,6 +92,66 @@ def test_provider_config_creation_is_admin_only_and_audited():
     assert audit[-1]["entity_id"] == provider_config["id"]
 
 
+def test_ticket_log_and_image_text_enter_source_pipeline():
+    product = client.post(
+        "/products",
+        json={"name": "Pipeline Board", "slug": "pipeline-board", "description": ""},
+    ).json()
+
+    ticket_payload = client.post(
+        "/tickets",
+        json={
+            "product_id": product["id"],
+            "external_id": "T-100",
+            "title": "USB servo issue",
+            "body": "Customer reports that USB must not power servos on Pipeline Board.",
+            "tags_json": ["usb", "servo"],
+            "anonymized": True,
+        },
+    ).json()
+    assert ticket_payload["ticket"]["source_id"] == ticket_payload["source"]["id"]
+    assert ticket_payload["source"]["source_type"] == "ticket_export"
+    assert ticket_payload["chunks"]
+
+    log_payload = client.post(
+        "/log-sources",
+        json={
+            "product_id": product["id"],
+            "log_type": "boot",
+            "content": "BOOT_WARN USB_SERVO_POWER_BLOCKED detected during startup.",
+            "device_context_json": {"firmware": "1.0"},
+        },
+    ).json()
+    assert log_payload["log_source"]["source_id"] == log_payload["source"]["id"]
+    assert "USB_SERVO_POWER_BLOCKED" in log_payload["chunks"][0]["content"]
+
+    image_payload = client.post(
+        "/image-assets",
+        json={
+            "product_id": product["id"],
+            "storage_uri": "local://image.png",
+            "image_type": "wiring_photo",
+            "manual_description": "Photo shows USB connector should not feed servo rail.",
+        },
+    ).json()
+    image_id = image_payload["image_asset"]["id"]
+    assert image_payload["chunks"]
+
+    ocr_payload = client.post(
+        f"/image-assets/{image_id}/ocr",
+        json={"ocr_text": "OCR label: USB CONFIG ONLY", "confidence": 0.75},
+    ).json()
+    assert ocr_payload["ocr_result"]["model_name"] == "fake-ocr-placeholder"
+    assert "USB CONFIG ONLY" in ocr_payload["chunks"][0]["content"]
+
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "What does USB_SERVO_POWER_BLOCKED mean?"},
+    ).json()
+    evidence_text = "\n".join(item["quote"] for item in ask_payload["evidence"])
+    assert "USB_SERVO_POWER_BLOCKED" in evidence_text
+
+
 def test_product_source_ingestion_and_dedup():
     product, source, chunks = seed_source()
     assert product["name"] == "FlyingRC F4"

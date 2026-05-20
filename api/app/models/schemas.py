@@ -291,6 +291,64 @@ class ProviderConfig(ProviderConfigCreate):
     created_at: datetime = Field(default_factory=now)
 
 
+class TicketCreate(BaseModel):
+    product_id: Optional[UUID] = None
+    external_id: str = ""
+    title: str = ""
+    body: str = ""
+    status: str = "open"
+    tags_json: List[str] = Field(default_factory=list)
+    anonymized: bool = False
+
+
+class Ticket(TicketCreate):
+    id: UUID = Field(default_factory=uuid4)
+    source_id: Optional[UUID] = None
+    created_at: datetime = Field(default_factory=now)
+
+
+class LogSourceCreate(BaseModel):
+    product_id: Optional[UUID] = None
+    log_type: str = ""
+    content: str = ""
+    device_context_json: Dict[str, Any] = Field(default_factory=dict)
+    time_range_json: Dict[str, Any] = Field(default_factory=dict)
+
+
+class LogSource(LogSourceCreate):
+    id: UUID = Field(default_factory=uuid4)
+    source_id: Optional[UUID] = None
+    created_at: datetime = Field(default_factory=now)
+
+
+class ImageAssetCreate(BaseModel):
+    product_id: Optional[UUID] = None
+    storage_uri: str
+    image_type: str = ""
+    manual_description: str = ""
+
+
+class ImageAsset(ImageAssetCreate):
+    id: UUID = Field(default_factory=uuid4)
+    source_id: Optional[UUID] = None
+    created_at: datetime = Field(default_factory=now)
+
+
+class OcrResultCreate(BaseModel):
+    ocr_text: str = ""
+    confidence: float = 0.0
+
+
+class OcrResult(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    image_asset_id: UUID
+    provider_name: str
+    model_name: str
+    ocr_text: str = ""
+    confidence: float = 0.0
+    created_at: datetime = Field(default_factory=now)
+
+
 class AuditLog(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     user_id: Optional[str] = None

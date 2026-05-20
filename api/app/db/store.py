@@ -12,11 +12,14 @@ from app.models.schemas import (
     EvalResult,
     EvalRun,
     Evidence,
+    ImageAsset,
     IngestionJob,
+    LogSource,
     Product,
     ProductAlias,
     ProviderConfig,
     ModelRun,
+    OcrResult,
     Question,
     RetrievalCandidate,
     RetrievalRun,
@@ -24,6 +27,7 @@ from app.models.schemas import (
     Source,
     SourceArtifact,
     SourceVersion,
+    Ticket,
 )
 
 
@@ -52,9 +56,10 @@ class InMemoryStore:
         self.eval_cases: Dict[UUID, EvalCase] = {}
         self.eval_runs: Dict[UUID, EvalRun] = {}
         self.eval_results: Dict[UUID, EvalResult] = {}
-        self.tickets: List[dict] = []
-        self.log_sources: List[dict] = []
-        self.image_assets: List[dict] = []
+        self.tickets: Dict[UUID, Ticket] = {}
+        self.log_sources: Dict[UUID, LogSource] = {}
+        self.image_assets: Dict[UUID, ImageAsset] = {}
+        self.ocr_results: Dict[UUID, OcrResult] = {}
         self.audit_logs: Dict[UUID, AuditLog] = {}
         self.chunk_hashes_by_version: Dict[UUID, set] = defaultdict(set)
 
@@ -163,6 +168,22 @@ class InMemoryStore:
             after_json=config.model_dump(mode="json"),
         )
         return config
+
+    def add_ticket(self, ticket: Ticket) -> Ticket:
+        self.tickets[ticket.id] = ticket
+        return ticket
+
+    def add_log_source(self, log_source: LogSource) -> LogSource:
+        self.log_sources[log_source.id] = log_source
+        return log_source
+
+    def add_image_asset(self, image_asset: ImageAsset) -> ImageAsset:
+        self.image_assets[image_asset.id] = image_asset
+        return image_asset
+
+    def add_ocr_result(self, ocr_result: OcrResult) -> OcrResult:
+        self.ocr_results[ocr_result.id] = ocr_result
+        return ocr_result
 
     def add_review_item(self, item: ReviewItem) -> ReviewItem:
         self.review_items[item.id] = item
