@@ -72,6 +72,7 @@ Updated: 2026-05-20
 - Sources page now inspects source version history, latest-version artifacts, ingestion status, and chunk previews.
 - Sources page now shows source-version ingestion error messages and chunk metadata in the detail view.
 - Sources page can re-run ingestion for the latest source version through the IngestionJob API.
+- Sources page now lists ingestion job history, including queued/completed/failed status, chunk counts, and errors.
 - Sources page can import webpage snapshots by URL, store the HTML artifact, and ingest extracted visible text into chunks.
 - Sources page can upload image assets to local storage and ingest a manual image description into retrieval chunks.
 - Sources page now lists recent ticket, log, image, and OCR import records so support-import source material is inspectable from the workbench.

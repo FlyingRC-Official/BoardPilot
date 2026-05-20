@@ -11,6 +11,7 @@ import {
   disableSourceVersion,
   listImageAssets,
   listImageOcrResults,
+  listIngestionJobs,
   listLogSources,
   listProductAliases,
   listProducts,
@@ -34,7 +35,8 @@ import type {
   Source,
   SourceArtifact,
   SourceVersion,
-  Ticket
+  Ticket,
+  IngestionJob
 } from "@/lib/types";
 
 function chunkMetadataRows(chunk: Chunk) {
@@ -60,6 +62,7 @@ export default function SourcesPage() {
   const [logSources, setLogSources] = useState<LogSource[]>([]);
   const [imageAssets, setImageAssets] = useState<ImageAsset[]>([]);
   const [ocrResultsByImage, setOcrResultsByImage] = useState<Record<string, OcrResult[]>>({});
+  const [ingestionJobs, setIngestionJobs] = useState<IngestionJob[]>([]);
   const [productName, setProductName] = useState("FlyingRC F4");
   const [productSlug, setProductSlug] = useState("flyingrc-f4");
   const [alias, setAlias] = useState("F4 FC");
@@ -85,6 +88,7 @@ export default function SourcesPage() {
     setSources(await listSources().catch(() => []));
     setTickets(await listTickets().catch(() => []));
     setLogSources(await listLogSources().catch(() => []));
+    setIngestionJobs(await listIngestionJobs().catch(() => []));
     const nextImageAssets = await listImageAssets().catch(() => []);
     setImageAssets(nextImageAssets);
     const nextOcrEntries = await Promise.all(
@@ -118,6 +122,7 @@ export default function SourcesPage() {
     const result = await runIngestionJob(latestVersion.id);
     setChunks(result.chunks);
     setVersions(await listSourceVersions(selectedSource.id).catch(() => versions));
+    setIngestionJobs(await listIngestionJobs().catch(() => ingestionJobs));
     setMessage(`Reingestion ${result.job.status}: ${result.job.chunk_count} new chunks.`);
   }
 
@@ -128,6 +133,7 @@ export default function SourcesPage() {
     }
     const latestVersion = versions[versions.length - 1];
     const result = await queueIngestionJob(latestVersion.id);
+    setIngestionJobs(await listIngestionJobs().catch(() => ingestionJobs));
     setMessage(`Queued ingestion job ${result.job.id.slice(0, 8)} on ${result.queue}.`);
   }
 
@@ -424,6 +430,35 @@ export default function SourcesPage() {
             )}
           </div>
         </div>
+      </section>
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>Ingestion Jobs</h2>
+        {ingestionJobs.length ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Job</th>
+                <th>Source Version</th>
+                <th>Status</th>
+                <th>Chunks</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ingestionJobs.slice(0, 8).map((job) => (
+                <tr key={job.id}>
+                  <td>{job.id.slice(0, 8)}</td>
+                  <td>{job.source_version_id.slice(0, 8)}</td>
+                  <td>{job.status}</td>
+                  <td>{job.chunk_count}</td>
+                  <td>{job.error_message || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="empty">No ingestion jobs yet.</div>
+        )}
       </section>
       {message ? <p className="status" style={{ marginTop: 16 }}>{message}</p> : null}
       <section className="panel" style={{ marginTop: 16 }}>

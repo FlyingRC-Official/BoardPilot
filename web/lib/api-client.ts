@@ -124,6 +124,10 @@ export function runIngestionJob(sourceVersionId: string) {
   });
 }
 
+export function listIngestionJobs() {
+  return request<IngestionJob[]>("/ingestion/jobs");
+}
+
 export function queueIngestionJob(sourceVersionId: string) {
   return request<{ job: IngestionJob; queue: string }>("/ingestion/jobs/enqueue", {
     method: "POST",
