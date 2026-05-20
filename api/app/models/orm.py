@@ -96,6 +96,7 @@ class SourceArtifactOrm(Base):
     size_bytes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     checksum: Mapped[str] = mapped_column(String(128), default="", nullable=False)
     metadata_json: Mapped[JsonDict] = mapped_column(JSON, default=dict, nullable=False)
+    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
     source_version: Mapped[SourceVersionOrm] = relationship(back_populates="artifacts")
