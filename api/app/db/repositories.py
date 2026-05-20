@@ -261,14 +261,29 @@ class ReviewEvalRepository:
     def add_eval_case(self, eval_case: EvalCase) -> EvalCase:
         return self._merge(eval_case, EvalCaseOrm, EvalCase)
 
+    def get_eval_case(self, case_id: UUID) -> EvalCase | None:
+        row = self.session.get(EvalCaseOrm, str(case_id))
+        return _orm_to_model(row, EvalCase) if row else None
+
     def list_eval_cases(self) -> list[EvalCase]:
         return self._list(EvalCaseOrm, EvalCase)
 
     def add_eval_run(self, eval_run: EvalRun) -> EvalRun:
         return self._merge(eval_run, EvalRunOrm, EvalRun)
 
+    def get_eval_run(self, run_id: UUID) -> EvalRun | None:
+        row = self.session.get(EvalRunOrm, str(run_id))
+        return _orm_to_model(row, EvalRun) if row else None
+
+    def list_eval_runs(self) -> list[EvalRun]:
+        return self._list(EvalRunOrm, EvalRun)
+
     def add_eval_result(self, eval_result: EvalResult) -> EvalResult:
         return self._merge(eval_result, EvalResultOrm, EvalResult)
+
+    def get_eval_result(self, result_id: UUID) -> EvalResult | None:
+        row = self.session.get(EvalResultOrm, str(result_id))
+        return _orm_to_model(row, EvalResult) if row else None
 
     def results_for_eval_run(self, eval_run_id: UUID) -> list[EvalResult]:
         rows = self.session.scalars(select(EvalResultOrm).where(EvalResultOrm.eval_run_id == str(eval_run_id))).all()

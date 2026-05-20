@@ -9,6 +9,9 @@ from app.main import (
     delete_provider_config_from_database,
     get_answer_from_database,
     get_artifact_from_database,
+    get_eval_case_from_database,
+    get_eval_result_from_database,
+    get_eval_run_from_database,
     get_model_run_from_database,
     get_provider_config_from_database,
     get_product_from_database,
@@ -21,6 +24,9 @@ from app.main import (
     list_aliases_from_database,
     list_artifacts_from_database,
     list_chunks_from_database,
+    list_eval_cases_from_database,
+    list_eval_results_from_database,
+    list_eval_runs_from_database,
     list_evidence_from_database,
     list_provider_configs_from_database,
     list_products_from_database,
@@ -33,6 +39,8 @@ from app.main import (
     save_alias_to_database,
     save_ask_response_to_database,
     save_chunks_to_database,
+    save_eval_case_to_database,
+    save_eval_run_results_to_database,
     save_provider_config_to_database,
     save_product_to_database,
     save_question_attachment_to_database,
@@ -446,6 +454,9 @@ def test_ask_api_helpers_mirror_records_to_database_when_available():
         Base.metadata.tables["evidences"],
         Base.metadata.tables["model_runs"],
         Base.metadata.tables["answers"],
+        Base.metadata.tables["eval_cases"],
+        Base.metadata.tables["eval_runs"],
+        Base.metadata.tables["eval_results"],
         Base.metadata.tables["review_items"],
     ]
     Base.metadata.create_all(bind=engine, tables=create_subset)
@@ -479,6 +490,20 @@ def test_ask_api_helpers_mirror_records_to_database_when_available():
     )
     review_item = ReviewItem(source_type="needs_review", question_id=question.id, answer_id=answer.id)
     attachment = QuestionAttachment(question_id=question.id, artifact_id=artifact.id, attachment_type="file", description="manual")
+    eval_case = EvalCase(product_id=product.id, question_text=question.raw_text, expected_chunk_ids_json=[chunk.id])
+    eval_run = EvalRun(name="MVP eval", summary_metrics_json={"case_count": 1})
+    eval_result = EvalResult(
+        eval_run_id=eval_run.id,
+        eval_case_id=eval_case.id,
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_id=answer.id,
+        recall_at_20=1.0,
+        rerank_at_5=1.0,
+        citation_support_rate=1.0,
+        unsupported_claim_rate=0.0,
+        need_review=False,
+    )
 
     save_product_to_database(session, product)
     save_source_to_database(session, source)
@@ -496,6 +521,15 @@ def test_ask_api_helpers_mirror_records_to_database_when_available():
         assert get_model_run_from_database(session, model_run.id).id == model_run.id
         assert get_answer_from_database(session, answer.id).citation_map_json["usb"][0] == evidence.id
         assert list_question_attachments_from_database(session, question.id)[0].id == attachment.id
+        save_eval_case_to_database(session, eval_case)
+        save_eval_run_results_to_database(session, eval_run, [eval_result])
+        session.expire_all()
+        assert list_eval_cases_from_database(session)[0].id == eval_case.id
+        assert get_eval_case_from_database(session, eval_case.id).question_text == question.raw_text
+        assert list_eval_runs_from_database(session)[0].id == eval_run.id
+        assert get_eval_run_from_database(session, eval_run.id).summary_metrics_json["case_count"] == 1
+        assert list_eval_results_from_database(session, eval_run.id)[0].id == eval_result.id
+        assert get_eval_result_from_database(session, eval_result.id).citation_support_rate == 1.0
         review_item.reviewer_notes = "checked by reviewer"
         review_item.failure_category = FailureCategory.insufficient_evidence
         save_review_item_to_database(session, review_item)

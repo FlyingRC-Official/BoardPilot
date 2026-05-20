@@ -24,6 +24,8 @@ from app.models.schemas import (
     Chunk,
     EvalCase,
     EvalCaseCreate,
+    EvalResult,
+    EvalRun,
     Evidence,
     FailureCategory,
     ImageAsset,
@@ -352,6 +354,85 @@ def save_question_attachment_to_database(session: Session, attachment: QuestionA
 def list_question_attachments_from_database(session: Session, question_id: UUID) -> list[QuestionAttachment]:
     try:
         return RetrievalRepository(session).attachments_for_question(question_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def save_eval_case_to_database(session: Session, eval_case: EvalCase) -> None:
+    try:
+        ReviewEvalRepository(session).add_eval_case(eval_case)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def get_eval_case_from_database(session: Session, case_id: UUID) -> Optional[EvalCase]:
+    try:
+        return ReviewEvalRepository(session).get_eval_case(case_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def list_eval_cases_from_database(session: Session) -> list[EvalCase]:
+    try:
+        return ReviewEvalRepository(session).list_eval_cases()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def save_eval_run_results_to_database(session: Session, eval_run: EvalRun, results: list[EvalResult]) -> None:
+    try:
+        retrieval_repo = RetrievalRepository(session)
+        review_repo = ReviewEvalRepository(session)
+        review_repo.add_eval_run(eval_run)
+        for result in results:
+            question = store.questions.get(result.question_id)
+            retrieval_run = store.retrieval_runs.get(result.retrieval_run_id)
+            answer = store.answers.get(result.answer_id)
+            if question and retrieval_run and answer:
+                retrieval_repo.add_question(question)
+                retrieval_repo.add_retrieval_run(retrieval_run)
+                retrieval_repo.add_candidates(store.candidates_for_run(retrieval_run.id))
+                retrieval_repo.add_evidence(store.evidence_for_run(retrieval_run.id))
+                if answer.model_run_id and answer.model_run_id in store.model_runs:
+                    retrieval_repo.add_model_run(store.model_runs[answer.model_run_id])
+                retrieval_repo.add_answer(answer)
+            review_repo.add_eval_result(result)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def get_eval_run_from_database(session: Session, run_id: UUID) -> Optional[EvalRun]:
+    try:
+        return ReviewEvalRepository(session).get_eval_run(run_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def list_eval_runs_from_database(session: Session) -> list[EvalRun]:
+    try:
+        return ReviewEvalRepository(session).list_eval_runs()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def get_eval_result_from_database(session: Session, result_id: UUID) -> Optional[EvalResult]:
+    try:
+        return ReviewEvalRepository(session).get_eval_result(result_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def list_eval_results_from_database(session: Session, run_id: UUID) -> list[EvalResult]:
+    try:
+        return ReviewEvalRepository(session).results_for_eval_run(run_id)
     except SQLAlchemyError:
         session.rollback()
         return []
@@ -957,23 +1038,36 @@ def post_feedback(
 def post_eval_case(
     payload: EvalCaseCreate,
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> EvalCase:
-    return store.add_eval_case(EvalCase(**payload.model_dump()))
+    case = store.add_eval_case(EvalCase(**payload.model_dump()))
+    save_eval_case_to_database(session, case)
+    return case
 
 
 @app.get("/eval-cases", response_model=list[EvalCase])
-def get_eval_cases() -> list[EvalCase]:
-    return list(store.eval_cases.values())
+def get_eval_cases(session: Session = Depends(get_session)) -> list[EvalCase]:
+    return list_eval_cases_from_database(session) or list(store.eval_cases.values())
 
 
 @app.post("/eval-cases/seed")
-def post_seed_eval_cases(_user: CurrentUser = Depends(require_roles("admin", "support", "reviewer"))) -> dict:
+def post_seed_eval_cases(
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    session: Session = Depends(get_session),
+) -> dict:
     product, source, cases = seed_eval_cases(store)
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    for case in cases:
+        save_eval_case_to_database(session, case)
     return {"product": product, "source": source, "cases": cases, "case_count": len(cases)}
 
 
 @app.get("/eval-cases/{case_id}", response_model=EvalCase)
-def get_eval_case(case_id: UUID) -> EvalCase:
+def get_eval_case(case_id: UUID, session: Session = Depends(get_session)) -> EvalCase:
+    database_case = get_eval_case_from_database(session, case_id)
+    if database_case:
+        return database_case
     if case_id not in store.eval_cases:
         raise not_found()
     return store.eval_cases[case_id]
@@ -984,16 +1078,20 @@ def patch_eval_case(
     case_id: UUID,
     payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> EvalCase:
-    if case_id not in store.eval_cases:
+    case = store.eval_cases.get(case_id) or get_eval_case_from_database(session, case_id)
+    if not case:
         raise not_found()
-    case = store.eval_cases[case_id]
     before = case.model_dump(mode="json")
     for key, value in payload.items():
         if key in {"expected_source_ids_json", "expected_chunk_ids_json"}:
             value = [UUID(str(item)) for item in value]
         if hasattr(case, key):
             setattr(case, key, value)
+    case.updated_at = now()
+    store.eval_cases[case.id] = case
+    save_eval_case_to_database(session, case)
     store.add_audit_log(
         "eval_case_modified",
         "EvalCase",
@@ -1009,22 +1107,26 @@ def patch_eval_case(
 def post_eval_run(
     payload: Optional[Dict[str, Any]] = None,
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> dict:
+    for case in list_eval_cases_from_database(session):
+        store.eval_cases.setdefault(case.id, case)
     run, results = run_eval_batch(store, (payload or {}).get("name", "MVP eval"))
+    save_eval_run_results_to_database(session, run, results)
     return {"eval_run": run, "results": results}
 
 
 @app.get("/eval-runs")
-def get_eval_runs() -> list:
-    return list(store.eval_runs.values())
+def get_eval_runs(session: Session = Depends(get_session)) -> list:
+    return list_eval_runs_from_database(session) or list(store.eval_runs.values())
 
 
 @app.get("/eval-runs/compare")
-def compare_eval_runs(run_a: UUID, run_b: UUID) -> dict:
-    if run_a not in store.eval_runs or run_b not in store.eval_runs:
+def compare_eval_runs(run_a: UUID, run_b: UUID, session: Session = Depends(get_session)) -> dict:
+    baseline = store.eval_runs.get(run_a) or get_eval_run_from_database(session, run_a)
+    candidate = store.eval_runs.get(run_b) or get_eval_run_from_database(session, run_b)
+    if not baseline or not candidate:
         raise not_found()
-    baseline = store.eval_runs[run_a]
-    candidate = store.eval_runs[run_b]
     deltas = {}
     for key, candidate_value in candidate.summary_metrics_json.items():
         baseline_value = baseline.summary_metrics_json.get(key)
@@ -1034,15 +1136,18 @@ def compare_eval_runs(run_a: UUID, run_b: UUID) -> dict:
 
 
 @app.get("/eval-runs/{run_id}")
-def get_eval_run(run_id: UUID):
+def get_eval_run(run_id: UUID, session: Session = Depends(get_session)):
+    database_run = get_eval_run_from_database(session, run_id)
+    if database_run:
+        return database_run
     if run_id not in store.eval_runs:
         raise not_found()
     return store.eval_runs[run_id]
 
 
 @app.get("/eval-runs/{run_id}/results")
-def get_eval_results(run_id: UUID) -> list:
-    return [result for result in store.eval_results.values() if result.eval_run_id == run_id]
+def get_eval_results(run_id: UUID, session: Session = Depends(get_session)) -> list:
+    return list_eval_results_from_database(session, run_id) or [result for result in store.eval_results.values() if result.eval_run_id == run_id]
 
 
 @app.post("/eval-results/{result_id}/to-review")
@@ -1051,9 +1156,9 @@ def eval_result_to_review(
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
-    if result_id not in store.eval_results:
+    result = store.eval_results.get(result_id) or get_eval_result_from_database(session, result_id)
+    if not result:
         raise not_found()
-    result = store.eval_results[result_id]
     item = store.add_review_item(
         ReviewItem(
             source_type="eval_failure",
