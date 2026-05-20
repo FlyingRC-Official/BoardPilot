@@ -375,6 +375,62 @@ def test_failed_source_version_ingestion_saves_error_reason(monkeypatch):
     assert review_items[0]["id"] == payload["review_item"]["id"]
 
 
+def test_failed_support_import_ingestion_creates_source_issue_review_items(monkeypatch):
+    import app.sources.service as source_service
+
+    product = client.post(
+        "/products",
+        json={"name": "Support Import Board", "slug": "support-import-board", "description": ""},
+    ).json()
+    image_payload = client.post(
+        "/image-assets",
+        json={
+            "product_id": product["id"],
+            "storage_uri": "local://support-import.png",
+            "image_type": "wiring_photo",
+        },
+    ).json()
+
+    def fail_ingestion(_store, _source_version_id):
+        raise RuntimeError("support import parser failed")
+
+    monkeypatch.setattr(source_service, "ingest_source_version", fail_ingestion)
+
+    ticket_payload = client.post(
+        "/tickets",
+        json={
+            "product_id": product["id"],
+            "external_id": "T-500",
+            "title": "Failed ticket import",
+            "body": "This ticket body should still create a failed SourceVersion.",
+        },
+    ).json()
+    assert ticket_payload["version"]["status"] == "failed"
+    assert ticket_payload["chunks"] == []
+    assert ticket_payload["review_item"]["source_type"] == "source_issue"
+    assert ticket_payload["review_item"]["failure_category"] == "bad_parse"
+
+    log_payload = client.post(
+        "/log-sources",
+        json={
+            "product_id": product["id"],
+            "log_type": "boot",
+            "content": "BOOT_PARSE_FAILURE",
+        },
+    ).json()
+    assert log_payload["version"]["status"] == "failed"
+    assert log_payload["review_item"]["source_type"] == "source_issue"
+    assert log_payload["review_item"]["failure_category"] == "bad_parse"
+
+    ocr_payload = client.post(
+        f"/image-assets/{image_payload['image_asset']['id']}/ocr",
+        json={"ocr_text": "OCR_PARSE_FAILURE", "confidence": 0.5},
+    ).json()
+    assert ocr_payload["version"]["status"] == "failed"
+    assert ocr_payload["review_item"]["source_type"] == "source_issue"
+    assert ocr_payload["review_item"]["failure_category"] == "bad_parse"
+
+
 def test_source_disable_is_audited():
     _product, source, _chunks = seed_source()
     disabled = client.post(

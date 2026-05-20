@@ -27,6 +27,7 @@ Updated: 2026-05-20
 - Source-version service hydration now restores existing artifacts, chunks, and chunk hashes before re-ingestion.
 - SourceVersion records now persist failed ingestion status and error messages.
 - Failed source-version ingestion now creates source-issue ReviewItems with bad-parse failure categories.
+- Failed ticket, log, and OCR source ingestion now creates source-issue ReviewItems with bad-parse failure categories.
 - Added Sources page upload control for storing and ingesting source artifacts.
 - Implemented ReviewItem to ApprovedFAQ conversion with FAQ source re-ingestion.
 - Added source-type parser routing for Markdown, CSV/FAQ, ticket exports, text logs, image descriptions, approved FAQs, and text-extracted PDFs.
@@ -116,7 +117,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 68 passed.
+- API tests: 69 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

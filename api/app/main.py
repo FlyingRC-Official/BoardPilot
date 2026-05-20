@@ -1678,8 +1678,15 @@ def post_ticket(
     ticket = store.add_ticket(Ticket(**payload.model_dump(), source_id=source.id))
     save_source_to_database(session, source)
     save_source_version_bundle_to_database(session, version, artifact, chunks)
+    review_item = create_source_issue_review_item_for_failed_version(session, version)
     save_ticket_to_database(session, ticket)
-    return {"ticket": ticket, "source": source, "version": version, "chunks": chunks}
+    return {
+        "ticket": ticket,
+        "source": source,
+        "version": version,
+        "chunks": chunks,
+        "review_item": review_item,
+    }
 
 
 @app.get("/tickets")
@@ -1719,8 +1726,15 @@ def post_log_source(
     log_source = store.add_log_source(LogSource(**payload.model_dump(), source_id=source.id))
     save_source_to_database(session, source)
     save_source_version_bundle_to_database(session, version, artifact, chunks)
+    review_item = create_source_issue_review_item_for_failed_version(session, version)
     save_log_source_to_database(session, log_source)
-    return {"log_source": log_source, "source": source, "version": version, "chunks": chunks}
+    return {
+        "log_source": log_source,
+        "source": source,
+        "version": version,
+        "chunks": chunks,
+        "review_item": review_item,
+    }
 
 
 @app.get("/log-sources")
@@ -1887,5 +1901,11 @@ def post_image_ocr(
         )
     if version and artifact:
         save_source_version_bundle_to_database(session, version, artifact, chunks)
+    review_item = create_source_issue_review_item_for_failed_version(session, version) if version else None
     save_ocr_result_to_database(session, ocr_result)
-    return {"ocr_result": ocr_result, "version": version, "chunks": chunks}
+    return {
+        "ocr_result": ocr_result,
+        "version": version,
+        "chunks": chunks,
+        "review_item": review_item,
+    }
