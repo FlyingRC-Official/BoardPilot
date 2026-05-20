@@ -884,6 +884,101 @@ def test_ask_api_helpers_mirror_records_to_database_when_available():
         main_app.store.model_runs.pop(model_run.id, None)
 
 
+def test_review_context_hydration_restores_eval_result_from_database():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+        Base.metadata.tables["questions"],
+        Base.metadata.tables["retrieval_runs"],
+        Base.metadata.tables["retrieval_candidates"],
+        Base.metadata.tables["evidences"],
+        Base.metadata.tables["model_runs"],
+        Base.metadata.tables["answers"],
+        Base.metadata.tables["eval_cases"],
+        Base.metadata.tables["eval_runs"],
+        Base.metadata.tables["eval_results"],
+        Base.metadata.tables["review_items"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown)
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="6" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+    chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content=artifact.content,
+        content_hash="5" * 64,
+        token_count=4,
+    )
+    question = Question(product_id=product.id, raw_text="Can USB power servos?", normalized_text="usb servos")
+    retrieval_run = RetrievalRun(question_id=question.id, normalized_query=question.normalized_text)
+    candidate = RetrievalCandidate(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, stage="reranked", source="fake", rank=1)
+    evidence = Evidence(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, rank=1, score=1.0, quote=chunk.content, selection_reason="top")
+    model_run = ModelRun(provider_type="llm", provider_name="fake", model_name="fake-citation-llm", input_hash="4" * 64)
+    answer = Answer(
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_text="USB is for configuration only.",
+        citation_map_json={"usb": [evidence.id]},
+        evidence_sufficiency=EvidenceSufficiency.sufficient,
+        confidence=0.9,
+        model_run_id=model_run.id,
+    )
+    eval_case = EvalCase(product_id=product.id, question_text=question.raw_text, expected_chunk_ids_json=[chunk.id])
+    eval_run = EvalRun(name="MVP eval", summary_metrics_json={"case_count": 1})
+    eval_result = EvalResult(
+        eval_run_id=eval_run.id,
+        eval_case_id=eval_case.id,
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_id=answer.id,
+        recall_at_20=1.0,
+        rerank_at_5=1.0,
+        citation_support_rate=1.0,
+        unsupported_claim_rate=0.0,
+        need_review=True,
+        failure_category=FailureCategory.insufficient_evidence,
+    )
+    review_item = ReviewItem(
+        source_type="eval_failure",
+        question_id=question.id,
+        answer_id=answer.id,
+        eval_result_id=eval_result.id,
+        failure_category=FailureCategory.insufficient_evidence,
+    )
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    main_app.store.model_runs[model_run.id] = model_run
+    try:
+        save_ask_response_to_database(session, question, retrieval_run, [candidate], [evidence], answer, None)
+        save_eval_case_to_database(session, eval_case)
+        save_eval_run_results_to_database(session, eval_run, [eval_result])
+        save_review_item_to_database(session, review_item)
+        session.expire_all()
+        main_app.store.reset()
+
+        hydrated = hydrate_review_context_for_service(session, review_item.id)
+        assert hydrated.id == review_item.id
+        assert main_app.store.eval_results[eval_result.id].failure_category == FailureCategory.insufficient_evidence
+        assert main_app.store.questions[question.id].raw_text == question.raw_text
+        assert main_app.store.answers[answer.id].answer_text == answer.answer_text
+        assert main_app.store.retrieval_runs[retrieval_run.id].id == retrieval_run.id
+    finally:
+        main_app.store.reset()
+
+
 def test_review_eval_repository_round_trips_remaining_mvp_records_in_sqlite():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     create_subset = [

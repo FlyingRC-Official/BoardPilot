@@ -95,6 +95,7 @@ Updated: 2026-05-20
 - Added a Redis enqueue API path for ingestion jobs with queue message job ids.
 - Added runtime QuestionAttachment records and APIs for linking existing artifacts to questions and review detail.
 - Review detail now displays linked question attachments for reviewer context.
+- Review detail now uses the database-aware review context hydrator so EvalResult metrics and linked retrieval context survive API restarts.
 - Sources page can queue the latest source version for the Redis ingestion worker.
 - Added a SQLAlchemy catalog repository round-trip for product, source, artifact content, and chunks.
 - Added SQLAlchemy runtime repository coverage for ingestion jobs and audit logs.
@@ -135,7 +136,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 81 passed.
+- API tests: 82 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

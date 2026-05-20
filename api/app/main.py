@@ -1574,10 +1574,10 @@ def get_review_item(item_id: UUID, session: Session = Depends(get_session)) -> R
 
 @app.get("/review-items/{item_id}/detail", response_model=ReviewItemDetail)
 def get_review_item_detail(item_id: UUID, session: Session = Depends(get_session)) -> ReviewItemDetail:
-    item = store.review_items.get(item_id) or get_review_item_from_database(session, item_id)
+    item = hydrate_review_context_for_service(session, item_id)
     if not item:
         raise not_found()
-    eval_result = store.eval_results.get(item.eval_result_id) if item.eval_result_id else None
+    eval_result = (store.eval_results.get(item.eval_result_id) or get_eval_result_from_database(session, item.eval_result_id)) if item.eval_result_id else None
     answer_id = item.answer_id or (eval_result.answer_id if eval_result else None)
     answer = (store.answers.get(answer_id) or get_answer_from_database(session, answer_id)) if answer_id else None
     question_id = item.question_id or (answer.question_id if answer else None) or (eval_result.question_id if eval_result else None)
