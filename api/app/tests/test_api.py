@@ -411,6 +411,29 @@ def test_review_to_faq_reingests_approved_answer_as_source_material():
     assert "secret factory calibration code" in evidence_text
 
 
+def test_review_to_eval_case_preserves_expected_evidence_and_answer_points():
+    product, _source, _chunks = seed_source()
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can I power servos from USB?"},
+    ).json()
+    review_item = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "user_feedback", "notes": "Make this a regression."},
+    ).json()
+    client.patch(
+        f"/review-items/{review_item['id']}",
+        json={"edited_answer_text": "USB is for configuration only. Do not power servos from USB."},
+    )
+
+    eval_case = client.post(f"/review-items/{review_item['id']}/to-eval-case").json()
+    assert eval_case["question_text"] == "Can I power servos from USB?"
+    assert eval_case["expected_chunk_ids_json"]
+    assert eval_case["expected_source_ids_json"]
+    assert eval_case["expected_answer_points_json"][0].startswith("USB is for configuration")
+    assert "review_regression" in eval_case["tags_json"]
+
+
 def test_review_approval_requires_failure_category():
     ask_payload = client.post("/ask", json={"question": "What is undocumented?"}).json()
     review_item = ask_payload["review_item"]

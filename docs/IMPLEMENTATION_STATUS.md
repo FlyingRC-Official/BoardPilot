@@ -41,6 +41,7 @@ Updated: 2026-05-20
 - Added provider configuration records, admin-only provider config APIs, and provider config audit events.
 - Implemented typed ticket, log, image, and OCR records that create source material and chunks for retrieval.
 - Added EvalRun comparison endpoint and Eval page delta table for comparing consecutive runs.
+- ReviewItem to EvalCase conversion now preserves expected source ids, chunk ids, and reviewer-edited answer points for regression coverage.
 
 ## Verified
 
@@ -57,7 +58,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 20 passed.
+- API tests: 21 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -79,7 +80,7 @@ Results:
 - Review approval/rejection now fails without an explicit failure category.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
-- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval; it still needs durable database persistence and richer review detail UX.
+- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, and EvalCase conversion keeps expected evidence; both still need durable database persistence and richer review detail UX.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
 
 ## Recommended Next Subtasks
@@ -88,5 +89,5 @@ Results:
 2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Replace header-based local role context with real authentication/session management.
-5. Add EvalRun comparison and failure-category reporting UI.
+5. Add failure-category reporting UI.
 6. Add reviewer notes, failure-category editing, and richer review detail layout.

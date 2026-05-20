@@ -4,6 +4,7 @@ export function ReviewEditor({
   items,
   onApprove,
   onToFaq,
+  onToEval,
   edits,
   onEdit,
   onSaveEdit
@@ -11,6 +12,7 @@ export function ReviewEditor({
   items: ReviewItem[];
   onApprove: (id: string) => void;
   onToFaq: (id: string) => void;
+  onToEval: (id: string) => void;
   edits: Record<string, string>;
   onEdit: (id: string, value: string) => void;
   onSaveEdit: (id: string) => void;
@@ -53,6 +55,9 @@ export function ReviewEditor({
               </button>
               <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onToFaq(item.id)}>
                 To FAQ
+              </button>
+              <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onToEval(item.id)}>
+                To Eval
               </button>
             </td>
           </tr>

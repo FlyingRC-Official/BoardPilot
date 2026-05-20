@@ -108,3 +108,7 @@ export function updateReviewItem(id: string, payload: Partial<Pick<ReviewItem, "
 export function convertReviewItemToFaq(id: string) {
   return request(`/review-items/${id}/to-faq`, { method: "POST" });
 }
+
+export function convertReviewItemToEvalCase(id: string) {
+  return request(`/review-items/${id}/to-eval-case`, { method: "POST" });
+}

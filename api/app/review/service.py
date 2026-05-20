@@ -38,7 +38,28 @@ def reject_review_item(store: InMemoryStore, item_id: UUID, failure_category: Fa
 def review_to_eval_case(store: InMemoryStore, item_id: UUID) -> EvalCase:
     item = store.review_items[item_id]
     question = store.questions[item.question_id]
-    case = store.add_eval_case(EvalCase(**EvalCaseCreate(product_id=question.product_id, question_text=question.raw_text).model_dump()))
+    answer = store.answers.get(item.answer_id) if item.answer_id else None
+    evidence = store.evidence_for_run(answer.retrieval_run_id) if answer else []
+    expected_chunk_ids = [evidence_item.chunk_id for evidence_item in evidence]
+    expected_source_ids = []
+    for evidence_item in evidence:
+        chunk = store.chunks[evidence_item.chunk_id]
+        source_version = store.source_versions[chunk.source_version_id]
+        expected_source_ids.append(source_version.source_id)
+    answer_point = item.edited_answer_text.strip() if item.edited_answer_text.strip() else (answer.answer_text if answer else "")
+    case = store.add_eval_case(
+        EvalCase(
+            **EvalCaseCreate(
+                product_id=question.product_id,
+                question_text=question.raw_text,
+                expected_source_ids_json=list(dict.fromkeys(expected_source_ids)),
+                expected_chunk_ids_json=expected_chunk_ids,
+                expected_answer_points_json=[answer_point] if answer_point else [],
+                tags_json=["review_regression", item.source_type],
+                difficulty="review",
+            ).model_dump()
+        )
+    )
     item.status = ReviewStatus.converted_to_eval_case
     store.add_audit_log(
         "review_converted_to_eval_case",
