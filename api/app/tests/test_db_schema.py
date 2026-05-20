@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 import app.models.orm  # noqa: F401
 from app.db.base import Base
 from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
+from app.db.store import InMemoryStore
 from app.main import (
     delete_provider_config_from_database,
     get_provider_config_from_database,
@@ -195,6 +196,32 @@ def test_runtime_repository_round_trips_worker_and_audit_records_in_sqlite():
     assert runtime_repo.list_ingestion_jobs()[0].chunk_count == 2
     assert runtime_repo.list_audit_logs()[0].id == audit.id
     assert runtime_repo.list_audit_logs()[0].after_json == {"chunk_count": 2}
+
+
+def test_store_audit_log_mirrors_to_database_when_available(monkeypatch):
+    import app.db.session as db_session
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["audit_logs"]])
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    monkeypatch.setattr(db_session, "SessionLocal", session_factory)
+    local_store = InMemoryStore()
+
+    audit = local_store.add_audit_log(
+        "source_updated",
+        "Source",
+        "source-1",
+        user_id="admin-1",
+        after_json={"status": "active"},
+    )
+
+    session = session_factory()
+    try:
+        mirrored = RuntimeRepository(session).list_audit_logs()[0]
+    finally:
+        session.close()
+    assert mirrored.id == audit.id
+    assert mirrored.after_json == {"status": "active"}
 
 
 def test_runtime_job_api_helpers_use_database_when_available():

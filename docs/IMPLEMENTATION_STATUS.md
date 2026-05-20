@@ -68,6 +68,7 @@ Updated: 2026-05-20
 - Added SQLAlchemy review/eval/support repository coverage and persisted imported log source content.
 - Ingestion job endpoints now mirror job state into the SQLAlchemy runtime repository when the database schema is available.
 - Provider configuration APIs now read and mirror provider configs through SQLAlchemy when the database schema is available.
+- Audit log writes now mirror into SQLAlchemy when the database schema is available, while keeping JSONL mirroring support.
 
 ## Verified
 
@@ -84,7 +85,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 40 passed.
+- API tests: 41 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -99,7 +100,7 @@ Results:
 - EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - Minimal role-aware access control is present; it is header-based for MVP and still needs real authentication/session management.
-- Core audit events are inspectable through `GET /audit-logs`; persistence remains in-memory until SQLAlchemy repositories are wired.
+- Core audit events are inspectable through `GET /audit-logs`; audit writes mirror to SQLAlchemy when available and can still be mirrored to JSONL.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing.
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI remains minimal.

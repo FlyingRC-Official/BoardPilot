@@ -252,6 +252,22 @@ class InMemoryStore:
             after_json=after_json or {},
         )
         self.audit_logs[log.id] = log
+        try:
+            from sqlalchemy.exc import SQLAlchemyError
+
+            from app.db.repositories import RuntimeRepository
+            from app.db.session import SessionLocal
+
+            session = SessionLocal()
+            try:
+                RuntimeRepository(session).add_audit_log(log)
+                session.commit()
+            except SQLAlchemyError:
+                session.rollback()
+            finally:
+                session.close()
+        except ImportError:
+            pass
         if settings.audit_log_path:
             path = Path(settings.audit_log_path)
             path.parent.mkdir(parents=True, exist_ok=True)
