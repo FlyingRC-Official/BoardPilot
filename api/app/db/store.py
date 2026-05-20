@@ -6,6 +6,7 @@ from app.models.schemas import (
     Answer,
     ApprovedFAQ,
     Chunk,
+    ChunkEmbedding,
     EvalCase,
     EvalResult,
     EvalRun,
@@ -34,6 +35,7 @@ class InMemoryStore:
         self.source_versions: Dict[UUID, SourceVersion] = {}
         self.source_artifacts: Dict[UUID, SourceArtifact] = {}
         self.chunks: Dict[UUID, Chunk] = {}
+        self.chunk_embeddings: Dict[UUID, ChunkEmbedding] = {}
         self.questions: Dict[UUID, Question] = {}
         self.retrieval_runs: Dict[UUID, RetrievalRun] = {}
         self.retrieval_candidates: Dict[UUID, RetrievalCandidate] = {}
@@ -84,6 +86,20 @@ class InMemoryStore:
             self.chunks[chunk.id] = chunk
             inserted.append(chunk)
         return inserted
+
+    def add_chunk_embedding(self, embedding: ChunkEmbedding) -> ChunkEmbedding:
+        for existing in self.chunk_embeddings.values():
+            if (
+                existing.chunk_id == embedding.chunk_id
+                and existing.provider_name == embedding.provider_name
+                and existing.model_name == embedding.model_name
+            ):
+                return existing
+        self.chunk_embeddings[embedding.id] = embedding
+        return embedding
+
+    def embeddings_for_chunk(self, chunk_id: UUID) -> List[ChunkEmbedding]:
+        return [embedding for embedding in self.chunk_embeddings.values() if embedding.chunk_id == chunk_id]
 
     def enabled_chunks(self, product_id: Optional[UUID] = None) -> List[Chunk]:
         chunks = [c for c in self.chunks.values() if c.enabled]

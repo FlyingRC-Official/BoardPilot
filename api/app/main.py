@@ -207,6 +207,13 @@ def get_chunks(version_id: UUID) -> list:
     return [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
 
 
+@app.get("/chunks/{chunk_id}/embeddings")
+def get_chunk_embeddings(chunk_id: UUID) -> list:
+    if chunk_id not in store.chunks:
+        raise not_found()
+    return store.embeddings_for_chunk(chunk_id)
+
+
 @app.post("/ingestion/jobs")
 def post_ingestion_job(
     payload: Dict[str, UUID],

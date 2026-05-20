@@ -1,4 +1,6 @@
 from app.ingestion.chunking import chunk_text
+from app.models.schemas import ChunkEmbedding
+from app.providers.embedding import embedding_provider
 
 
 def ingest_source_version(store, source_version_id):
@@ -8,7 +10,17 @@ def ingest_source_version(store, source_version_id):
     text = "\n\n".join(a.content for a in artifacts if a.content)
     chunks = chunk_text(version.id, source.product_id, text)
     inserted = store.add_chunks(chunks)
+    for chunk in inserted:
+        embedding = embedding_provider.embed(chunk.content)
+        store.add_chunk_embedding(
+            ChunkEmbedding(
+                chunk_id=chunk.id,
+                provider_name=embedding.provider_name,
+                model_name=embedding.model_name,
+                embedding_dimension=len(embedding.vector),
+                vector=embedding.vector,
+            )
+        )
     version.status = "ingested"
     store.source_versions[version.id] = version
     return inserted
-

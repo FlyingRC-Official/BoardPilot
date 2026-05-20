@@ -146,6 +146,16 @@ class Chunk(BaseModel):
     created_at: datetime = Field(default_factory=now)
 
 
+class ChunkEmbedding(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    chunk_id: UUID
+    provider_name: str
+    model_name: str
+    embedding_dimension: int
+    vector: List[float]
+    created_at: datetime = Field(default_factory=now)
+
+
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     product_id: Optional[UUID] = None

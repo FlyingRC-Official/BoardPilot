@@ -73,6 +73,10 @@ def test_product_source_ingestion_and_dedup():
     version_id = source_versions[0]["id"]
     chunk_list = client.get(f"/source-versions/{version_id}/chunks").json()
     assert len(chunk_list) == len(chunks)
+    embeddings = client.get(f"/chunks/{chunk_list[0]['id']}/embeddings").json()
+    assert embeddings[0]["provider_name"] == "fake"
+    assert embeddings[0]["model_name"] == "fake-hash-embedding"
+    assert embeddings[0]["embedding_dimension"] == 16
 
     duplicate = client.post(
         f"/sources/{source['id']}/versions/{version_id}/artifacts",
