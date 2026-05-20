@@ -74,6 +74,13 @@ export type Answer = {
   citation_map_json: Record<string, string[]>;
 };
 
+export type Question = {
+  id: string;
+  product_id?: string;
+  raw_text: string;
+  normalized_text: string;
+};
+
 export type ReviewItem = {
   id: string;
   source_type: string;
@@ -82,6 +89,15 @@ export type ReviewItem = {
   failure_category?: string;
   reviewer_notes?: string;
   edited_answer_text?: string;
+};
+
+export type ReviewItemDetail = {
+  item: ReviewItem;
+  question?: Question | null;
+  answer?: Answer | null;
+  evidence: Evidence[];
+  candidates: RetrievalCandidate[];
+  eval_result?: Record<string, unknown> | null;
 };
 
 export type AuditLog = {

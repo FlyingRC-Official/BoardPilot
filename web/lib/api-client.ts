@@ -7,6 +7,7 @@ import type {
   ProductAlias,
   ProviderConfig,
   ReviewItem,
+  ReviewItemDetail,
   Source
 } from "./types";
 
@@ -120,6 +121,10 @@ export function compareEvalRuns(runA: string, runB: string) {
 
 export function listReviewItems() {
   return request<ReviewItem[]>("/review-items");
+}
+
+export function getReviewItemDetail(id: string) {
+  return request<ReviewItemDetail>(`/review-items/${id}/detail`);
 }
 
 export function listAuditLogs() {

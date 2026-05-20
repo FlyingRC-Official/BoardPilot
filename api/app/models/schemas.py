@@ -418,3 +418,12 @@ class EvalResult(BaseModel):
     failure_category: Optional[FailureCategory] = None
     metrics_json: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=now)
+
+
+class ReviewItemDetail(BaseModel):
+    item: ReviewItem
+    question: Optional[Question] = None
+    answer: Optional[Answer] = None
+    evidence: List[Evidence] = Field(default_factory=list)
+    candidates: List[RetrievalCandidate] = Field(default_factory=list)
+    eval_result: Optional[EvalResult] = None

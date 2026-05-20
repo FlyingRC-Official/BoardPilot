@@ -34,6 +34,7 @@ from app.models.schemas import (
     ProviderConfigCreate,
     Question,
     ReviewItem,
+    ReviewItemDetail,
     Source,
     SourceCreate,
     SourceType,
@@ -531,6 +532,29 @@ def get_review_item(item_id: UUID) -> ReviewItem:
     if item_id not in store.review_items:
         raise not_found()
     return store.review_items[item_id]
+
+
+@app.get("/review-items/{item_id}/detail", response_model=ReviewItemDetail)
+def get_review_item_detail(item_id: UUID) -> ReviewItemDetail:
+    if item_id not in store.review_items:
+        raise not_found()
+    item = store.review_items[item_id]
+    eval_result = store.eval_results.get(item.eval_result_id) if item.eval_result_id else None
+    answer_id = item.answer_id or (eval_result.answer_id if eval_result else None)
+    answer = store.answers.get(answer_id) if answer_id else None
+    question_id = item.question_id or (answer.question_id if answer else None) or (eval_result.question_id if eval_result else None)
+    question = store.questions.get(question_id) if question_id else None
+    retrieval_run_id = (answer.retrieval_run_id if answer else None) or (eval_result.retrieval_run_id if eval_result else None)
+    evidence = store.evidence_for_run(retrieval_run_id) if retrieval_run_id else []
+    candidates = store.candidates_for_run(retrieval_run_id) if retrieval_run_id else []
+    return ReviewItemDetail(
+        item=item,
+        question=question,
+        answer=answer,
+        evidence=evidence,
+        candidates=candidates,
+        eval_result=eval_result,
+    )
 
 
 @app.get("/audit-logs", response_model=list[AuditLog])

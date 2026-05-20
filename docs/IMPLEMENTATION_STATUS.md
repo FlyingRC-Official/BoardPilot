@@ -45,6 +45,7 @@ Updated: 2026-05-20
 - Review page now supports editable failure categories and reviewer notes, backed by validated and audited ReviewItem updates.
 - Eval page now surfaces failure-category distribution from EvalRun summary metrics.
 - Added a Settings page for creating, editing, deleting, and listing provider configuration records.
+- Added ReviewItem detail API/UI that shows the linked question, generated answer, evidence pack, and retrieval trace.
 
 ## Verified
 
@@ -61,7 +62,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 21 passed.
+- API tests: 22 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -83,7 +84,7 @@ Results:
 - Review approval/rejection now fails without an explicit failure category.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
-- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, and reviewers can save notes/failure categories; review still needs durable database persistence and a richer detail layout.
+- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace; review still needs durable database persistence and richer eval-result context.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
 
 ## Recommended Next Subtasks
@@ -92,5 +93,5 @@ Results:
 2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Replace header-based local role context with real authentication/session management.
-5. Add a richer review detail layout with linked question, answer, evidence, and eval-result context.
+5. Add richer eval-result context to Review detail.
 6. Add model-cost assumptions and provider-selection wiring into runtime provider calls.

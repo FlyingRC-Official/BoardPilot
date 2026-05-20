@@ -451,6 +451,25 @@ def test_review_to_eval_case_preserves_expected_evidence_and_answer_points():
     assert "review_regression" in eval_case["tags_json"]
 
 
+def test_review_item_detail_links_question_answer_evidence_and_trace():
+    product, _source, _chunks = seed_source()
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can I power servos from USB?"},
+    ).json()
+    review_item = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "user_feedback", "notes": "Inspect retrieval trace."},
+    ).json()
+
+    detail = client.get(f"/review-items/{review_item['id']}/detail").json()
+    assert detail["item"]["id"] == review_item["id"]
+    assert detail["question"]["raw_text"] == "Can I power servos from USB?"
+    assert detail["answer"]["id"] == ask_payload["answer"]["id"]
+    assert detail["evidence"]
+    assert detail["candidates"]
+
+
 def test_review_approval_requires_failure_category():
     ask_payload = client.post("/ask", json={"question": "What is undocumented?"}).json()
     review_item = ask_payload["review_item"]

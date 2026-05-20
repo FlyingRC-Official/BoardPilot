@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { EvidenceList } from "@/components/evidence/EvidenceList";
+import { RetrievalTrace } from "@/components/retrieval-trace/RetrievalTrace";
 import { AuditLogTable } from "@/components/review-editor/AuditLogTable";
 import { ReviewEditor } from "@/components/review-editor/ReviewEditor";
 import {
   approveReviewItem,
   convertReviewItemToEvalCase,
   convertReviewItemToFaq,
+  getReviewItemDetail,
   listAuditLogs,
   listReviewItems,
   updateReviewItem
 } from "@/lib/api-client";
-import type { AuditLog, ReviewItem } from "@/lib/types";
+import type { AuditLog, ReviewItem, ReviewItemDetail } from "@/lib/types";
 
 export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
@@ -19,6 +22,7 @@ export default function ReviewPage() {
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [failureCategories, setFailureCategories] = useState<Record<string, string>>({});
+  const [detail, setDetail] = useState<ReviewItemDetail | null>(null);
   const [message, setMessage] = useState("");
 
   async function refresh() {
@@ -78,6 +82,11 @@ export default function ReviewPage() {
     setMessage("Reviewer fields saved.");
   }
 
+  async function inspect(id: string) {
+    setDetail(await getReviewItemDetail(id));
+    setMessage("Review detail loaded.");
+  }
+
   return (
     <>
       <header className="page-header">
@@ -100,9 +109,31 @@ export default function ReviewPage() {
           onApprove={approve}
           onToFaq={toFaq}
           onToEval={toEval}
+          onInspect={inspect}
         />
         {message ? <p className="status" style={{ marginTop: 14 }}>{message}</p> : null}
       </section>
+      {detail ? (
+        <section className="panel" style={{ marginTop: 16 }}>
+          <h2>Review Detail</h2>
+          <div className="grid two">
+            <div>
+              <h3>Question</h3>
+              <p>{detail.question?.raw_text || "No linked question."}</p>
+              <h3>Generated Answer</h3>
+              <p>{detail.answer?.answer_text || "No linked answer."}</p>
+            </div>
+            <div>
+              <h3>Evidence</h3>
+              <EvidenceList evidence={detail.evidence} />
+            </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <h3>Retrieval Trace</h3>
+            <RetrievalTrace candidates={detail.candidates} />
+          </div>
+        </section>
+      ) : null}
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Audit Log</h2>
         <AuditLogTable logs={auditLogs} />
