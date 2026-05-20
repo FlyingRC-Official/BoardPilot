@@ -32,6 +32,7 @@ Updated: 2026-05-20
 - Added saved LLM ModelRun records for answer generation and linked Answers to `model_run_id`.
 - Added saved fake ChunkEmbedding records during ingestion and a chunk embedding inspection endpoint.
 - Expanded EvalRun summaries with evidence sufficiency rate, failure-category distribution, latency p50/p95, and model cost placeholder.
+- Enforced explicit failure categories before review approval or rejection.
 
 ## Verified
 
@@ -48,7 +49,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 15 passed.
+- API tests: 16 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -65,6 +66,7 @@ Results:
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing.
 - EvalRun summaries now include the MVP-required aggregate metric families; comparison UI remains minimal.
+- Review approval/rejection now fails without an explicit failure category.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval; it still needs durable database persistence and richer review detail UX.

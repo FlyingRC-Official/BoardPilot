@@ -289,3 +289,19 @@ def test_review_to_faq_reingests_approved_answer_as_source_material():
     ).json()
     evidence_text = "\n".join(item["quote"] for item in rerun["evidence"])
     assert "secret factory calibration code" in evidence_text
+
+
+def test_review_approval_requires_failure_category():
+    ask_payload = client.post("/ask", json={"question": "What is undocumented?"}).json()
+    review_item = ask_payload["review_item"]
+
+    missing_category = client.post(f"/review-items/{review_item['id']}/approve", json={})
+    assert missing_category.status_code == 422
+    assert "failure_category" in missing_category.json()["detail"]
+
+    approved = client.post(
+        f"/review-items/{review_item['id']}/approve",
+        json={"failure_category": "insufficient_evidence"},
+    )
+    assert approved.status_code == 200
+    assert approved.json()["failure_category"] == "insufficient_evidence"

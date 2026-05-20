@@ -440,7 +440,9 @@ def post_review_approve(
     payload: Dict[str, FailureCategory],
     _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
 ) -> ReviewItem:
-    return approve_review_item(store, item_id, payload.get("failure_category", FailureCategory.human_policy_required))
+    if "failure_category" not in payload:
+        raise HTTPException(status_code=422, detail="failure_category is required")
+    return approve_review_item(store, item_id, payload["failure_category"])
 
 
 @app.post("/review-items/{item_id}/reject", response_model=ReviewItem)
@@ -449,7 +451,9 @@ def post_review_reject(
     payload: Dict[str, FailureCategory],
     _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
 ) -> ReviewItem:
-    return reject_review_item(store, item_id, payload.get("failure_category", FailureCategory.human_policy_required))
+    if "failure_category" not in payload:
+        raise HTTPException(status_code=422, detail="failure_category is required")
+    return reject_review_item(store, item_id, payload["failure_category"])
 
 
 @app.post("/review-items/{item_id}/to-faq")
