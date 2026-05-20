@@ -2096,14 +2096,14 @@ def test_review_approval_requires_failure_category():
 
     missing_category = client.post(f"/review-items/{review_item['id']}/approve", json={})
     assert missing_category.status_code == 422
-    assert "failure_category" in missing_category.json()["detail"]
+    assert "failure_category" in json.dumps(missing_category.json()["detail"])
 
     invalid_category = client.post(
         f"/review-items/{review_item['id']}/approve",
         json={"failure_category": "not_a_failure_category"},
     )
     assert invalid_category.status_code == 422
-    assert invalid_category.json()["detail"] == "invalid failure_category"
+    assert "not_a_failure_category" in json.dumps(invalid_category.json()["detail"])
 
     patched = client.patch(
         f"/review-items/{review_item['id']}",
@@ -2148,14 +2148,14 @@ def test_review_reject_requires_failure_category_and_is_audited():
 
     missing_category = client.post(f"/review-items/{review_item['id']}/reject", json={})
     assert missing_category.status_code == 422
-    assert "failure_category" in missing_category.json()["detail"]
+    assert "failure_category" in json.dumps(missing_category.json()["detail"])
 
     invalid_category = client.post(
         f"/review-items/{review_item['id']}/reject",
         json={"failure_category": "not_a_failure_category"},
     )
     assert invalid_category.status_code == 422
-    assert invalid_category.json()["detail"] == "invalid failure_category"
+    assert "not_a_failure_category" in json.dumps(invalid_category.json()["detail"])
 
     rejected = client.post(
         f"/review-items/{review_item['id']}/reject",
@@ -2183,7 +2183,7 @@ def test_review_can_be_marked_as_needing_source_update():
         json={"failure_category": "not_a_failure_category"},
     )
     assert invalid_category.status_code == 422
-    assert invalid_category.json()["detail"] == "invalid failure_category"
+    assert "not_a_failure_category" in json.dumps(invalid_category.json()["detail"])
 
     marked = client.post(
         f"/review-items/{review_item['id']}/source-update-needed",

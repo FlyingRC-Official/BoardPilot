@@ -198,6 +198,7 @@ Results:
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing, with variable provider dimensions supported in new migrations.
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI shows numeric deltas between two runs.
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
+- Review approval, rejection, and source-update-needed actions now use a typed request schema with `FailureCategory` validation at the API boundary.
 - Session tokens and an operator-managed user/role allowlist are implemented for private deployments, but they are not yet connected to a full identity provider.
 - Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors reads/writes through SQLAlchemy when the schema is available.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics.

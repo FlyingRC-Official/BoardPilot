@@ -297,6 +297,10 @@ class ReviewItem(BaseModel):
     updated_at: datetime = Field(default_factory=now)
 
 
+class ReviewDecisionCreate(BaseModel):
+    failure_category: FailureCategory
+
+
 class ApprovedFAQ(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     product_id: UUID

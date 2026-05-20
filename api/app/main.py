@@ -65,6 +65,7 @@ from app.models.schemas import (
     QuestionAttachmentCreate,
     RetrievalCandidate,
     RetrievalRun,
+    ReviewDecisionCreate,
     ReviewItem,
     ReviewItemDetail,
     ReviewStatus,
@@ -1799,15 +1800,13 @@ def patch_review_item(
 @app.post("/review-items/{item_id}/approve", response_model=ReviewItem)
 def post_review_approve(
     item_id: UUID,
-    payload: Dict[str, Any],
+    payload: ReviewDecisionCreate,
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
-    if "failure_category" not in payload:
-        raise HTTPException(status_code=422, detail="failure_category is required")
     if not hydrate_review_item_for_service(session, item_id):
         raise not_found()
-    item = approve_review_item(store, item_id, parse_failure_category(payload["failure_category"]), reviewer_id=user.user_id)
+    item = approve_review_item(store, item_id, payload.failure_category, reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
 
@@ -1815,15 +1814,13 @@ def post_review_approve(
 @app.post("/review-items/{item_id}/reject", response_model=ReviewItem)
 def post_review_reject(
     item_id: UUID,
-    payload: Dict[str, Any],
+    payload: ReviewDecisionCreate,
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
-    if "failure_category" not in payload:
-        raise HTTPException(status_code=422, detail="failure_category is required")
     if not hydrate_review_item_for_service(session, item_id):
         raise not_found()
-    item = reject_review_item(store, item_id, parse_failure_category(payload["failure_category"]), reviewer_id=user.user_id)
+    item = reject_review_item(store, item_id, payload.failure_category, reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
 
@@ -1831,15 +1828,13 @@ def post_review_reject(
 @app.post("/review-items/{item_id}/source-update-needed", response_model=ReviewItem)
 def post_review_source_update_needed(
     item_id: UUID,
-    payload: Dict[str, Any],
+    payload: ReviewDecisionCreate,
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
-    if "failure_category" not in payload:
-        raise HTTPException(status_code=422, detail="failure_category is required")
     if not hydrate_review_item_for_service(session, item_id):
         raise not_found()
-    item = mark_source_update_needed(store, item_id, parse_failure_category(payload["failure_category"]), reviewer_id=user.user_id)
+    item = mark_source_update_needed(store, item_id, payload.failure_category, reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
 
