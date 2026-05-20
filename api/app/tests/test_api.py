@@ -612,8 +612,14 @@ def test_ocr_result_history_requires_existing_image_asset():
     assert response.status_code == 404
 
 
-def test_source_disable_is_audited():
-    _product, source, _chunks = seed_source()
+def test_source_disable_removes_chunks_from_retrieval_and_is_audited():
+    product, source, chunks = seed_source()
+    before = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+    ).json()
+    assert before["evidence"]
+
     disabled = client.post(
         f"/sources/{source['id']}/disable",
         json={"reason": "stale pinout"},
@@ -622,10 +628,16 @@ def test_source_disable_is_audited():
     assert disabled.status_code == 200
     assert disabled.json()["status"] == "disabled"
     assert disabled.json()["updated_at"] != source["updated_at"]
+    after = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+    ).json()
+    assert after["evidence"] == []
     audit_logs = client.get("/audit-logs").json()
     audit = [log for log in audit_logs if log["action"] == "source_disabled"]
     assert audit[-1]["user_id"] == "maintainer-1"
     assert audit[-1]["after_json"]["reason"] == "stale pinout"
+    assert audit[-1]["after_json"]["disabled_chunk_count"] == len(chunks)
 
 
 def test_product_and_source_patch_refresh_updated_at():
