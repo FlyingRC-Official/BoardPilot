@@ -1,4 +1,5 @@
 from statistics import mean
+from typing import Optional
 
 from app.answers.service import generate_answer
 from app.db.store import InMemoryStore
@@ -6,6 +7,23 @@ from app.eval.metrics import citation_support_rate, recall_at_20, rerank_at_5
 from app.models.schemas import EvalResult, EvalRun, EvidenceSufficiency, FailureCategory, Question
 from app.retrieval.query_normalization import normalize_query
 from app.retrieval.service import run_retrieval
+
+
+def categorize_eval_failure(
+    recall: float,
+    rerank: float,
+    evidence_sufficiency: EvidenceSufficiency,
+    citation_support: float,
+) -> Optional[FailureCategory]:
+    if recall < 1.0:
+        return FailureCategory.bad_vector_recall
+    if rerank < 1.0:
+        return FailureCategory.bad_rerank
+    if evidence_sufficiency != EvidenceSufficiency.sufficient:
+        return FailureCategory.insufficient_evidence
+    if citation_support < 1.0:
+        return FailureCategory.unsupported_claim
+    return None
 
 
 def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRun, list[EvalResult]]:
@@ -21,7 +39,8 @@ def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRu
         recall = recall_at_20(case.expected_chunk_ids_json, candidates)
         rerank = rerank_at_5(case.expected_chunk_ids_json, reranked)
         support = citation_support_rate(evidence, answer.citation_map_json)
-        need_review = answer.evidence_sufficiency != EvidenceSufficiency.sufficient or support < 1.0
+        failure_category = categorize_eval_failure(recall, rerank, answer.evidence_sufficiency, support)
+        need_review = failure_category is not None
         result = store.add_eval_result(
             EvalResult(
                 eval_run_id=run.id,
@@ -34,7 +53,7 @@ def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRu
                 citation_support_rate=support,
                 unsupported_claim_rate=1.0 - support,
                 need_review=need_review,
-                failure_category=FailureCategory.bad_rerank if rerank < 1.0 else None,
+                failure_category=failure_category,
                 metrics_json={"evidence_sufficiency": answer.evidence_sufficiency.value},
             )
         )

@@ -764,6 +764,32 @@ def test_eval_run_records_metrics_and_can_route_failure_to_review():
     assert review["source_type"] == "eval_failure"
 
 
+def test_eval_run_categorizes_insufficient_evidence_failures_for_review():
+    product = client.post(
+        "/products",
+        json={"name": "No Source Board", "slug": "no-source-board", "description": "No source content yet"},
+    ).json()
+    client.post(
+        "/eval-cases",
+        json={
+            "product_id": product["id"],
+            "question_text": "What evidence exists for this board?",
+            "expected_answer_points_json": ["Should require saved evidence"],
+            "tags_json": ["missing_source"],
+        },
+    )
+
+    run_payload = client.post("/eval-runs", json={"name": "missing source eval"}).json()
+    result = run_payload["results"][0]
+    assert result["need_review"] is True
+    assert result["failure_category"] == "insufficient_evidence"
+    assert run_payload["eval_run"]["summary_metrics_json"]["failure_category_distribution"] == {"insufficient_evidence": 1}
+
+    review = client.post(f"/eval-results/{result['id']}/to-review").json()
+    assert review["source_type"] == "eval_failure"
+    assert review["failure_category"] == "insufficient_evidence"
+
+
 def test_eval_case_expected_evidence_fields_can_be_listed_and_updated():
     product, _source, chunks = seed_source()
     case = client.post(

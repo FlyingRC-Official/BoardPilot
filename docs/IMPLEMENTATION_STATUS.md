@@ -58,6 +58,7 @@ Updated: 2026-05-20
 - Sources page can upload image assets to local storage and ingest a manual image description into retrieval chunks.
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 - Eval page now shows latest-run per-case results, supports trace inspection with answer/evidence/reranked candidates, and can send failed EvalResults to Review.
+- EvalRun now assigns failure categories for recall, rerank, insufficient-evidence, and unsupported-claim failures so ReviewItems inherit actionable failure reasons.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
 - Ask requests now accept optional existing-artifact attachments, persist QuestionAttachment records, return them in the Ask response, and the Ask page has a source/artifact picker for attaching context without raw JSON.
@@ -114,7 +115,7 @@ Results:
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
 - File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
-- EvalRun can run the required 20-case seed corpus, inspect per-case traces, send failed cases to Review, and compare numeric metric deltas between two runs.
+- EvalRun can run the required 20-case seed corpus, categorize failed results, inspect per-case traces, send failed cases to Review, and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - Minimal role-aware access control is present; it is header-based for MVP and can require a configured API key, but still needs real user/session management.
 - Core audit events are inspectable through `GET /audit-logs`; audit writes mirror to SQLAlchemy when available and can still be mirrored to JSONL.
