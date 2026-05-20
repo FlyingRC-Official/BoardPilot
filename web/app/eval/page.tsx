@@ -2,12 +2,36 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { MetricsPanel } from "@/components/eval/MetricsPanel";
-import { compareEvalRuns, createEvalCase, listEvalCases, listProducts, runEval, seedEvalCases, updateEvalCase } from "@/lib/api-client";
-import type { EvalCase, EvalRunComparison, EvalRunResponse, Product } from "@/lib/types";
+import { EvidenceList } from "@/components/evidence/EvidenceList";
+import { RetrievalTrace } from "@/components/retrieval-trace/RetrievalTrace";
+import {
+  compareEvalRuns,
+  convertEvalResultToReview,
+  createEvalCase,
+  getAnswer,
+  getAnswerEvidence,
+  getQuestion,
+  listEvalCases,
+  listEvalRunResults,
+  listProducts,
+  listRetrievalCandidates,
+  runEval,
+  seedEvalCases,
+  updateEvalCase
+} from "@/lib/api-client";
+import type { Answer, EvalCase, EvalResult, EvalRunComparison, EvalRunResponse, Evidence, Product, Question, RetrievalCandidate } from "@/lib/types";
 
 function splitList(value: string) {
   return value.split(",").map((item) => item.trim()).filter(Boolean);
 }
+
+type EvalResultDetail = {
+  result: EvalResult;
+  question: Question;
+  answer: Answer;
+  evidence: Evidence[];
+  candidates: RetrievalCandidate[];
+};
 
 export default function EvalPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -22,6 +46,8 @@ export default function EvalPage() {
   const [difficulty, setDifficulty] = useState("normal");
   const [active, setActive] = useState(true);
   const [run, setRun] = useState<EvalRunResponse | null>(null);
+  const [runResults, setRunResults] = useState<EvalResult[]>([]);
+  const [selectedResult, setSelectedResult] = useState<EvalResultDetail | null>(null);
   const [previousRunId, setPreviousRunId] = useState("");
   const [comparison, setComparison] = useState<EvalRunComparison | null>(null);
   const [message, setMessage] = useState("");
@@ -89,6 +115,8 @@ export default function EvalPage() {
       setComparison(await compareEvalRuns(run.eval_run.id, response.eval_run.id));
     }
     setRun(response);
+    setRunResults(response.results);
+    setSelectedResult(null);
     setMessage("EvalRun completed.");
   }
 
@@ -96,6 +124,36 @@ export default function EvalPage() {
     const response = await seedEvalCases();
     await refreshCases();
     setMessage(`${response.case_count} seed EvalCases are ready.`);
+  }
+
+  async function inspectResult(result: EvalResult) {
+    const [questionPayload, answerPayload, evidencePayload, candidatesPayload] = await Promise.all([
+      getQuestion(result.question_id),
+      getAnswer(result.answer_id),
+      getAnswerEvidence(result.answer_id),
+      listRetrievalCandidates(result.retrieval_run_id)
+    ]);
+    setSelectedResult({
+      result,
+      question: questionPayload,
+      answer: answerPayload,
+      evidence: evidencePayload,
+      candidates: candidatesPayload
+    });
+    setMessage("EvalResult trace loaded.");
+  }
+
+  async function refreshRunResults() {
+    if (!run?.eval_run.id) {
+      return;
+    }
+    setRunResults(await listEvalRunResults(run.eval_run.id));
+    setMessage("EvalRun results refreshed.");
+  }
+
+  async function sendResultToReview(result: EvalResult) {
+    const review = await convertEvalResultToReview(result.id);
+    setMessage(`Review item created: ${review.id.slice(0, 8)}`);
   }
 
   return (
@@ -176,9 +234,77 @@ export default function EvalPage() {
                 <strong>{run.eval_run.name}</strong> <span className="muted">{run.results.length} results</span>
               </p>
               <MetricsPanel metrics={run.eval_run.summary_metrics_json} />
+              <button className="button secondary" type="button" onClick={refreshRunResults}>
+                Refresh Results
+              </button>
             </div>
           ) : (
             <div className="empty">Create cases and run an EvalRun to see aggregate metrics.</div>
+          )}
+        </div>
+      </section>
+      <section className="grid two" style={{ marginTop: 16 }}>
+        <div className="panel">
+          <h2>Latest Run Results</h2>
+          {runResults.length ? (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Case</th>
+                  <th>Recall</th>
+                  <th>Rerank</th>
+                  <th>Review</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runResults.map((result) => (
+                  <tr key={result.id}>
+                    <td>{result.eval_case_id.slice(0, 8)}</td>
+                    <td>{result.recall_at_20.toFixed(2)}</td>
+                    <td>{result.rerank_at_5.toFixed(2)}</td>
+                    <td>{result.need_review ? result.failure_category || "needed" : "no"}</td>
+                    <td>
+                      <div className="button-row">
+                        <button className="button secondary compact-button" type="button" onClick={() => inspectResult(result)}>
+                          Inspect
+                        </button>
+                        {result.need_review ? (
+                          <button className="button secondary compact-button" type="button" onClick={() => sendResultToReview(result)}>
+                            To Review
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="empty">Run Eval to inspect per-case traces.</div>
+          )}
+        </div>
+        <div className="panel">
+          <h2>Result Trace</h2>
+          {selectedResult ? (
+            <div className="grid">
+              <p>
+                <strong>{selectedResult.question.raw_text}</strong>
+              </p>
+              <p>{selectedResult.answer.answer_text}</p>
+              <p>
+                <span className={selectedResult.answer.evidence_sufficiency === "sufficient" ? "status" : "status warn"}>
+                  {selectedResult.answer.evidence_sufficiency}
+                </span>{" "}
+                <span className="muted">confidence {selectedResult.answer.confidence.toFixed(2)}</span>
+              </p>
+              <h3>Evidence</h3>
+              <EvidenceList evidence={selectedResult.evidence} />
+              <h3>Reranked Trace</h3>
+              <RetrievalTrace candidates={selectedResult.candidates} />
+            </div>
+          ) : (
+            <div className="empty">Select Inspect on an EvalResult to view its question, answer, evidence, and reranked trace.</div>
           )}
         </div>
       </section>

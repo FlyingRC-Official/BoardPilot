@@ -4,10 +4,15 @@ import type {
   EvalCase,
   EvalRunComparison,
   EvalRunResponse,
+  EvalResult,
+  Evidence,
   Product,
   ProductAlias,
   ProviderConfig,
+  Answer,
   IngestionJob,
+  Question,
+  RetrievalCandidate,
   ReviewItem,
   ReviewItemDetail,
   Source,
@@ -179,6 +184,22 @@ export function askQuestion(payload: {
   return request<AskResponse>("/ask", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export function getQuestion(id: string) {
+  return request<Question>(`/questions/${id}`);
+}
+
+export function getAnswer(id: string) {
+  return request<Answer>(`/answers/${id}`);
+}
+
+export function getAnswerEvidence(answerId: string) {
+  return request<Evidence[]>(`/answers/${answerId}/evidence`);
+}
+
+export function listRetrievalCandidates(runId: string) {
+  return request<RetrievalCandidate[]>(`/retrieval-runs/${runId}/candidates`);
+}
+
 export function sendAnswerFeedback(answerId: string, payload: { feedback_type: string; notes: string }) {
   return request<ReviewItem>(`/answers/${answerId}/feedback`, { method: "POST", body: JSON.stringify(payload) });
 }
@@ -216,6 +237,14 @@ export function runEval(name: string) {
 
 export function compareEvalRuns(runA: string, runB: string) {
   return request<EvalRunComparison>(`/eval-runs/compare?run_a=${runA}&run_b=${runB}`);
+}
+
+export function listEvalRunResults(runId: string) {
+  return request<EvalResult[]>(`/eval-runs/${runId}/results`);
+}
+
+export function convertEvalResultToReview(id: string) {
+  return request<ReviewItem>(`/eval-results/${id}/to-review`, { method: "POST" });
 }
 
 export function listReviewItems() {

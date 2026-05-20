@@ -193,7 +193,7 @@ export type EvalRunResponse = {
     name: string;
     summary_metrics_json: Record<string, number | Record<string, number>>;
   };
-  results: Array<Record<string, unknown>>;
+  results: EvalResult[];
 };
 
 export type EvalRunSummary = EvalRunResponse["eval_run"];
