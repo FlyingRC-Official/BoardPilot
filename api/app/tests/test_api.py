@@ -50,6 +50,21 @@ def test_health_endpoint():
     assert response.json()["status"] == "ok"
 
 
+def test_version_and_provider_metadata_endpoints():
+    version = client.get("/version")
+    assert version.status_code == 200
+    assert version.json()["version"] == "0.1.0"
+    assert version.json()["environment"] == settings.environment
+
+    providers = client.get("/providers")
+    assert providers.status_code == 200
+    assert providers.json()["llm"] == settings.llm_provider
+    assert providers.json()["embedding"] == settings.embedding_provider
+    assert providers.json()["reranker"] == settings.reranker_provider
+    assert providers.json()["ocr"] == settings.ocr_provider
+    assert providers.json()["configs"] == []
+
+
 def test_local_web_origin_cors_preflight():
     response = client.options(
         "/products",

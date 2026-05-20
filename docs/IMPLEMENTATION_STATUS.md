@@ -19,6 +19,7 @@ Updated: 2026-05-20
 - Added Docker Compose definitions for API, web, Postgres/pgvector, and Redis.
 - Docker Compose now health-gates Postgres, Redis, API, web, and worker startup, and the API container runs Alembic migrations before serving.
 - Added deployment and eval guide documents.
+- Health, version, and provider metadata endpoints are covered by API regression tests.
 - Added SQLAlchemy ORM models for the required MVP schema.
 - Added an initial Alembic migration foundation with pgvector extension setup for Postgres.
 - Added multipart source artifact upload backed by local filesystem storage.
@@ -115,7 +116,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 67 passed.
+- API tests: 68 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
