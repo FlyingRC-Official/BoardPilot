@@ -287,6 +287,27 @@ def get_chunk_from_database(session: Session, chunk_id: UUID) -> Optional[Chunk]
         return None
 
 
+def hydrate_source_version_for_service(session: Session, source_version_id: UUID) -> Optional[SourceVersion]:
+    version = store.source_versions.get(source_version_id) or get_source_version_from_database(session, source_version_id)
+    if not version:
+        return None
+    store.source_versions[version.id] = version
+
+    source = store.sources.get(version.source_id) or get_source_from_database(session, version.source_id)
+    if source:
+        store.sources[source.id] = source
+        if source.product_id and source.product_id not in store.products:
+            product = get_product_from_database(session, source.product_id)
+            if product:
+                store.products[product.id] = product
+
+    for artifact in list_artifacts_from_database(session, version.id):
+        store.source_artifacts[artifact.id] = artifact
+    for chunk in list_chunks_from_database(session, version.id):
+        store.chunks[chunk.id] = chunk
+    return version
+
+
 def save_ask_response_to_database(
     session: Session,
     question: Question,
@@ -1003,10 +1024,12 @@ def post_ingestion_job(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
-    if payload.source_version_id not in store.source_versions:
+    if not hydrate_source_version_for_service(session, payload.source_version_id):
         raise not_found()
     job, chunks = run_ingestion_job(payload.source_version_id)
     save_runtime_job(session, job)
+    save_source_version_to_database(session, store.source_versions[payload.source_version_id])
+    save_chunks_to_database(session, chunks)
     return {"job": job, "chunks": chunks}
 
 
@@ -1016,7 +1039,7 @@ def enqueue_ingestion_job_endpoint(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
-    if payload.source_version_id not in store.source_versions:
+    if not hydrate_source_version_for_service(session, payload.source_version_id):
         raise not_found()
     job = store.add_ingestion_job(IngestionJob(source_version_id=payload.source_version_id))
     save_runtime_job(session, job)
@@ -1053,10 +1076,16 @@ def retry_ingestion_job(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
-    if job_id not in store.ingestion_jobs:
+    job = store.ingestion_jobs.get(job_id) or get_runtime_job(session, job_id)
+    if not job:
+        raise not_found()
+    store.ingestion_jobs[job.id] = job
+    if not hydrate_source_version_for_service(session, job.source_version_id):
         raise not_found()
     job, chunks = retry_ingestion_job_service(job_id)
     save_runtime_job(session, job)
+    save_source_version_to_database(session, store.source_versions[job.source_version_id])
+    save_chunks_to_database(session, chunks)
     return {"job": job, "chunks": chunks}
 
 

@@ -24,6 +24,7 @@ from app.main import (
     get_runtime_job,
     get_source_from_database,
     get_source_version_from_database,
+    hydrate_source_version_for_service,
     hydrate_review_context_for_service,
     hydrate_review_item_for_service,
     list_aliases_from_database,
@@ -497,6 +498,45 @@ def test_source_version_api_helpers_use_database_when_available():
     assert get_artifact_from_database(session, artifact.id).id == artifact.id
     assert list_artifacts_from_database(session, version.id)[0].content == artifact.content
     assert list_chunks_from_database(session, version.id)[0].enabled is False
+
+
+def test_ingestion_job_can_hydrate_source_version_from_database_and_persist_outputs():
+    import app.main as main_app
+    from app.ingestion.jobs import run_ingestion_job
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown, trust_level="official")
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="a" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [])
+    main_app.store.reset()
+    try:
+        hydrated = hydrate_source_version_for_service(session, version.id)
+        job, chunks = run_ingestion_job(version.id)
+        save_source_version_to_database(session, main_app.store.source_versions[version.id])
+        save_chunks_to_database(session, chunks)
+        session.expire_all()
+
+        assert hydrated.id == version.id
+        assert job.status == "completed"
+        assert get_source_version_from_database(session, version.id).status == "ingested"
+        assert list_chunks_from_database(session, version.id)
+    finally:
+        main_app.store.reset()
 
 
 def test_retrieval_repository_round_trips_ask_records_in_sqlite():

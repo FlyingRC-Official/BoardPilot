@@ -76,6 +76,7 @@ Updated: 2026-05-20
 - Eval case, run, comparison, result, and result-to-review endpoints now read and mirror through SQLAlchemy when available.
 - Ticket, log source, image asset, and OCR import endpoints now read and mirror through SQLAlchemy when available.
 - ReviewItem to ApprovedFAQ and ReviewItem to EvalCase conversions now hydrate linked database context and persist generated FAQ/source/eval outputs through SQLAlchemy when available.
+- Ingestion job run/enqueue/retry paths now hydrate SourceVersion, Source, Product, Artifact, and existing Chunk context from SQLAlchemy and mirror completed re-ingestion outputs back to SQLAlchemy when available.
 
 ## Verified
 
@@ -92,7 +93,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 47 passed.
+- API tests: 48 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -101,7 +102,7 @@ Results:
 ## Important MVP Gaps
 
 - API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
-- IngestionJob APIs now persist job status in memory, support retry, can enqueue Redis worker messages, and mirror job state to SQLAlchemy when available; full database-backed cross-process job execution remains pending.
+- IngestionJob APIs now hydrate source-version context from SQLAlchemy, support retry, can enqueue Redis worker messages, and mirror job state plus completed chunk outputs to SQLAlchemy when available; full cross-process worker execution remains pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.
