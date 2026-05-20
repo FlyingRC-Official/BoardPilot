@@ -129,6 +129,29 @@ export default function ReviewPage() {
             <div>
               <h3>Question</h3>
               <p>{detail.question?.raw_text || "No linked question."}</p>
+              <h3>Attachments</h3>
+              {detail.attachments.length ? (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Description</th>
+                      <th>Artifact</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.attachments.map((attachment) => (
+                      <tr key={attachment.id}>
+                        <td>{attachment.attachment_type}</td>
+                        <td>{attachment.description || "No description"}</td>
+                        <td>{attachment.artifact_id.slice(0, 8)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>No linked attachments.</p>
+              )}
               <h3>Generated Answer</h3>
               <p>{detail.answer?.answer_text || "No linked answer."}</p>
               {detail.eval_result ? (

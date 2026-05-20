@@ -60,6 +60,7 @@ Updated: 2026-05-20
 - Source versions can now be disabled with audit logging, which disables their chunks for future retrieval.
 - Added a Redis enqueue API path for ingestion jobs with queue message job ids.
 - Added runtime QuestionAttachment records and APIs for linking existing artifacts to questions and review detail.
+- Review detail now displays linked question attachments for reviewer context.
 
 ## Verified
 
