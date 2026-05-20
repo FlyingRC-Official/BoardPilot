@@ -148,6 +148,7 @@ curl -sS -I http://127.0.0.1:3000/ask
 curl -sS -I http://127.0.0.1:3000/sources
 curl -sS -I http://127.0.0.1:3000/eval
 curl -sS -I http://127.0.0.1:3000/review
+headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 ```
 
 Results:
@@ -157,6 +158,7 @@ Results:
 - Next.js production build: passed.
 - API health: HTTP 200.
 - Web routes `/ask`, `/sources`, `/eval`, and `/review`: HTTP 200.
+- Headless Chrome visual pass: screenshots captured for `/ask`, `/sources`, `/eval`, and `/review`; each page rendered expected route content with no application-error text detected in the captured HTML.
 
 ## Important MVP Gaps
 
@@ -181,7 +183,7 @@ Results:
 - Real user/session management is not implemented; MVP role enforcement is header-based with an optional deployment API-key gate.
 - Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors reads/writes through SQLAlchemy when the schema is available.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics.
-- The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
+- The web workbench is functional and has been visually checked with local headless Chrome screenshots for the four primary MVP pages.
 
 ## Recommended Next Subtasks
 
