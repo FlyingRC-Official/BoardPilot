@@ -5,6 +5,7 @@ import app.models.orm  # noqa: F401
 from app.db.base import Base
 from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
 from app.db.store import InMemoryStore
+from app.providers.config_store import hydrate_provider_configs
 from app.main import (
     delete_provider_config_from_database,
     get_answer_from_database,
@@ -318,6 +319,22 @@ def test_provider_config_api_helpers_use_database_when_available():
     assert get_provider_config_from_database(session, config.id).model_name == "fake-citation-llm"
     assert delete_provider_config_from_database(session, config.id).id == config.id
     assert list_provider_configs_from_database(session) == []
+
+
+def test_provider_config_hydration_populates_runtime_store_from_database():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["provider_configs"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    runtime_store = InMemoryStore()
+    config = ProviderConfig(provider_type="llm", provider_name="fake", model_name="fake-citation-llm")
+
+    save_provider_config_to_database(session, config)
+    session.expire_all()
+
+    assert runtime_store.active_provider_config("llm") is None
+    hydrated = hydrate_provider_configs(runtime_store, session)
+    assert hydrated[0].id == config.id
+    assert runtime_store.active_provider_config("llm").model_name == "fake-citation-llm"
 
 
 def test_support_import_api_helpers_use_database_when_available():

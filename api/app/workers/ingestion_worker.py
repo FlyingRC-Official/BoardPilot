@@ -11,6 +11,7 @@ from app.ingestion.jobs import run_ingestion_job
 from app.ingestion.queue import QUEUE_NAME, decode_ingestion_job, encode_ingestion_job
 from app.db.session import store
 from app.models.schemas import IngestionJob
+from app.providers.config_store import hydrate_provider_configs
 
 logger = logging.getLogger("boardpilot.ingestion_worker")
 
@@ -84,6 +85,11 @@ def process_message(raw_message: bytes | str) -> None:
             job.error_message = "source version not found"
             persist_ingestion_result(job, [])
         raise KeyError("source version not found")
+    session = SessionLocal()
+    try:
+        hydrate_provider_configs(store, session)
+    finally:
+        session.close()
     job, chunks = run_ingestion_job(message.source_version_id, job)
     persist_ingestion_result(job, chunks)
 

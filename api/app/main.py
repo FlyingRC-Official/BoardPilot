@@ -73,6 +73,7 @@ from app.retrieval.query_normalization import normalize_query, product_alias_exp
 from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
 from app.review.service import approve_review_item, mark_source_update_needed, reject_review_item, review_to_eval_case, review_to_faq
+from app.providers.config_store import hydrate_provider_configs
 from app.sources.service import (
     add_text_artifact_to_source_version,
     create_source,
@@ -753,12 +754,13 @@ def version() -> dict:
 
 @app.get("/providers")
 def providers(session: Session = Depends(get_session)) -> dict:
+    configs = hydrate_provider_configs(store, session)
     return {
         "llm": settings.llm_provider,
         "embedding": settings.embedding_provider,
         "reranker": settings.reranker_provider,
         "ocr": settings.ocr_provider,
-        "configs": list_provider_configs_from_database(session) or list(store.provider_configs.values()),
+        "configs": configs or list(store.provider_configs.values()),
     }
 
 
@@ -783,7 +785,7 @@ def get_provider_configs(
     _user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> list[ProviderConfig]:
-    return list_provider_configs_from_database(session) or list(store.provider_configs.values())
+    return hydrate_provider_configs(store, session) or list(store.provider_configs.values())
 
 
 @app.patch("/provider-configs/{config_id}", response_model=ProviderConfig)
@@ -999,6 +1001,7 @@ def post_source_version(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     database_source = get_source_from_database(session, source_id)
     if database_source and source_id not in store.sources:
         store.sources[source_id] = database_source
@@ -1019,6 +1022,7 @@ async def upload_source_version(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     database_source = get_source_from_database(session, source_id)
     if database_source and source_id not in store.sources:
         store.sources[source_id] = database_source
@@ -1046,6 +1050,7 @@ def post_webpage_snapshot_version(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     database_source = get_source_from_database(session, source_id)
     if database_source and source_id not in store.sources:
         store.sources[source_id] = database_source
@@ -1114,6 +1119,7 @@ def post_source_artifact(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     if version_id not in store.source_versions:
         hydrate_source_version_for_service(session, version_id)
     elif source_id not in store.sources:
@@ -1168,6 +1174,7 @@ def post_ingestion_job(
 ) -> dict:
     if not hydrate_source_version_for_service(session, payload.source_version_id):
         raise not_found()
+    hydrate_provider_configs(store, session)
     job, chunks = run_ingestion_job(payload.source_version_id)
     save_runtime_job(session, job)
     save_source_version_to_database(session, store.source_versions[payload.source_version_id])
@@ -1225,6 +1232,7 @@ def retry_ingestion_job(
     store.ingestion_jobs[job.id] = job
     if not hydrate_source_version_for_service(session, job.source_version_id):
         raise not_found()
+    hydrate_provider_configs(store, session)
     job, chunks = retry_ingestion_job_service(job_id)
     save_runtime_job(session, job)
     save_source_version_to_database(session, store.source_versions[job.source_version_id])
@@ -1238,6 +1246,7 @@ def ask(
     user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
     session: Session = Depends(get_session),
 ) -> AskResponse:
+    hydrate_provider_configs(store, session)
     validated_attachments: list[tuple[QuestionAttachmentCreate, SourceArtifact]] = []
     attachment_contexts: list[str] = []
     for attachment_payload in payload.attachments:
@@ -1467,6 +1476,7 @@ def post_eval_run(
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     for case in list_eval_cases_from_database(session):
         store.eval_cases.setdefault(case.id, case)
     run, results = run_eval_batch(store, (payload or {}).get("name", "MVP eval"))
@@ -1669,6 +1679,7 @@ def post_review_to_faq(
 ) -> dict:
     if not hydrate_review_context_for_service(session, item_id):
         raise not_found()
+    hydrate_provider_configs(store, session)
     try:
         faq, source, version, artifact, chunks = review_to_faq(store, item_id)
     except KeyError:
@@ -1702,6 +1713,7 @@ def post_ticket(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
     if database_product and payload.product_id not in store.products:
         store.products[payload.product_id] = database_product
@@ -1751,6 +1763,7 @@ def post_log_source(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
     if database_product and payload.product_id not in store.products:
         store.products[payload.product_id] = database_product
@@ -1799,6 +1812,7 @@ def post_image_asset(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
     if database_product and payload.product_id not in store.products:
         store.products[payload.product_id] = database_product
@@ -1845,6 +1859,7 @@ async def upload_image_asset(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     database_product = get_product_from_database(session, product_id)
     if database_product and product_id not in store.products:
         store.products[product_id] = database_product
@@ -1929,6 +1944,7 @@ def post_image_ocr(
     _user: CurrentUser = Depends(require_roles("admin", "support")),
     session: Session = Depends(get_session),
 ) -> dict:
+    hydrate_provider_configs(store, session)
     image_asset = store.image_assets.get(image_id) or get_image_asset_from_database(session, image_id)
     if not image_asset:
         raise not_found()

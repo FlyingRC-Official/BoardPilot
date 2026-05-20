@@ -101,6 +101,7 @@ Updated: 2026-05-20
 - Added SQLAlchemy review/eval/support repository coverage and persisted imported log source content.
 - Ingestion job endpoints now mirror job state into the SQLAlchemy runtime repository when the database schema is available.
 - Provider configuration APIs now read and mirror provider configs through SQLAlchemy when the database schema is available.
+- Provider-dependent ingestion, Ask, Eval, OCR, review-to-FAQ, and worker paths now hydrate saved provider configs from SQLAlchemy before choosing active providers.
 - Audit log writes and reads now mirror through SQLAlchemy when the database schema is available, while keeping JSONL mirroring support.
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Product and source patch endpoints now refresh `updated_at` so mutable catalog records reflect edit time.
@@ -130,7 +131,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 79 passed.
+- API tests: 80 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
