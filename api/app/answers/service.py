@@ -1,9 +1,11 @@
 import hashlib
+from typing import Optional
 
 from app.answers.citation import citation_map, has_visible_citations, verify_citations
 from app.answers.sufficiency import assess_sufficiency
 from app.db.store import InMemoryStore
-from app.models.schemas import Answer, ModelRun, Question
+from app.models.schemas import Answer, ModelRun, ProviderConfig, Question
+from app.providers.base import LLMResult
 from app.providers.llm import llm_provider
 
 
@@ -19,11 +21,23 @@ def estimate_model_cost(config_json: dict, input_words: int, output_words: int) 
     }
 
 
+def run_configured_llm(provider_config: Optional[ProviderConfig], question_text: str, evidence_quotes: list[str]) -> LLMResult:
+    if provider_config and provider_config.provider_name != llm_provider.provider_name:
+        return LLMResult(
+            provider_config.provider_name,
+            provider_config.model_name,
+            0,
+            error_message=f"LLM provider '{provider_config.provider_name}' is configured but no adapter is installed.",
+            answer_text="Answer generation failed because the configured LLM provider is not available.",
+        )
+    return llm_provider.answer(question_text, evidence_quotes)
+
+
 def generate_answer(store: InMemoryStore, question: Question, retrieval_run_id, evidence: list) -> Answer:
     sufficiency, confidence = assess_sufficiency(evidence)
     evidence_quotes = [item.quote for item in evidence]
-    llm_result = llm_provider.answer(question.raw_text, evidence_quotes)
     provider_config = store.active_provider_config("llm")
+    llm_result = run_configured_llm(provider_config, question.raw_text, evidence_quotes)
     provider_name = provider_config.provider_name if provider_config else llm_result.provider_name
     model_name = provider_config.model_name if provider_config else llm_result.model_name
     input_words = len(question.raw_text.split()) + sum(len(quote.split()) for quote in evidence_quotes)
@@ -47,17 +61,18 @@ def generate_answer(store: InMemoryStore, question: Question, retrieval_run_id, 
         )
     )
     citations = citation_map(evidence, llm_result.answer_text)
-    unsupported_claim_risk = bool(evidence and not citations)
+    generation_error = bool(llm_result.error_message)
+    unsupported_claim_risk = bool(evidence and not citations and not generation_error)
     if unsupported_claim_risk:
         confidence = min(confidence, 0.2)
     answer = Answer(
         question_id=question.id,
         retrieval_run_id=retrieval_run_id,
-        status="unsupported_claim_risk" if unsupported_claim_risk else "candidate",
+        status="generation_error" if generation_error else "unsupported_claim_risk" if unsupported_claim_risk else "candidate",
         answer_text=llm_result.answer_text,
         citation_map_json=citations,
         evidence_sufficiency=sufficiency,
-        confidence=confidence,
+        confidence=0.0 if generation_error else confidence,
         provider_name=provider_name,
         model_name=model_name,
         model_run_id=model_run.id,

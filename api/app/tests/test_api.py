@@ -1049,6 +1049,34 @@ def test_llm_provider_config_sets_model_run_identity_and_cost():
     assert model_run["cost_json"]["total_cost"] > 0
 
 
+def test_unsupported_llm_provider_config_records_failed_model_run_and_routes_review():
+    product, _source, _chunks = seed_source()
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "llm",
+            "provider_name": "openai",
+            "model_name": "gpt-example",
+            "config_json": {"api_key_env": "OPENAI_API_KEY"},
+        },
+    )
+
+    payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can I power servos from USB?"},
+    ).json()
+
+    assert payload["answer"]["status"] == "generation_error"
+    assert payload["answer"]["provider_name"] == "openai"
+    assert payload["answer"]["model_name"] == "gpt-example"
+    assert payload["answer"]["confidence"] == 0.0
+    assert payload["review_item"]["source_type"] == "generation_error"
+    assert payload["review_item"]["failure_category"] == "generation_error"
+    model_run = client.get(f"/model-runs/{payload['answer']['model_run_id']}").json()
+    assert model_run["status"] == "failed"
+    assert "no adapter is installed" in model_run["error_message"]
+
+
 def test_eval_run_records_metrics_and_can_route_failure_to_review():
     product, _source, chunks = seed_source()
     client.post(
