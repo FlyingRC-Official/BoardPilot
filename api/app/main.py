@@ -178,6 +178,26 @@ def delete_provider_config_from_database(session: Session, config_id: UUID) -> O
         return None
 
 
+def disable_other_enabled_provider_configs(session: Session, active_config: ProviderConfig, user_id: str) -> None:
+    if not active_config.enabled:
+        return
+    for config in list(store.provider_configs.values()):
+        if config.id == active_config.id or config.provider_type != active_config.provider_type or not config.enabled:
+            continue
+        before_json = config.model_dump(mode="json")
+        config.enabled = False
+        store.provider_configs[config.id] = config
+        save_provider_config_to_database(session, config)
+        store.add_audit_log(
+            "provider_config_updated",
+            "ProviderConfig",
+            str(config.id),
+            user_id=user_id,
+            before_json=before_json,
+            after_json=config.model_dump(mode="json"),
+        )
+
+
 def save_product_to_database(session: Session, product: Product) -> None:
     try:
         CatalogRepository(session).add_product(product)
@@ -776,7 +796,9 @@ def post_provider_config(
     user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> ProviderConfig:
+    hydrate_provider_configs(store, session)
     config = store.add_provider_config(ProviderConfig(**payload.model_dump()), user_id=user.user_id)
+    disable_other_enabled_provider_configs(session, config, user.user_id)
     save_provider_config_to_database(session, config)
     return config
 
@@ -796,6 +818,7 @@ def patch_provider_config(
     user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> ProviderConfig:
+    hydrate_provider_configs(store, session)
     if config_id in store.provider_configs:
         config = store.provider_configs[config_id]
     else:
@@ -808,6 +831,7 @@ def patch_provider_config(
         if key in allowed_fields:
             setattr(config, key, value)
     store.provider_configs[config_id] = config
+    disable_other_enabled_provider_configs(session, config, user.user_id)
     save_provider_config_to_database(session, config)
     store.add_audit_log(
         "provider_config_updated",

@@ -267,6 +267,33 @@ def test_provider_config_creation_is_admin_only_and_audited():
     assert "provider_config_deleted" in audit_actions
 
 
+def test_enabled_provider_configs_are_exclusive_per_provider_type():
+    first = client.post(
+        "/provider-configs",
+        json={"provider_type": "llm", "provider_name": "fake", "model_name": "fake-citation-llm"},
+        headers={"X-BoardPilot-User": "admin-provider-1", "X-BoardPilot-Role": "admin"},
+    ).json()
+    second = client.post(
+        "/provider-configs",
+        json={"provider_type": "llm", "provider_name": "openai", "model_name": "gpt-example"},
+        headers={"X-BoardPilot-User": "admin-provider-2", "X-BoardPilot-Role": "admin"},
+    ).json()
+
+    configs = {config["id"]: config for config in client.get("/provider-configs").json()}
+    assert configs[first["id"]]["enabled"] is False
+    assert configs[second["id"]]["enabled"] is True
+
+    client.patch(
+        f"/provider-configs/{first['id']}",
+        json={"enabled": True},
+        headers={"X-BoardPilot-User": "admin-provider-3", "X-BoardPilot-Role": "admin"},
+    )
+
+    configs = {config["id"]: config for config in client.get("/provider-configs").json()}
+    assert configs[first["id"]]["enabled"] is True
+    assert configs[second["id"]]["enabled"] is False
+
+
 def test_audit_logs_can_be_written_to_jsonl(tmp_path, monkeypatch):
     audit_path = tmp_path / "audit.jsonl"
     monkeypatch.setattr(settings, "audit_log_path", str(audit_path))
