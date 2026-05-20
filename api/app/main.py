@@ -11,7 +11,16 @@ from sqlalchemy.orm import Session
 
 from app.answers.service import generate_answer
 from app.core.config import settings
-from app.core.security import CurrentUser, SessionCreate, SessionToken, get_current_user, issue_session_token, require_roles, validate_session_token
+from app.core.security import (
+    CurrentUser,
+    SessionCreate,
+    SessionToken,
+    get_current_user,
+    issue_session_token,
+    require_roles,
+    validate_session_subject,
+    validate_session_token,
+)
 from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
 from app.db.session import get_session
 from app.db.session import store
@@ -854,6 +863,7 @@ def post_session(
     payload: SessionCreate,
     user: CurrentUser = Depends(require_roles("admin")),
 ) -> SessionToken:
+    validate_session_subject(payload.user_id, payload.role)
     session_token = issue_session_token(payload.user_id, payload.role, payload.ttl_seconds)
     store.add_audit_log(
         "session_token_issued",

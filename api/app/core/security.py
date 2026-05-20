@@ -78,6 +78,31 @@ def validate_session_token(token: str) -> CurrentUser:
     return CurrentUser(user_id=str(payload.get("user_id", "")), role=role)
 
 
+def configured_users() -> dict[str, Role]:
+    if not settings.users_json.strip():
+        return {}
+    try:
+        users = json.loads(settings.users_json)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="invalid users configuration")
+    if not isinstance(users, dict):
+        raise HTTPException(status_code=500, detail="invalid users configuration")
+    configured: dict[str, Role] = {}
+    for user_id, role in users.items():
+        if role not in ROLES:
+            raise HTTPException(status_code=500, detail="invalid users configuration")
+        configured[str(user_id)] = role
+    return configured
+
+
+def validate_session_subject(user_id: str, role: Role) -> None:
+    users = configured_users()
+    if not users:
+        return
+    if users.get(user_id) != role:
+        raise HTTPException(status_code=403, detail="user role is not allowed")
+
+
 def get_current_user(
     x_boardpilot_user: str = Header("local", alias="X-BoardPilot-User"),
     x_boardpilot_role: Role = Header("admin", alias="X-BoardPilot-Role"),

@@ -46,6 +46,7 @@ Updated: 2026-05-21
 - Added optional `BOARDPILOT_API_KEY` enforcement for private deployments, with web workbench support through `NEXT_PUBLIC_BOARDPILOT_API_KEY`.
 - Added signed session tokens through `POST /sessions`, `X-BoardPilot-Session` request support, configurable token TTL, and bundled workbench support through `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN`.
 - Session token issuance is audit logged without persisting the token secret itself.
+- Session issuance can now enforce an operator-managed `BOARDPILOT_USERS_JSON` user/role allowlist.
 - Configured `BOARDPILOT_API_KEY` now protects read endpoints as well as role-aware write endpoints, while leaving health checks and CORS preflight available.
 - Guarded protected mutating endpoints for admin, support, maintainer, reviewer, and evaluator roles while keeping local development defaulted to admin.
 - Ask requests now use the role/API-key request context and persist the submitting user id on Question records.
@@ -192,7 +193,7 @@ Results:
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing, with variable provider dimensions supported in new migrations.
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI shows numeric deltas between two runs.
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
-- Session tokens are implemented for private deployments, but they are not yet connected to a full identity provider or operator-managed user store.
+- Session tokens and an operator-managed user/role allowlist are implemented for private deployments, but they are not yet connected to a full identity provider.
 - Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors reads/writes through SQLAlchemy when the schema is available.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics.
 - The web workbench is functional and has been visually checked with local headless Chrome screenshots for the four primary MVP pages.

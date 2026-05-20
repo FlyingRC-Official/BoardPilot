@@ -196,6 +196,7 @@ def test_configured_api_key_is_required_for_role_context(monkeypatch):
 
 def test_signed_session_token_can_replace_api_key_for_private_requests(monkeypatch):
     monkeypatch.setattr(settings, "api_key", "session-secret")
+    monkeypatch.setattr(settings, "users_json", '{"support-session":"support"}')
     try:
         session_response = client.post(
             "/sessions",
@@ -228,8 +229,17 @@ def test_signed_session_token_can_replace_api_key_for_private_requests(monkeypat
         invalid = client.get("/me", headers={"X-BoardPilot-Session": tampered})
         assert invalid.status_code == 401
         assert invalid.json()["detail"] == "invalid session"
+
+        blocked = client.post(
+            "/sessions",
+            json={"user_id": "support-session", "role": "admin", "ttl_seconds": 60},
+            headers={"X-BoardPilot-User": "admin-session", "X-BoardPilot-Role": "admin", "X-BoardPilot-API-Key": "session-secret"},
+        )
+        assert blocked.status_code == 403
+        assert blocked.json()["detail"] == "user role is not allowed"
     finally:
         monkeypatch.setattr(settings, "api_key", "")
+        monkeypatch.setattr(settings, "users_json", "")
 
 
 def test_configured_api_key_protects_read_endpoints_but_allows_health_and_preflight(monkeypatch):
