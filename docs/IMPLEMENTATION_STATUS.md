@@ -38,6 +38,7 @@ Updated: 2026-05-20
 - Added product alias detection during Ask with normalized query expansion and soft product boosts.
 - Added minimal role-aware request context through `X-BoardPilot-User` and `X-BoardPilot-Role` headers.
 - Added optional `BOARDPILOT_API_KEY` enforcement for private deployments, with web workbench support through `NEXT_PUBLIC_BOARDPILOT_API_KEY`.
+- Configured `BOARDPILOT_API_KEY` now protects read endpoints as well as role-aware write endpoints, while leaving health checks and CORS preflight available.
 - Guarded protected mutating endpoints for admin, support, and reviewer roles while keeping local development defaulted to admin.
 - Ask requests now use the role/API-key request context and persist the submitting user id on Question records.
 - Added saved LLM ModelRun records for answer generation and linked Answers to `model_run_id`.
@@ -123,7 +124,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 75 passed.
+- API tests: 76 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -140,7 +141,7 @@ Results:
 - High-confidence detected product aliases now become hard product filters while lower-confidence aliases remain soft boosts.
 - RetrievalCandidate records now preserve raw keyword/vector recall stages in addition to merged and reranked stages, while Eval Recall@20 remains scoped to the merged recall set.
 - Hybrid merge now deduplicates candidates by chunk id, content hash, and near-duplicate source position while preserving deduped chunk ids in candidate metadata.
-- Minimal role-aware access control is present; it is header-based for MVP and can require a configured API key, but still needs real user/session management.
+- Minimal role-aware access control is present; it is header-based for MVP and requires a configured API key across API routes in private deployments, but still needs real user/session management.
 - Core audit events are inspectable through `GET /audit-logs`; audit writes mirror to SQLAlchemy when available and can still be mirrored to JSONL.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Answer generation now verifies visible citation markers and routes uncited evidence-backed answers to Review as unsupported-claim risks.

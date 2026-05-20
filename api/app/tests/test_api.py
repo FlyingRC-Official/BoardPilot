@@ -129,6 +129,34 @@ def test_configured_api_key_is_required_for_role_context(monkeypatch):
         monkeypatch.setattr(settings, "api_key", "")
 
 
+def test_configured_api_key_protects_read_endpoints_but_allows_health_and_preflight(monkeypatch):
+    monkeypatch.setattr(settings, "api_key", "read-secret")
+    try:
+        health = client.get("/health")
+        assert health.status_code == 200
+
+        preflight = client.options(
+            "/products",
+            headers={
+                "Origin": "http://127.0.0.1:3000",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "X-BoardPilot-API-Key",
+            },
+        )
+        assert preflight.status_code == 200
+
+        missing = client.get("/products")
+        assert missing.status_code == 401
+
+        wrong = client.get("/products", headers={"X-BoardPilot-API-Key": "wrong"})
+        assert wrong.status_code == 401
+
+        allowed = client.get("/products", headers={"X-BoardPilot-API-Key": "read-secret"})
+        assert allowed.status_code == 200
+    finally:
+        monkeypatch.setattr(settings, "api_key", "")
+
+
 def test_ask_uses_role_context_api_key_and_question_user(monkeypatch):
     product, _source, _chunks = seed_source()
 

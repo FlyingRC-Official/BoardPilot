@@ -1,9 +1,11 @@
 import hashlib
+from secrets import compare_digest
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -92,6 +94,16 @@ app.add_middleware(
 )
 
 MAX_ATTACHMENT_QUERY_CONTEXT_CHARS = 1200
+API_KEY_EXEMPT_PATHS = {"/health"}
+
+
+@app.middleware("http")
+async def enforce_private_api_key(request: Request, call_next):
+    if settings.api_key and request.method != "OPTIONS" and request.url.path not in API_KEY_EXEMPT_PATHS:
+        supplied_key = request.headers.get("X-BoardPilot-API-Key", "")
+        if not compare_digest(supplied_key, settings.api_key):
+            return JSONResponse(status_code=401, content={"detail": "invalid API key"})
+    return await call_next(request)
 
 
 def not_found() -> HTTPException:
