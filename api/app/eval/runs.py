@@ -4,7 +4,7 @@ from typing import Optional
 from app.answers.service import generate_answer
 from app.db.store import InMemoryStore
 from app.eval.metrics import citation_support_rate, recall_at_20, rerank_at_5
-from app.models.schemas import EvalResult, EvalRun, EvidenceSufficiency, FailureCategory, Question
+from app.models.schemas import EvalResult, EvalRun, EvidenceSufficiency, FailureCategory, Question, now
 from app.retrieval.query_normalization import normalize_query
 from app.retrieval.service import run_retrieval
 
@@ -27,7 +27,8 @@ def categorize_eval_failure(
 
 
 def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRun, list[EvalResult]]:
-    run = EvalRun(name=name, provider_config_json=store.provider_config_snapshot())
+    retrieval_config = {"keyword_limit": 50, "vector_limit": 50, "evidence_limit": 5}
+    run = EvalRun(name=name, retrieval_config_json=retrieval_config, provider_config_json=store.provider_config_snapshot())
     results: list[EvalResult] = []
     for case in [case for case in store.eval_cases.values() if case.active]:
         question = store.add_question(
@@ -77,6 +78,7 @@ def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRu
         index = min(len(ordered) - 1, int(round((len(ordered) - 1) * percent)))
         return float(ordered[index])
 
+    run.completed_at = now()
     run.summary_metrics_json = {
         "case_count": len(results),
         "recall_at_20": mean([r.recall_at_20 for r in results]) if results else 0.0,
@@ -89,6 +91,7 @@ def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRu
         "latency_p50_ms": percentile(latencies, 0.50),
         "latency_p95_ms": percentile(latencies, 0.95),
         "model_cost": sum(model_costs),
+        "eval_duration_ms": int((run.completed_at - run.started_at).total_seconds() * 1000),
     }
     store.add_eval_run(run)
     return run, results

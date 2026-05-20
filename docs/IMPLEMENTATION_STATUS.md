@@ -81,6 +81,7 @@ Updated: 2026-05-20
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 - Eval page now shows latest-run per-case results, supports trace inspection with answer/evidence/reranked candidates, and can send failed EvalResults to Review.
 - EvalRun now assigns failure categories for recall, rerank, insufficient-evidence, and unsupported-claim failures so ReviewItems inherit actionable failure reasons.
+- EvalRun records now persist the retrieval configuration snapshot and eval duration in the summary metrics for reproducibility.
 - Ask-time entity extraction now captures product aliases, firmware versions, error codes, connector names, and hardware interfaces.
 - Retrieval tokenization now preserves hardware compound tokens such as error codes and connector/interface names while retaining split subterms.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.

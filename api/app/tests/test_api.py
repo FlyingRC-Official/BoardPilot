@@ -1366,6 +1366,8 @@ def test_eval_run_records_metrics_and_can_route_failure_to_review():
     assert "failure_category_distribution" in eval_run["summary_metrics_json"]
     assert "latency_p50_ms" in eval_run["summary_metrics_json"]
     assert "latency_p95_ms" in eval_run["summary_metrics_json"]
+    assert "eval_duration_ms" in eval_run["summary_metrics_json"]
+    assert eval_run["retrieval_config_json"] == {"keyword_limit": 50, "vector_limit": 50, "evidence_limit": 5}
     assert eval_run["provider_config_json"]["llm"]["model_name"] == "fake-citation-llm-costed"
     assert eval_run["summary_metrics_json"]["model_cost"] > 0
     assert results[0]["eval_case_id"] == case["id"]
