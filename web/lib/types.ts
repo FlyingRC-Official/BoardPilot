@@ -14,6 +14,16 @@ export type ProductAlias = {
   confidence: number;
 };
 
+export type ProviderConfig = {
+  id: string;
+  provider_type: string;
+  provider_name: string;
+  model_name: string;
+  config_json: Record<string, unknown>;
+  enabled: boolean;
+  created_at: string;
+};
+
 export type Source = {
   id: string;
   product_id: string;

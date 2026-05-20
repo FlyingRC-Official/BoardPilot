@@ -1,4 +1,14 @@
-import type { AskResponse, AuditLog, EvalRunComparison, EvalRunResponse, Product, ProductAlias, ReviewItem, Source } from "./types";
+import type {
+  AskResponse,
+  AuditLog,
+  EvalRunComparison,
+  EvalRunResponse,
+  Product,
+  ProductAlias,
+  ProviderConfig,
+  ReviewItem,
+  Source
+} from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -30,6 +40,20 @@ export function createProductAlias(productId: string, payload: { alias: string; 
 
 export function listProductAliases(productId: string) {
   return request<ProductAlias[]>(`/products/${productId}/aliases`);
+}
+
+export function listProviderConfigs() {
+  return request<ProviderConfig[]>("/provider-configs");
+}
+
+export function createProviderConfig(payload: {
+  provider_type: string;
+  provider_name: string;
+  model_name: string;
+  config_json: Record<string, unknown>;
+  enabled: boolean;
+}) {
+  return request<ProviderConfig>("/provider-configs", { method: "POST", body: JSON.stringify(payload) });
 }
 
 export function listSources() {

@@ -7,7 +7,8 @@ const links = [
   { href: "/ask", label: "Ask" },
   { href: "/sources", label: "Sources" },
   { href: "/eval", label: "Eval" },
-  { href: "/review", label: "Review" }
+  { href: "/review", label: "Review" },
+  { href: "/settings", label: "Settings" }
 ];
 
 export function Navigation() {
@@ -32,4 +33,3 @@ export function Navigation() {
     </aside>
   );
 }
-
