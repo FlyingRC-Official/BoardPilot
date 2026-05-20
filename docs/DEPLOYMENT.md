@@ -16,6 +16,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
+The API container runs `alembic upgrade head` before starting Uvicorn. Postgres and Redis have health checks, and the web and worker services wait for the API health endpoint, so a fresh private stack can bootstrap its schema from an empty database volume.
+
 ## Privacy Boundary
 
 The default provider config is fake/local. Source content should not leave the deployment unless an admin intentionally enables an external LLM, embedding, reranker, or OCR provider.

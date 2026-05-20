@@ -14,9 +14,17 @@ services:
       - "8000:8000"
     volumes:
       - ./storage:/app/storage
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   web:
     build:
@@ -27,7 +35,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   worker:
     build:
@@ -44,8 +53,10 @@ services:
     volumes:
       - ./storage:/app/storage
     depends_on:
-      - db
-      - redis
+      api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   db:
     image: pgvector/pgvector:pg16
@@ -57,11 +68,21 @@ services:
       - "5432:5432"
     volumes:
       - boardpilot_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boardpilot -d boardpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
 volumes:
   boardpilot_pg:

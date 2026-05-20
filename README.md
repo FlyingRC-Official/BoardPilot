@@ -9,7 +9,7 @@ BoardPilot is a private-deployment RAG support workbench for hardware teams. The
 - In-memory repository for local development and tests.
 - Parser-aware ingestion for Markdown, webpage snapshots, CSV/FAQ, logs, uploaded image/manual descriptions, approved FAQs, and PDF text extraction.
 - Next.js workbench with Ask, Sources, Eval, and Review pages.
-- Docker Compose stack definitions for web, api, Postgres, and Redis.
+- Docker Compose stack definitions for web, api, worker, Postgres/pgvector, and Redis with health-gated startup.
 
 ## Local API
 
@@ -52,4 +52,4 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The current API request path still uses in-memory storage for fast local development. SQLAlchemy models and an initial Alembic migration are present for the durable Postgres/pgvector schema, while Redis workers and full repository wiring still need production implementation.
+The API container runs Alembic migrations before serving, then the web and worker wait for API health. The current API request path still uses some in-memory service hydration for fast local development, while SQLAlchemy repositories persist the MVP record groups and the Redis worker handles queued ingestion jobs.

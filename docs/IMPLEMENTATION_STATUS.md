@@ -17,6 +17,7 @@ Updated: 2026-05-20
 - Added EvalCase and EvalRun flow with MVP metrics.
 - Added a Next.js workbench with Ask, Sources, Eval, and Review pages.
 - Added Docker Compose definitions for API, web, Postgres/pgvector, and Redis.
+- Docker Compose now health-gates Postgres, Redis, API, web, and worker startup, and the API container runs Alembic migrations before serving.
 - Added deployment and eval guide documents.
 - Added SQLAlchemy ORM models for the required MVP schema.
 - Added an initial Alembic migration foundation with pgvector extension setup for Postgres.
@@ -112,7 +113,7 @@ Results:
 
 ## Important MVP Gaps
 
-- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
+- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, Docker startup applies migrations automatically, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
 - File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
