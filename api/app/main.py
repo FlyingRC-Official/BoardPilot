@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -153,6 +154,14 @@ async def enforce_private_api_key(request: Request, call_next):
 
 def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="not found")
+
+
+def database_table_available(session: Session, table_name: str) -> bool:
+    try:
+        return inspect(session.get_bind()).has_table(table_name)
+    except SQLAlchemyError:
+        session.rollback()
+        return False
 
 
 def filter_review_items_for_queue(items: list[ReviewItem], status: str) -> list[ReviewItem]:
@@ -842,7 +851,7 @@ def providers(session: Session = Depends(get_session)) -> dict:
         "embedding": settings.embedding_provider,
         "reranker": settings.reranker_provider,
         "ocr": settings.ocr_provider,
-        "configs": configs or list(store.provider_configs.values()),
+        "configs": configs if database_table_available(session, "provider_configs") else list(store.provider_configs.values()),
     }
 
 
@@ -886,7 +895,10 @@ def get_provider_configs(
     _user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> list[ProviderConfig]:
-    return hydrate_provider_configs(store, session) or list(store.provider_configs.values())
+    configs = hydrate_provider_configs(store, session)
+    if database_table_available(session, "provider_configs"):
+        return configs
+    return list(store.provider_configs.values())
 
 
 @app.patch("/provider-configs/{config_id}", response_model=ProviderConfig)
@@ -954,7 +966,9 @@ def post_product(
 
 @app.get("/products", response_model=list[Product])
 def get_products(session: Session = Depends(get_session)) -> list[Product]:
-    return list_products_from_database(session) or list_products(store)
+    if database_table_available(session, "products"):
+        return list_products_from_database(session)
+    return list_products(store)
 
 
 @app.get("/products/{product_id}", response_model=Product)
@@ -1034,7 +1048,9 @@ def post_source(
 
 @app.get("/sources", response_model=list[Source])
 def get_sources(session: Session = Depends(get_session)) -> list[Source]:
-    return list_sources_from_database(session) or list_sources(store)
+    if database_table_available(session, "sources"):
+        return list_sources_from_database(session)
+    return list_sources(store)
 
 
 @app.get("/sources/{source_id}", response_model=Source)
@@ -1355,8 +1371,9 @@ def enqueue_ingestion_job_endpoint(
 
 @app.get("/ingestion/jobs")
 def get_ingestion_jobs(session: Session = Depends(get_session)) -> list[IngestionJob]:
-    database_jobs = list_runtime_jobs(session)
-    return database_jobs or list(store.ingestion_jobs.values())
+    if database_table_available(session, "ingestion_jobs"):
+        return list_runtime_jobs(session)
+    return list(store.ingestion_jobs.values())
 
 
 @app.get("/ingestion/jobs/{job_id}")
@@ -1571,7 +1588,9 @@ def post_eval_case(
 
 @app.get("/eval-cases", response_model=list[EvalCase])
 def get_eval_cases(session: Session = Depends(get_session)) -> list[EvalCase]:
-    return list_eval_cases_from_database(session) or list(store.eval_cases.values())
+    if database_table_available(session, "eval_cases"):
+        return list_eval_cases_from_database(session)
+    return list(store.eval_cases.values())
 
 
 @app.post("/eval-cases/seed")
@@ -1642,7 +1661,9 @@ def post_eval_run(
 
 @app.get("/eval-runs")
 def get_eval_runs(session: Session = Depends(get_session)) -> list:
-    return list_eval_runs_from_database(session) or list(store.eval_runs.values())
+    if database_table_available(session, "eval_runs"):
+        return list_eval_runs_from_database(session)
+    return list(store.eval_runs.values())
 
 
 @app.get("/eval-runs/compare")
@@ -1704,7 +1725,7 @@ def eval_result_to_review(
 
 @app.get("/review-items", response_model=list[ReviewItem])
 def get_review_items(status: str = "active", session: Session = Depends(get_session)) -> list[ReviewItem]:
-    items = list_review_items_from_database(session) or list(store.review_items.values())
+    items = list_review_items_from_database(session) if database_table_available(session, "review_items") else list(store.review_items.values())
     return filter_review_items_for_queue(items, status)
 
 
@@ -1748,7 +1769,9 @@ def get_audit_logs(
     _user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> list[AuditLog]:
-    return list_audit_logs_from_database(session) or list(store.audit_logs.values())
+    if database_table_available(session, "audit_logs"):
+        return list_audit_logs_from_database(session)
+    return list(store.audit_logs.values())
 
 
 @app.patch("/review-items/{item_id}", response_model=ReviewItem)
@@ -1903,7 +1926,9 @@ def post_ticket(
 
 @app.get("/tickets")
 def get_tickets(session: Session = Depends(get_session)) -> list[Ticket]:
-    return list_tickets_from_database(session) or list(store.tickets.values())
+    if database_table_available(session, "tickets"):
+        return list_tickets_from_database(session)
+    return list(store.tickets.values())
 
 
 @app.post("/log-sources")
@@ -1952,7 +1977,9 @@ def post_log_source(
 
 @app.get("/log-sources")
 def get_log_sources(session: Session = Depends(get_session)) -> list[LogSource]:
-    return list_log_sources_from_database(session) or list(store.log_sources.values())
+    if database_table_available(session, "log_sources"):
+        return list_log_sources_from_database(session)
+    return list(store.log_sources.values())
 
 
 @app.post("/image-assets")
@@ -2072,7 +2099,9 @@ async def upload_image_asset(
 
 @app.get("/image-assets")
 def get_image_assets(session: Session = Depends(get_session)) -> list[ImageAsset]:
-    return list_image_assets_from_database(session) or list(store.image_assets.values())
+    if database_table_available(session, "image_assets"):
+        return list_image_assets_from_database(session)
+    return list(store.image_assets.values())
 
 
 @app.get("/image-assets/{image_id}/ocr-results", response_model=list[OcrResult])

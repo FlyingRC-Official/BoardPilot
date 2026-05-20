@@ -204,6 +204,7 @@ Results:
 - Review approval, rejection, and source-update-needed actions now use a typed request schema with `FailureCategory` validation at the API boundary.
 - Session tokens and an operator-managed user/role allowlist are implemented for private deployments, but they are not yet connected to a full identity provider.
 - Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors reads/writes through SQLAlchemy when the schema is available.
+- Top-level database-backed list endpoints now treat an existing empty SQL table as authoritative instead of falling back to stale in-memory rows.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics.
 - The web workbench is functional and has been visually checked with local headless Chrome screenshots for the four primary MVP pages.
 

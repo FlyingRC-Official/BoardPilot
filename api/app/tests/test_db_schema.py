@@ -341,6 +341,21 @@ def test_provider_config_api_helpers_use_database_when_available():
     assert list_provider_configs_from_database(session) == []
 
 
+def test_empty_database_list_table_does_not_fallback_to_stale_memory_store():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["provider_configs"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    main_app.store.reset()
+    main_app.store.add_provider_config(
+        ProviderConfig(provider_type="llm", provider_name="fake", model_name="stale-memory-provider")
+    )
+
+    assert main_app.get_provider_configs(session=session) == []
+    assert main_app.providers(session=session)["configs"] == []
+
+
 def test_provider_config_hydration_populates_runtime_store_from_database():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["provider_configs"]])
