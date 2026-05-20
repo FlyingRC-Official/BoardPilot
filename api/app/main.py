@@ -50,6 +50,7 @@ from app.models.schemas import (
     ProductCreate,
     ProviderConfig,
     ProviderConfigCreate,
+    ProviderType,
     Question,
     QuestionAttachment,
     QuestionAttachmentCreate,
@@ -131,6 +132,13 @@ def parse_failure_category(value: Any) -> FailureCategory:
         return FailureCategory(value)
     except ValueError:
         raise HTTPException(status_code=422, detail="invalid failure_category")
+
+
+def parse_provider_type(value: Any) -> ProviderType:
+    try:
+        return ProviderType(value)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid provider_type")
 
 
 def filter_review_items_for_queue(items: list[ReviewItem], status: str) -> list[ReviewItem]:
@@ -868,6 +876,8 @@ def patch_provider_config(
     allowed_fields = {"provider_type", "provider_name", "model_name", "config_json", "enabled"}
     for key, value in payload.items():
         if key in allowed_fields:
+            if key == "provider_type":
+                value = parse_provider_type(value)
             setattr(config, key, value)
     store.provider_configs[config_id] = config
     disable_other_enabled_provider_configs(session, config, user.user_id)

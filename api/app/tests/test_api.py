@@ -272,6 +272,13 @@ def test_provider_config_creation_is_admin_only_and_audited():
     )
     assert forbidden.status_code == 403
 
+    invalid = client.post(
+        "/provider-configs",
+        json={"provider_type": "speech", "provider_name": "fake", "model_name": "fake-speech"},
+        headers={"X-BoardPilot-User": "admin-invalid-provider", "X-BoardPilot-Role": "admin"},
+    )
+    assert invalid.status_code == 422
+
     created = client.post(
         "/provider-configs",
         json={"provider_type": "llm", "provider_name": "fake", "model_name": "fake-citation-llm"},
@@ -292,6 +299,14 @@ def test_provider_config_creation_is_admin_only_and_audited():
     assert updated.status_code == 200
     assert updated.json()["model_name"] == "fake-citation-llm-v2"
     assert updated.json()["enabled"] is False
+
+    invalid_patch = client.patch(
+        f"/provider-configs/{provider_config['id']}",
+        json={"provider_type": "speech"},
+        headers={"X-BoardPilot-User": "admin-invalid-provider-patch", "X-BoardPilot-Role": "admin"},
+    )
+    assert invalid_patch.status_code == 422
+    assert invalid_patch.json()["detail"] == "invalid provider_type"
 
     providers = client.get("/providers").json()
     assert providers["configs"][0]["id"] == provider_config["id"]

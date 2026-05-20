@@ -59,6 +59,7 @@ Updated: 2026-05-21
 - Added a recent audit-event table to the Review page.
 - Added Sources page controls for creating product aliases used by Ask-time alias detection.
 - Added provider configuration records, admin-only provider config APIs, and provider config audit events.
+- Provider configuration create and patch paths now reject provider types outside the documented LLM, embedding, reranker, and OCR set.
 - Enabled provider configurations are now exclusive per provider type, so creating or re-enabling one provider disables other active configs of the same type and audits the change.
 - Implemented typed ticket, log, image, and OCR records that create source material and chunks for retrieval.
 - Added EvalRun comparison endpoint and Eval page delta table for comparing consecutive runs.

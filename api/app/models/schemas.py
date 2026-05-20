@@ -56,6 +56,13 @@ class FailureCategory(str, Enum):
     human_policy_required = "human_policy_required"
 
 
+class ProviderType(str, Enum):
+    llm = "llm"
+    embedding = "embedding"
+    reranker = "reranker"
+    ocr = "ocr"
+
+
 class ProductCreate(BaseModel):
     name: str
     slug: str
@@ -303,7 +310,7 @@ class ModelRun(BaseModel):
 
 
 class ProviderConfigCreate(BaseModel):
-    provider_type: str
+    provider_type: ProviderType
     provider_name: str
     model_name: str
     config_json: Dict[str, Any] = Field(default_factory=dict)
