@@ -417,6 +417,33 @@ def test_ask_creates_retrieval_evidence_answer_and_citations():
     assert cited_ids <= evidence_ids
 
 
+def test_question_attachments_link_artifacts_and_show_in_review_detail():
+    product, source, _chunks = seed_source()
+    version_id = client.get(f"/sources/{source['id']}/versions").json()[0]["id"]
+    artifact = client.get(f"/source-versions/{version_id}/artifacts").json()[0]
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+    ).json()
+
+    attachment = client.post(
+        f"/questions/{ask_payload['question']['id']}/attachments",
+        json={"artifact_id": artifact["id"], "attachment_type": "log", "description": "customer boot log"},
+    ).json()
+    assert attachment["artifact_id"] == artifact["id"]
+    assert attachment["attachment_type"] == "log"
+
+    attachments = client.get(f"/questions/{ask_payload['question']['id']}/attachments").json()
+    assert attachments[0]["description"] == "customer boot log"
+
+    feedback = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "needs_review", "notes": "inspect log attachment"},
+    ).json()
+    detail = client.get(f"/review-items/{feedback['id']}/detail").json()
+    assert detail["attachments"][0]["id"] == attachment["id"]
+
+
 def test_ask_persists_metadata_filters():
     payload = client.post(
         "/ask",

@@ -34,6 +34,8 @@ from app.models.schemas import (
     ProviderConfig,
     ProviderConfigCreate,
     Question,
+    QuestionAttachment,
+    QuestionAttachmentCreate,
     ReviewItem,
     ReviewItemDetail,
     Source,
@@ -441,6 +443,24 @@ def get_question(question_id: UUID) -> Question:
     return store.questions[question_id]
 
 
+@app.post("/questions/{question_id}/attachments", response_model=QuestionAttachment)
+def post_question_attachment(
+    question_id: UUID,
+    payload: QuestionAttachmentCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+) -> QuestionAttachment:
+    if question_id not in store.questions or payload.artifact_id not in store.source_artifacts:
+        raise not_found()
+    return store.add_question_attachment(QuestionAttachment(**payload.model_dump(), question_id=question_id))
+
+
+@app.get("/questions/{question_id}/attachments", response_model=list[QuestionAttachment])
+def get_question_attachments(question_id: UUID) -> list[QuestionAttachment]:
+    if question_id not in store.questions:
+        raise not_found()
+    return store.attachments_for_question(question_id)
+
+
 @app.get("/retrieval-runs/{run_id}")
 def get_retrieval_run(run_id: UUID):
     if run_id not in store.retrieval_runs:
@@ -625,9 +645,11 @@ def get_review_item_detail(item_id: UUID) -> ReviewItemDetail:
     retrieval_run_id = (answer.retrieval_run_id if answer else None) or (eval_result.retrieval_run_id if eval_result else None)
     evidence = store.evidence_for_run(retrieval_run_id) if retrieval_run_id else []
     candidates = store.candidates_for_run(retrieval_run_id) if retrieval_run_id else []
+    attachments = store.attachments_for_question(question_id) if question_id else []
     return ReviewItemDetail(
         item=item,
         question=question,
+        attachments=attachments,
         answer=answer,
         evidence=evidence,
         candidates=candidates,

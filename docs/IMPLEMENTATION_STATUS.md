@@ -59,6 +59,7 @@ Updated: 2026-05-20
 - Added a Redis ingestion worker entrypoint and Docker Compose worker service scaffold.
 - Source versions can now be disabled with audit logging, which disables their chunks for future retrieval.
 - Added a Redis enqueue API path for ingestion jobs with queue message job ids.
+- Added runtime QuestionAttachment records and APIs for linking existing artifacts to questions and review detail.
 
 ## Verified
 
@@ -75,7 +76,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 33 passed.
+- API tests: 34 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

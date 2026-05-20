@@ -181,6 +181,18 @@ class Question(BaseModel):
     created_at: datetime = Field(default_factory=now)
 
 
+class QuestionAttachmentCreate(BaseModel):
+    artifact_id: UUID
+    attachment_type: str = "file"
+    description: str = ""
+
+
+class QuestionAttachment(QuestionAttachmentCreate):
+    id: UUID = Field(default_factory=uuid4)
+    question_id: UUID
+    created_at: datetime = Field(default_factory=now)
+
+
 class RetrievalRun(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     question_id: UUID
@@ -423,6 +435,7 @@ class EvalResult(BaseModel):
 class ReviewItemDetail(BaseModel):
     item: ReviewItem
     question: Optional[Question] = None
+    attachments: List[QuestionAttachment] = Field(default_factory=list)
     answer: Optional[Answer] = None
     evidence: List[Evidence] = Field(default_factory=list)
     candidates: List[RetrievalCandidate] = Field(default_factory=list)

@@ -110,6 +110,15 @@ export type Question = {
   normalized_text: string;
 };
 
+export type QuestionAttachment = {
+  id: string;
+  question_id: string;
+  artifact_id: string;
+  attachment_type: string;
+  description: string;
+  created_at: string;
+};
+
 export type ReviewItem = {
   id: string;
   source_type: string;
@@ -139,6 +148,7 @@ export type EvalResult = {
 export type ReviewItemDetail = {
   item: ReviewItem;
   question?: Question | null;
+  attachments: QuestionAttachment[];
   answer?: Answer | null;
   evidence: Evidence[];
   candidates: RetrievalCandidate[];

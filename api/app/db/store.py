@@ -24,6 +24,7 @@ from app.models.schemas import (
     ModelRun,
     OcrResult,
     Question,
+    QuestionAttachment,
     RetrievalCandidate,
     RetrievalRun,
     ReviewItem,
@@ -48,6 +49,7 @@ class InMemoryStore:
         self.chunks: Dict[UUID, Chunk] = {}
         self.chunk_embeddings: Dict[UUID, ChunkEmbedding] = {}
         self.questions: Dict[UUID, Question] = {}
+        self.question_attachments: Dict[UUID, QuestionAttachment] = {}
         self.retrieval_runs: Dict[UUID, RetrievalRun] = {}
         self.retrieval_candidates: Dict[UUID, RetrievalCandidate] = {}
         self.evidences: Dict[UUID, Evidence] = {}
@@ -127,6 +129,13 @@ class InMemoryStore:
     def add_question(self, question: Question) -> Question:
         self.questions[question.id] = question
         return question
+
+    def add_question_attachment(self, attachment: QuestionAttachment) -> QuestionAttachment:
+        self.question_attachments[attachment.id] = attachment
+        return attachment
+
+    def attachments_for_question(self, question_id: UUID) -> List[QuestionAttachment]:
+        return [attachment for attachment in self.question_attachments.values() if attachment.question_id == question_id]
 
     def add_retrieval_run(self, run: RetrievalRun) -> RetrievalRun:
         self.retrieval_runs[run.id] = run
