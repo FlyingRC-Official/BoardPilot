@@ -523,6 +523,9 @@ def test_child_list_endpoints_distinguish_missing_parent_from_empty_children():
     assert client.get(f"/sources/{missing_id}/versions").status_code == 404
     assert client.get(f"/source-versions/{missing_id}/chunks").status_code == 404
     assert client.get(f"/source-versions/{missing_id}/artifacts").status_code == 404
+    assert client.get(f"/questions/{missing_id}/attachments").status_code == 404
+    assert client.get(f"/retrieval-runs/{missing_id}/candidates").status_code == 404
+    assert client.get(f"/eval-runs/{missing_id}/results").status_code == 404
 
     product = client.post(
         "/products",
@@ -540,6 +543,18 @@ def test_child_list_endpoints_distinguish_missing_parent_from_empty_children():
 
     assert client.get(f"/products/{product['id']}/aliases").json() == []
     assert client.get(f"/sources/{source['id']}/versions").json() == []
+
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Do empty child endpoints distinguish parents?"},
+    ).json()
+    question_id = ask_payload["question"]["id"]
+    retrieval_run_id = ask_payload["retrieval_run"]["id"]
+    assert client.get(f"/questions/{question_id}/attachments").json() == []
+    assert client.get(f"/retrieval-runs/{retrieval_run_id}/candidates").json() == ask_payload["candidates"]
+
+    eval_run = client.post("/eval-runs", json={"name": "empty eval"}).json()["eval_run"]
+    assert client.get(f"/eval-runs/{eval_run['id']}/results").json() == []
 
 
 def test_unsupported_embedding_provider_config_fails_ingestion_and_routes_review():

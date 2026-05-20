@@ -1409,7 +1409,8 @@ def post_question_attachment(
 @app.get("/questions/{question_id}/attachments", response_model=list[QuestionAttachment])
 def get_question_attachments(question_id: UUID, session: Session = Depends(get_session)) -> list[QuestionAttachment]:
     database_attachments = list_question_attachments_from_database(session, question_id)
-    if database_attachments:
+    database_question = get_question_from_database(session, question_id)
+    if database_question:
         return database_attachments
     if question_id not in store.questions:
         raise not_found()
@@ -1428,7 +1429,13 @@ def get_retrieval_run(run_id: UUID, session: Session = Depends(get_session)):
 
 @app.get("/retrieval-runs/{run_id}/candidates")
 def get_retrieval_candidates(run_id: UUID, session: Session = Depends(get_session)) -> list:
-    return list_retrieval_candidates_from_database(session, run_id) or store.candidates_for_run(run_id)
+    database_candidates = list_retrieval_candidates_from_database(session, run_id)
+    database_run = get_retrieval_run_from_database(session, run_id)
+    if database_run:
+        return database_candidates
+    if run_id not in store.retrieval_runs:
+        raise not_found()
+    return store.candidates_for_run(run_id)
 
 
 @app.get("/answers/{answer_id}")
@@ -1590,7 +1597,13 @@ def get_eval_run(run_id: UUID, session: Session = Depends(get_session)):
 
 @app.get("/eval-runs/{run_id}/results")
 def get_eval_results(run_id: UUID, session: Session = Depends(get_session)) -> list:
-    return list_eval_results_from_database(session, run_id) or [result for result in store.eval_results.values() if result.eval_run_id == run_id]
+    database_results = list_eval_results_from_database(session, run_id)
+    database_run = get_eval_run_from_database(session, run_id)
+    if database_run:
+        return database_results
+    if run_id not in store.eval_runs:
+        raise not_found()
+    return [result for result in store.eval_results.values() if result.eval_run_id == run_id]
 
 
 @app.post("/eval-results/{result_id}/to-review")
