@@ -1507,9 +1507,17 @@ def test_answer_feedback_creates_review_item():
         "/ask",
         json={"product_id": product["id"], "question": "Can I power servos from USB?"},
     ).json()
+    viewer_feedback = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "needs_review", "notes": "Viewer should not create review work."},
+        headers={"X-BoardPilot-Role": "viewer"},
+    )
+    assert viewer_feedback.status_code == 403
+
     feedback = client.post(
         f"/answers/{ask_payload['answer']['id']}/feedback",
         json={"feedback_type": "missing_source", "notes": "Need a stronger source citation."},
+        headers={"X-BoardPilot-Role": "support"},
     )
     assert feedback.status_code == 200
     assert feedback.json()["source_type"] == "source_issue"

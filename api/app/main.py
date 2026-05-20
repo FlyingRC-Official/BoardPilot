@@ -1509,7 +1509,7 @@ def get_model_run(model_run_id: UUID, session: Session = Depends(get_session)):
 def post_feedback(
     answer_id: UUID,
     payload: AnswerFeedbackCreate,
-    _user: CurrentUser = Depends(get_current_user),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
     answer = store.answers.get(answer_id) or get_answer_from_database(session, answer_id)
