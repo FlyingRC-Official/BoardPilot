@@ -35,6 +35,26 @@ def reject_review_item(store: InMemoryStore, item_id: UUID, failure_category: Fa
     return item
 
 
+def mark_source_update_needed(
+    store: InMemoryStore,
+    item_id: UUID,
+    failure_category: FailureCategory,
+    reviewer_id: str = "local",
+) -> ReviewItem:
+    item = store.review_items[item_id]
+    item.failure_category = failure_category
+    item.reviewer_id = reviewer_id
+    item.status = ReviewStatus.needs_source_update
+    store.add_audit_log(
+        "review_marked_source_update_needed",
+        "ReviewItem",
+        str(item.id),
+        user_id=reviewer_id,
+        after_json=item.model_dump(mode="json"),
+    )
+    return item
+
+
 def review_to_eval_case(store: InMemoryStore, item_id: UUID) -> EvalCase:
     item = store.review_items[item_id]
     question = store.questions[item.question_id]

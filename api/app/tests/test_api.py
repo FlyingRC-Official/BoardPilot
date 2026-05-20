@@ -210,6 +210,21 @@ def test_product_source_ingestion_and_dedup():
     assert len(duplicate["chunks"]) == 1
 
 
+def test_source_disable_is_audited():
+    _product, source, _chunks = seed_source()
+    disabled = client.post(
+        f"/sources/{source['id']}/disable",
+        json={"reason": "stale pinout"},
+        headers={"X-BoardPilot-User": "maintainer-1", "X-BoardPilot-Role": "support"},
+    )
+    assert disabled.status_code == 200
+    assert disabled.json()["status"] == "disabled"
+    audit_logs = client.get("/audit-logs").json()
+    audit = [log for log in audit_logs if log["action"] == "source_disabled"]
+    assert audit[-1]["user_id"] == "maintainer-1"
+    assert audit[-1]["after_json"]["reason"] == "stale pinout"
+
+
 def test_ingestion_job_create_list_get_and_retry():
     product, source, chunks = seed_source()
     source_versions = client.get(f"/sources/{source['id']}/versions").json()
@@ -553,6 +568,21 @@ def test_review_approval_requires_failure_category():
     assert review_audit
     assert review_audit[-1]["user_id"] == "reviewer-1"
     assert review_audit[-1]["entity_id"] == review_item["id"]
+
+
+def test_review_can_be_marked_as_needing_source_update():
+    ask_payload = client.post("/ask", json={"question": "What source needs updating?"}).json()
+    review_item = ask_payload["review_item"]
+    marked = client.post(
+        f"/review-items/{review_item['id']}/source-update-needed",
+        json={"failure_category": "stale_source"},
+        headers={"X-BoardPilot-User": "reviewer-2", "X-BoardPilot-Role": "reviewer"},
+    )
+    assert marked.status_code == 200
+    assert marked.json()["status"] == "needs_source_update"
+    assert marked.json()["failure_category"] == "stale_source"
+    audit_actions = [item["action"] for item in client.get("/audit-logs").json()]
+    assert "review_marked_source_update_needed" in audit_actions
 
 
 def test_source_and_eval_case_changes_are_audit_logged():

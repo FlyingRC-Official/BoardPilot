@@ -24,6 +24,7 @@ export function ReviewEditor({
   onToFaq,
   onToEval,
   onInspect,
+  onSourceUpdateNeeded,
   edits,
   notes,
   failureCategories,
@@ -37,6 +38,7 @@ export function ReviewEditor({
   onToFaq: (id: string) => void;
   onToEval: (id: string) => void;
   onInspect: (id: string) => void;
+  onSourceUpdateNeeded: (id: string) => void;
   edits: Record<string, string>;
   notes: Record<string, string>;
   failureCategories: Record<string, string>;
@@ -105,6 +107,9 @@ export function ReviewEditor({
               </button>
               <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onInspect(item.id)}>
                 Details
+              </button>
+              <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onSourceUpdateNeeded(item.id)}>
+                Source Update
               </button>
             </td>
           </tr>

@@ -48,6 +48,7 @@ Updated: 2026-05-20
 - Added ReviewItem detail API/UI that shows the linked question, generated answer, evidence pack, and retrieval trace.
 - Enabled LLM provider configs to set answer/model-run identity and estimate model cost in EvalRun summaries.
 - Extended enabled provider config identity to saved chunk embeddings, reranked candidate metadata, and OCR results.
+- Added explicit source-disable audit logging and a Review action for marking source updates needed.
 
 ## Verified
 
@@ -64,7 +65,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 23 passed.
+- API tests: 25 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -83,7 +84,7 @@ Results:
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing.
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI remains minimal.
-- Review approval/rejection now fails without an explicit failure category.
+- Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace; review still needs durable database persistence and richer eval-result context.

@@ -48,7 +48,7 @@ from app.retrieval.entity_extraction import detect_product_aliases
 from app.retrieval.query_normalization import normalize_query, product_alias_expansions
 from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
-from app.review.service import approve_review_item, reject_review_item, review_to_eval_case, review_to_faq
+from app.review.service import approve_review_item, mark_source_update_needed, reject_review_item, review_to_eval_case, review_to_faq
 from app.sources.service import create_source, create_source_version, create_uploaded_source_version, list_sources
 from app.providers.ocr import ocr_provider
 
@@ -230,6 +230,29 @@ def patch_source(
         user_id=user.user_id,
         before_json=before,
         after_json=source.model_dump(mode="json"),
+    )
+    return source
+
+
+@app.post("/sources/{source_id}/disable", response_model=Source)
+def disable_source(
+    source_id: UUID,
+    payload: Dict[str, Any],
+    user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> Source:
+    if source_id not in store.sources:
+        raise not_found()
+    source = store.sources[source_id]
+    before = source.model_dump(mode="json")
+    source.status = "disabled"
+    store.sources[source_id] = source
+    store.add_audit_log(
+        "source_disabled",
+        "Source",
+        str(source.id),
+        user_id=user.user_id,
+        before_json=before,
+        after_json={**source.model_dump(mode="json"), "reason": payload.get("reason", "")},
     )
     return source
 
@@ -614,6 +637,17 @@ def post_review_reject(
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
     return reject_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+
+
+@app.post("/review-items/{item_id}/source-update-needed", response_model=ReviewItem)
+def post_review_source_update_needed(
+    item_id: UUID,
+    payload: Dict[str, FailureCategory],
+    user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+) -> ReviewItem:
+    if "failure_category" not in payload:
+        raise HTTPException(status_code=422, detail="failure_category is required")
+    return mark_source_update_needed(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
 
 
 @app.post("/review-items/{item_id}/to-faq")

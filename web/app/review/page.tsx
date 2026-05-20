@@ -12,6 +12,7 @@ import {
   getReviewItemDetail,
   listAuditLogs,
   listReviewItems,
+  markReviewSourceUpdateNeeded,
   updateReviewItem
 } from "@/lib/api-client";
 import type { AuditLog, ReviewItem, ReviewItemDetail } from "@/lib/types";
@@ -87,6 +88,13 @@ export default function ReviewPage() {
     setMessage("Review detail loaded.");
   }
 
+  async function sourceUpdateNeeded(id: string) {
+    await saveDraft(id);
+    await markReviewSourceUpdateNeeded(id, failureCategories[id] || "stale_source");
+    await refresh();
+    setMessage("Review item marked as needing a source update.");
+  }
+
   return (
     <>
       <header className="page-header">
@@ -110,6 +118,7 @@ export default function ReviewPage() {
           onToFaq={toFaq}
           onToEval={toEval}
           onInspect={inspect}
+          onSourceUpdateNeeded={sourceUpdateNeeded}
         />
         {message ? <p className="status" style={{ marginTop: 14 }}>{message}</p> : null}
       </section>

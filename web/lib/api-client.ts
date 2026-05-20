@@ -138,6 +138,13 @@ export function approveReviewItem(id: string, failure_category = "human_policy_r
   });
 }
 
+export function markReviewSourceUpdateNeeded(id: string, failure_category = "stale_source") {
+  return request<ReviewItem>(`/review-items/${id}/source-update-needed`, {
+    method: "POST",
+    body: JSON.stringify({ failure_category })
+  });
+}
+
 export function updateReviewItem(
   id: string,
   payload: Partial<Pick<ReviewItem, "failure_category" | "reviewer_notes" | "edited_answer_text">>
