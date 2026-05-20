@@ -61,6 +61,7 @@ Updated: 2026-05-20
 - Added a Redis enqueue API path for ingestion jobs with queue message job ids.
 - Added runtime QuestionAttachment records and APIs for linking existing artifacts to questions and review detail.
 - Review detail now displays linked question attachments for reviewer context.
+- Sources page can queue the latest source version for the Redis ingestion worker.
 
 ## Verified
 

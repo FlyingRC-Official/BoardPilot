@@ -109,6 +109,13 @@ export function runIngestionJob(sourceVersionId: string) {
   });
 }
 
+export function queueIngestionJob(sourceVersionId: string) {
+  return request<{ job: IngestionJob; queue: string }>("/ingestion/jobs/enqueue", {
+    method: "POST",
+    body: JSON.stringify({ source_version_id: sourceVersionId })
+  });
+}
+
 export function disableSourceVersion(versionId: string, reason: string) {
   return request<{ version: SourceVersion; disabled_chunk_count: number }>(`/source-versions/${versionId}/disable`, {
     method: "POST",

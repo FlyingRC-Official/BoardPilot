@@ -14,6 +14,7 @@ import {
   listSourceVersionChunks,
   listSourceVersions,
   listSources,
+  queueIngestionJob,
   runIngestionJob,
   uploadSourceVersion
 } from "@/lib/api-client";
@@ -73,6 +74,16 @@ export default function SourcesPage() {
     setChunks(result.chunks);
     setVersions(await listSourceVersions(selectedSource.id).catch(() => versions));
     setMessage(`Reingestion ${result.job.status}: ${result.job.chunk_count} new chunks.`);
+  }
+
+  async function queueLatestVersion() {
+    if (!selectedSource || !versions.length) {
+      setMessage("Select a source with a version first.");
+      return;
+    }
+    const latestVersion = versions[versions.length - 1];
+    const result = await queueIngestionJob(latestVersion.id);
+    setMessage(`Queued ingestion job ${result.job.id.slice(0, 8)} on ${result.queue}.`);
   }
 
   async function disableLatestVersion() {
@@ -235,6 +246,9 @@ export default function SourcesPage() {
           <div className="button-row" style={{ marginTop: 12 }}>
             <button className="button secondary" type="button" onClick={reingestLatestVersion}>
               Reingest Latest
+            </button>
+            <button className="button secondary" type="button" onClick={queueLatestVersion}>
+              Queue Latest
             </button>
             <button className="button secondary" type="button" onClick={disableLatestVersion}>
               Disable Latest
