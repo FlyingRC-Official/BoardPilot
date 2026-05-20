@@ -38,6 +38,7 @@ Updated: 2026-05-21
 - CSV/FAQ parsing now normalizes common support-export headers, BOM-prefixed files, whitespace, optional context fields, and headerless two-column rows.
 - Added `pypdf`-backed PDF text extraction with a decoded-text fallback.
 - Uploaded PDF files that look like real PDFs now fail ingestion with a saved error and source-issue ReviewItem when text extraction fails or yields no text, instead of chunking replacement-decoded binary content.
+- Source version creation and manual artifact additions now reject blank content before ingestion so empty source artifacts are not silently persisted.
 - Added a repeatable 20-case hardware-support Eval seed corpus and Eval page seed action.
 - Added reviewer-edited answer controls before ApprovedFAQ conversion.
 - Added product alias detection during Ask with normalized query expansion and soft product boosts.

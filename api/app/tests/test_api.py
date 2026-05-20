@@ -637,6 +637,15 @@ def test_product_source_ingestion_and_dedup():
     version_artifacts = client.get(f"/source-versions/{version_id}/artifacts").json()
     assert len(version_artifacts) == 2
     assert all(artifact["source_version_id"] == version_id for artifact in version_artifacts)
+    version_chunk_count = len(client.get(f"/source-versions/{version_id}/chunks").json())
+
+    blank_artifact = client.post(
+        f"/sources/{source['id']}/versions/{version_id}/artifacts",
+        json={"version_label": "blank", "content": "   "},
+    )
+    assert blank_artifact.status_code == 422
+    assert len(client.get(f"/source-versions/{version_id}/artifacts").json()) == 2
+    assert len(client.get(f"/source-versions/{version_id}/chunks").json()) == version_chunk_count
 
 
 def test_child_list_endpoints_distinguish_missing_parent_from_empty_children():

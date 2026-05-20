@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 def now() -> datetime:
@@ -115,6 +115,13 @@ class SourceVersionCreate(BaseModel):
     version_label: str = "v1"
     content: str
     parser_version: str = "mvp-text-v1"
+
+    @field_validator("content")
+    @classmethod
+    def content_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("content must not be blank")
+        return value
 
 
 class WebpageSnapshotCreate(BaseModel):
