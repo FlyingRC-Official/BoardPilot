@@ -55,6 +55,14 @@ export type SourceArtifact = {
   content: string;
 };
 
+export type IngestionJob = {
+  id: string;
+  source_version_id: string;
+  status: string;
+  error_message: string;
+  chunk_count: number;
+};
+
 export type Chunk = {
   id: string;
   source_version_id: string;

@@ -6,6 +6,7 @@ import type {
   Product,
   ProductAlias,
   ProviderConfig,
+  IngestionJob,
   ReviewItem,
   ReviewItemDetail,
   Source,
@@ -98,6 +99,13 @@ export function listSourceVersionArtifacts(versionId: string) {
 
 export function listSourceVersionChunks(versionId: string) {
   return request<Chunk[]>(`/source-versions/${versionId}/chunks`);
+}
+
+export function runIngestionJob(sourceVersionId: string) {
+  return request<{ job: IngestionJob; chunks: Chunk[] }>("/ingestion/jobs", {
+    method: "POST",
+    body: JSON.stringify({ source_version_id: sourceVersionId })
+  });
 }
 
 export async function uploadSourceVersion(sourceId: string, file: File, versionLabel = "uploaded") {

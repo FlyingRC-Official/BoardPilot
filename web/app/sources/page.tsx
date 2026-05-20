@@ -13,6 +13,7 @@ import {
   listSourceVersionChunks,
   listSourceVersions,
   listSources,
+  runIngestionJob,
   uploadSourceVersion
 } from "@/lib/api-client";
 import type { Chunk, Product, ProductAlias, Source, SourceArtifact, SourceVersion } from "@/lib/types";
@@ -58,6 +59,18 @@ export default function SourcesPage() {
     setArtifacts(await listSourceVersionArtifacts(latestVersion.id).catch(() => []));
     setChunks(await listSourceVersionChunks(latestVersion.id).catch(() => []));
     setMessage(`Inspecting ${source.title}.`);
+  }
+
+  async function reingestLatestVersion() {
+    if (!selectedSource || !versions.length) {
+      setMessage("Select a source with a version first.");
+      return;
+    }
+    const latestVersion = versions[versions.length - 1];
+    const result = await runIngestionJob(latestVersion.id);
+    setChunks(result.chunks);
+    setVersions(await listSourceVersions(selectedSource.id).catch(() => versions));
+    setMessage(`Reingestion ${result.job.status}: ${result.job.chunk_count} new chunks.`);
   }
 
   useEffect(() => {
@@ -205,6 +218,11 @@ export default function SourcesPage() {
           <p className="muted">
             {selectedSource.title} · {versions.length} versions · {chunks.length} chunks in latest version
           </p>
+          <div className="button-row" style={{ marginTop: 12 }}>
+            <button className="button secondary" type="button" onClick={reingestLatestVersion}>
+              Reingest Latest
+            </button>
+          </div>
           <div className="grid two" style={{ marginTop: 12 }}>
             <div>
               <h3>Version History</h3>
