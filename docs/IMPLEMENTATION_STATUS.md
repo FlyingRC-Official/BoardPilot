@@ -74,6 +74,7 @@ Updated: 2026-05-20
 - Sources page can re-run ingestion for the latest source version through the IngestionJob API.
 - Sources page can import webpage snapshots by URL, store the HTML artifact, and ingest extracted visible text into chunks.
 - Sources page can upload image assets to local storage and ingest a manual image description into retrieval chunks.
+- Sources page now lists recent ticket, log, image, and OCR import records so support-import source material is inspectable from the workbench.
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 - Eval page now shows latest-run per-case results, supports trace inspection with answer/evidence/reranked candidates, and can send failed EvalResults to Review.
 - EvalRun now assigns failure categories for recall, rerank, insufficient-evidence, and unsupported-claim failures so ReviewItems inherit actionable failure reasons.

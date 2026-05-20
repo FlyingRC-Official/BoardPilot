@@ -81,6 +81,52 @@ export type Chunk = {
   enabled: boolean;
 };
 
+export type Ticket = {
+  id: string;
+  product_id?: string | null;
+  external_id: string;
+  title: string;
+  body: string;
+  status: string;
+  tags_json: string[];
+  anonymized: boolean;
+  source_id?: string | null;
+  created_at: string;
+};
+
+export type LogSource = {
+  id: string;
+  product_id?: string | null;
+  source_id?: string | null;
+  log_type: string;
+  content: string;
+  device_context_json: Record<string, unknown>;
+  time_range_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type ImageAsset = {
+  id: string;
+  product_id?: string | null;
+  source_id?: string | null;
+  storage_uri: string;
+  image_type: string;
+  manual_description: string;
+  created_at: string;
+};
+
+export type OcrResult = {
+  id: string;
+  image_asset_id: string;
+  provider_name: string;
+  model_name: string;
+  ocr_text: string;
+  confidence: number;
+  status: string;
+  error_message: string;
+  created_at: string;
+};
+
 export type Evidence = {
   id: string;
   retrieval_run_id: string;

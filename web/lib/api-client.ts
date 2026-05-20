@@ -10,7 +10,10 @@ import type {
   ProductAlias,
   ProviderConfig,
   Answer,
+  ImageAsset,
   IngestionJob,
+  LogSource,
+  OcrResult,
   Question,
   RetrievalCandidate,
   ReviewItem,
@@ -18,7 +21,8 @@ import type {
   Source,
   SourceArtifact,
   SourceVersion,
-  Chunk
+  Chunk,
+  Ticket
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -173,6 +177,22 @@ export async function uploadImageAsset(payload: {
     throw new Error(`${response.status} ${response.statusText}`);
   }
   return response.json();
+}
+
+export function listTickets() {
+  return request<Ticket[]>("/tickets");
+}
+
+export function listLogSources() {
+  return request<LogSource[]>("/log-sources");
+}
+
+export function listImageAssets() {
+  return request<ImageAsset[]>("/image-assets");
+}
+
+export function listImageOcrResults(imageId: string) {
+  return request<OcrResult[]>(`/image-assets/${imageId}/ocr-results`);
 }
 
 export function askQuestion(payload: {

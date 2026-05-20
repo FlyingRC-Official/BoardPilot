@@ -9,18 +9,33 @@ import {
   createProductAlias,
   createSource,
   disableSourceVersion,
+  listImageAssets,
+  listImageOcrResults,
+  listLogSources,
   listProductAliases,
   listProducts,
   listSourceVersionArtifacts,
   listSourceVersionChunks,
   listSourceVersions,
   listSources,
+  listTickets,
   queueIngestionJob,
   runIngestionJob,
   uploadImageAsset,
   uploadSourceVersion
 } from "@/lib/api-client";
-import type { Chunk, Product, ProductAlias, Source, SourceArtifact, SourceVersion } from "@/lib/types";
+import type {
+  Chunk,
+  ImageAsset,
+  LogSource,
+  OcrResult,
+  Product,
+  ProductAlias,
+  Source,
+  SourceArtifact,
+  SourceVersion,
+  Ticket
+} from "@/lib/types";
 
 function chunkMetadataRows(chunk: Chunk) {
   return [
@@ -41,6 +56,10 @@ export default function SourcesPage() {
   const [versions, setVersions] = useState<SourceVersion[]>([]);
   const [artifacts, setArtifacts] = useState<SourceArtifact[]>([]);
   const [chunks, setChunks] = useState<Chunk[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [logSources, setLogSources] = useState<LogSource[]>([]);
+  const [imageAssets, setImageAssets] = useState<ImageAsset[]>([]);
+  const [ocrResultsByImage, setOcrResultsByImage] = useState<Record<string, OcrResult[]>>({});
   const [productName, setProductName] = useState("FlyingRC F4");
   const [productSlug, setProductSlug] = useState("flyingrc-f4");
   const [alias, setAlias] = useState("F4 FC");
@@ -64,6 +83,14 @@ export default function SourcesPage() {
       setAliases(await listProductAliases(nextProducts[0].id).catch(() => []));
     }
     setSources(await listSources().catch(() => []));
+    setTickets(await listTickets().catch(() => []));
+    setLogSources(await listLogSources().catch(() => []));
+    const nextImageAssets = await listImageAssets().catch(() => []);
+    setImageAssets(nextImageAssets);
+    const nextOcrEntries = await Promise.all(
+      nextImageAssets.map(async (image) => [image.id, await listImageOcrResults(image.id).catch(() => [])] as const)
+    );
+    setOcrResultsByImage(Object.fromEntries(nextOcrEntries));
   }
 
   async function inspectSource(source: Source) {
@@ -315,6 +342,88 @@ export default function SourcesPage() {
           </label>
           <button className="button secondary">Upload Image</button>
         </form>
+      </section>
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>Support Imports</h2>
+        <div className="grid three" style={{ marginTop: 12 }}>
+          <div>
+            <h3>Tickets</h3>
+            {tickets.length ? (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>External</th>
+                    <th>Status</th>
+                    <th>Title</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tickets.slice(0, 5).map((ticket) => (
+                    <tr key={ticket.id}>
+                      <td>{ticket.external_id || ticket.id.slice(0, 8)}</td>
+                      <td>{ticket.status}</td>
+                      <td>{ticket.title || ticket.body.slice(0, 48)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty">No imported tickets.</div>
+            )}
+          </div>
+          <div>
+            <h3>Logs</h3>
+            {logSources.length ? (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Content</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logSources.slice(0, 5).map((logSource) => (
+                    <tr key={logSource.id}>
+                      <td>{logSource.log_type || "log"}</td>
+                      <td>{logSource.content.slice(0, 64)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty">No imported logs.</div>
+            )}
+          </div>
+          <div>
+            <h3>Images</h3>
+            {imageAssets.length ? (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>OCR</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {imageAssets.slice(0, 5).map((image) => {
+                    const imageOcrResults = ocrResultsByImage[image.id] || [];
+                    const latestOcr = imageOcrResults[imageOcrResults.length - 1];
+                    return (
+                      <tr key={image.id}>
+                        <td>{image.image_type || "image"}</td>
+                        <td>{latestOcr?.ocr_text?.slice(0, 48) || image.manual_description.slice(0, 48) || "-"}</td>
+                        <td>{latestOcr?.status || "manual"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty">No image assets.</div>
+            )}
+          </div>
+        </div>
       </section>
       {message ? <p className="status" style={{ marginTop: 16 }}>{message}</p> : null}
       <section className="panel" style={{ marginTop: 16 }}>
