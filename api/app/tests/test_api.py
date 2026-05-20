@@ -626,6 +626,25 @@ def test_source_disable_is_audited():
     assert audit[-1]["after_json"]["reason"] == "stale pinout"
 
 
+def test_product_and_source_patch_refresh_updated_at():
+    product, source, _chunks = seed_source()
+    patched_product = client.patch(
+        f"/products/{product['id']}",
+        json={"description": "Updated product description"},
+        headers={"X-BoardPilot-Role": "admin"},
+    ).json()
+    assert patched_product["description"] == "Updated product description"
+    assert patched_product["updated_at"] != product["updated_at"]
+
+    patched_source = client.patch(
+        f"/sources/{source['id']}",
+        json={"trust_level": "verified"},
+        headers={"X-BoardPilot-Role": "support"},
+    ).json()
+    assert patched_source["trust_level"] == "verified"
+    assert patched_source["updated_at"] != source["updated_at"]
+
+
 def test_source_version_disable_removes_chunks_from_retrieval_and_is_audited():
     product, source, chunks = seed_source()
     source_versions = client.get(f"/sources/{source['id']}/versions").json()

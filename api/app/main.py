@@ -878,6 +878,7 @@ def patch_product(
     for key, value in payload.items():
         if hasattr(product, key):
             setattr(product, key, value)
+    product.updated_at = now()
     store.products[product_id] = product
     save_product_to_database(session, product)
     return product
@@ -952,6 +953,7 @@ def patch_source(
     for key, value in payload.items():
         if hasattr(source, key):
             setattr(source, key, value)
+    source.updated_at = now()
     store.sources[source_id] = source
     save_source_to_database(session, source)
     store.add_audit_log(
