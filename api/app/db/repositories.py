@@ -324,11 +324,24 @@ class ReviewEvalRepository:
     def add_ticket(self, ticket: Ticket) -> Ticket:
         return self._merge(ticket, TicketOrm, Ticket)
 
+    def list_tickets(self) -> list[Ticket]:
+        return self._list(TicketOrm, Ticket)
+
     def add_log_source(self, log_source: LogSource) -> LogSource:
         return self._merge(log_source, LogSourceOrm, LogSource)
 
+    def list_log_sources(self) -> list[LogSource]:
+        return self._list(LogSourceOrm, LogSource)
+
     def add_image_asset(self, image_asset: ImageAsset) -> ImageAsset:
         return self._merge(image_asset, ImageAssetOrm, ImageAsset)
+
+    def get_image_asset(self, image_asset_id: UUID) -> ImageAsset | None:
+        row = self.session.get(ImageAssetOrm, str(image_asset_id))
+        return _orm_to_model(row, ImageAsset) if row else None
+
+    def list_image_assets(self) -> list[ImageAsset]:
+        return self._list(ImageAssetOrm, ImageAsset)
 
     def add_ocr_result(self, ocr_result: OcrResult) -> OcrResult:
         return self._merge(ocr_result, OcrResultOrm, OcrResult)

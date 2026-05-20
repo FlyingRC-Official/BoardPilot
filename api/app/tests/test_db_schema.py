@@ -12,6 +12,7 @@ from app.main import (
     get_eval_case_from_database,
     get_eval_result_from_database,
     get_eval_run_from_database,
+    get_image_asset_from_database,
     get_model_run_from_database,
     get_provider_config_from_database,
     get_product_from_database,
@@ -29,6 +30,9 @@ from app.main import (
     list_eval_results_from_database,
     list_eval_runs_from_database,
     list_evidence_from_database,
+    list_image_assets_from_database,
+    list_log_sources_from_database,
+    list_ocr_results_from_database,
     list_provider_configs_from_database,
     list_products_from_database,
     list_question_attachments_from_database,
@@ -37,11 +41,15 @@ from app.main import (
     list_runtime_jobs,
     list_sources_from_database,
     list_source_versions_from_database,
+    list_tickets_from_database,
     save_alias_to_database,
     save_ask_response_to_database,
     save_chunks_to_database,
     save_eval_case_to_database,
     save_eval_run_results_to_database,
+    save_image_asset_to_database,
+    save_log_source_to_database,
+    save_ocr_result_to_database,
     save_provider_config_to_database,
     save_product_to_database,
     save_question_attachment_to_database,
@@ -50,6 +58,7 @@ from app.main import (
     save_source_to_database,
     save_source_version_bundle_to_database,
     save_source_version_to_database,
+    save_ticket_to_database,
 )
 from app.models.schemas import (
     Answer,
@@ -298,6 +307,41 @@ def test_provider_config_api_helpers_use_database_when_available():
     assert get_provider_config_from_database(session, config.id).model_name == "fake-citation-llm"
     assert delete_provider_config_from_database(session, config.id).id == config.id
     assert list_provider_configs_from_database(session) == []
+
+
+def test_support_import_api_helpers_use_database_when_available():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["tickets"],
+        Base.metadata.tables["log_sources"],
+        Base.metadata.tables["image_assets"],
+        Base.metadata.tables["ocr_results"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Support import", source_type=SourceType.ticket_export)
+    ticket = Ticket(product_id=product.id, external_id="T-1", title="USB", body="Customer asks.", source_id=source.id)
+    log_source = LogSource(product_id=product.id, log_type="boot", content="BOOT OK", source_id=source.id)
+    image_asset = ImageAsset(product_id=product.id, storage_uri="local://image.png", image_type="screenshot", source_id=source.id)
+    ocr = OcrResult(image_asset_id=image_asset.id, provider_name="fake", model_name="fake-ocr", ocr_text="USB")
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_ticket_to_database(session, ticket)
+    save_log_source_to_database(session, log_source)
+    save_image_asset_to_database(session, image_asset)
+    save_ocr_result_to_database(session, ocr)
+    session.expire_all()
+
+    assert list_tickets_from_database(session)[0].id == ticket.id
+    assert list_log_sources_from_database(session)[0].content == "BOOT OK"
+    assert list_image_assets_from_database(session)[0].id == image_asset.id
+    assert get_image_asset_from_database(session, image_asset.id).storage_uri == "local://image.png"
+    assert list_ocr_results_from_database(session, image_asset.id)[0].id == ocr.id
 
 
 def test_catalog_api_helpers_use_database_when_available():

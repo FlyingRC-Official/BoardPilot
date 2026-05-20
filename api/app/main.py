@@ -470,6 +470,78 @@ def list_review_items_from_database(session: Session) -> list[ReviewItem]:
         return []
 
 
+def save_ticket_to_database(session: Session, ticket: Ticket) -> None:
+    try:
+        ReviewEvalRepository(session).add_ticket(ticket)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_tickets_from_database(session: Session) -> list[Ticket]:
+    try:
+        return ReviewEvalRepository(session).list_tickets()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def save_log_source_to_database(session: Session, log_source: LogSource) -> None:
+    try:
+        ReviewEvalRepository(session).add_log_source(log_source)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_log_sources_from_database(session: Session) -> list[LogSource]:
+    try:
+        return ReviewEvalRepository(session).list_log_sources()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def save_image_asset_to_database(session: Session, image_asset: ImageAsset) -> None:
+    try:
+        ReviewEvalRepository(session).add_image_asset(image_asset)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def get_image_asset_from_database(session: Session, image_asset_id: UUID) -> Optional[ImageAsset]:
+    try:
+        return ReviewEvalRepository(session).get_image_asset(image_asset_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def list_image_assets_from_database(session: Session) -> list[ImageAsset]:
+    try:
+        return ReviewEvalRepository(session).list_image_assets()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def save_ocr_result_to_database(session: Session, ocr_result: OcrResult) -> None:
+    try:
+        ReviewEvalRepository(session).add_ocr_result(ocr_result)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_ocr_results_from_database(session: Session, image_asset_id: UUID) -> list[OcrResult]:
+    try:
+        return ReviewEvalRepository(session).ocr_results_for_image(image_asset_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "boardpilot-api"}
@@ -1325,7 +1397,14 @@ def post_review_to_eval_case(
 
 
 @app.post("/tickets")
-def post_ticket(payload: TicketCreate, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
+def post_ticket(
+    payload: TicketCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
+) -> dict:
+    database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
+    if database_product and payload.product_id not in store.products:
+        store.products[payload.product_id] = database_product
     if payload.product_id is None or payload.product_id not in store.products:
         raise HTTPException(status_code=422, detail="valid product_id is required")
     source = create_source(
@@ -1338,7 +1417,7 @@ def post_ticket(payload: TicketCreate, _user: CurrentUser = Depends(require_role
             trust_level="ticket",
         ),
     )
-    version, _artifact, chunks = create_source_version(
+    version, artifact, chunks = create_source_version(
         store,
         source.id,
         SourceVersionCreate(
@@ -1348,16 +1427,26 @@ def post_ticket(payload: TicketCreate, _user: CurrentUser = Depends(require_role
         ),
     )
     ticket = store.add_ticket(Ticket(**payload.model_dump(), source_id=source.id))
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, chunks)
+    save_ticket_to_database(session, ticket)
     return {"ticket": ticket, "source": source, "version": version, "chunks": chunks}
 
 
 @app.get("/tickets")
-def get_tickets() -> list[Ticket]:
-    return list(store.tickets.values())
+def get_tickets(session: Session = Depends(get_session)) -> list[Ticket]:
+    return list_tickets_from_database(session) or list(store.tickets.values())
 
 
 @app.post("/log-sources")
-def post_log_source(payload: LogSourceCreate, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
+def post_log_source(
+    payload: LogSourceCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
+) -> dict:
+    database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
+    if database_product and payload.product_id not in store.products:
+        store.products[payload.product_id] = database_product
     if payload.product_id is None or payload.product_id not in store.products:
         raise HTTPException(status_code=422, detail="valid product_id is required")
     source = create_source(
@@ -1369,7 +1458,7 @@ def post_log_source(payload: LogSourceCreate, _user: CurrentUser = Depends(requi
             trust_level="log",
         ),
     )
-    version, _artifact, chunks = create_source_version(
+    version, artifact, chunks = create_source_version(
         store,
         source.id,
         SourceVersionCreate(
@@ -1379,16 +1468,26 @@ def post_log_source(payload: LogSourceCreate, _user: CurrentUser = Depends(requi
         ),
     )
     log_source = store.add_log_source(LogSource(**payload.model_dump(), source_id=source.id))
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, chunks)
+    save_log_source_to_database(session, log_source)
     return {"log_source": log_source, "source": source, "version": version, "chunks": chunks}
 
 
 @app.get("/log-sources")
-def get_log_sources() -> list[LogSource]:
-    return list(store.log_sources.values())
+def get_log_sources(session: Session = Depends(get_session)) -> list[LogSource]:
+    return list_log_sources_from_database(session) or list(store.log_sources.values())
 
 
 @app.post("/image-assets")
-def post_image_asset(payload: ImageAssetCreate, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
+def post_image_asset(
+    payload: ImageAssetCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
+) -> dict:
+    database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
+    if database_product and payload.product_id not in store.products:
+        store.products[payload.product_id] = database_product
     if payload.product_id is None or payload.product_id not in store.products:
         raise HTTPException(status_code=422, detail="valid product_id is required")
     source = create_source(
@@ -1403,8 +1502,9 @@ def post_image_asset(payload: ImageAssetCreate, _user: CurrentUser = Depends(req
     )
     chunks = []
     version = None
+    artifact = None
     if payload.manual_description.strip():
-        version, _artifact, chunks = create_source_version(
+        version, artifact, chunks = create_source_version(
             store,
             source.id,
             SourceVersionCreate(
@@ -1414,12 +1514,16 @@ def post_image_asset(payload: ImageAssetCreate, _user: CurrentUser = Depends(req
             ),
         )
     image_asset = store.add_image_asset(ImageAsset(**payload.model_dump(), source_id=source.id))
+    save_source_to_database(session, source)
+    if version and artifact:
+        save_source_version_bundle_to_database(session, version, artifact, chunks)
+    save_image_asset_to_database(session, image_asset)
     return {"image_asset": image_asset, "source": source, "version": version, "chunks": chunks}
 
 
 @app.get("/image-assets")
-def get_image_assets() -> list[ImageAsset]:
-    return list(store.image_assets.values())
+def get_image_assets(session: Session = Depends(get_session)) -> list[ImageAsset]:
+    return list_image_assets_from_database(session) or list(store.image_assets.values())
 
 
 @app.post("/image-assets/{image_id}/ocr")
@@ -1427,10 +1531,12 @@ def post_image_ocr(
     image_id: UUID,
     payload: OcrResultCreate = OcrResultCreate(),
     _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> dict:
-    if image_id not in store.image_assets:
+    image_asset = store.image_assets.get(image_id) or get_image_asset_from_database(session, image_id)
+    if not image_asset:
         raise not_found()
-    image_asset = store.image_assets[image_id]
+    store.image_assets[image_id] = image_asset
     provider_result = ocr_provider.ocr(image_asset.storage_uri)
     provider_config = store.active_provider_config("ocr")
     provider_name = provider_config.provider_name if provider_config else provider_result.provider_name
@@ -1447,10 +1553,19 @@ def post_image_ocr(
     )
     chunks = []
     version = None
+    artifact = None
     if ocr_text.strip() and image_asset.source_id:
-        version, _artifact, chunks = create_source_version(
+        database_source = get_source_from_database(session, image_asset.source_id)
+        if database_source and image_asset.source_id not in store.sources:
+            store.sources[image_asset.source_id] = database_source
+        if image_asset.source_id not in store.sources:
+            raise not_found()
+        version, artifact, chunks = create_source_version(
             store,
             image_asset.source_id,
             SourceVersionCreate(version_label="ocr", content=ocr_text, parser_version="fake-ocr-v1"),
         )
+    if version and artifact:
+        save_source_version_bundle_to_database(session, version, artifact, chunks)
+    save_ocr_result_to_database(session, ocr_result)
     return {"ocr_result": ocr_result, "version": version, "chunks": chunks}
