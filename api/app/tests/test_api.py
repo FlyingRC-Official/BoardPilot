@@ -390,6 +390,22 @@ def test_insufficient_evidence_routes_to_review():
     assert payload["review_item"]["status"] == "open"
 
 
+def test_answer_feedback_creates_review_item():
+    product, _source, _chunks = seed_source()
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can I power servos from USB?"},
+    ).json()
+    feedback = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "missing_source", "notes": "Need a stronger source citation."},
+    )
+    assert feedback.status_code == 200
+    assert feedback.json()["source_type"] == "missing_source"
+    assert feedback.json()["answer_id"] == ask_payload["answer"]["id"]
+    assert feedback.json()["reviewer_notes"] == "Need a stronger source citation."
+
+
 def test_llm_provider_config_sets_model_run_identity_and_cost():
     product, _source, _chunks = seed_source()
     client.post(

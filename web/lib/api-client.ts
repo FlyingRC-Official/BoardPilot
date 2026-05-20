@@ -127,6 +127,10 @@ export function askQuestion(payload: { question: string; product_id?: string }) 
   return request<AskResponse>("/ask", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export function sendAnswerFeedback(answerId: string, payload: { feedback_type: string; notes: string }) {
+  return request<ReviewItem>(`/answers/${answerId}/feedback`, { method: "POST", body: JSON.stringify(payload) });
+}
+
 export type EvalCasePayload = {
   question_text: string;
   product_id?: string;

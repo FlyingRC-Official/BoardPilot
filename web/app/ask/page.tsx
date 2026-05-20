@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { EvidenceList } from "@/components/evidence/EvidenceList";
 import { RetrievalTrace } from "@/components/retrieval-trace/RetrievalTrace";
-import { askQuestion, listProducts } from "@/lib/api-client";
+import { askQuestion, listProducts, sendAnswerFeedback } from "@/lib/api-client";
 import type { AskResponse, Product } from "@/lib/types";
 
 export default function AskPage() {
@@ -11,6 +11,8 @@ export default function AskPage() {
   const [productId, setProductId] = useState("");
   const [question, setQuestion] = useState("Can I power servos from the USB connector?");
   const [result, setResult] = useState<AskResponse | null>(null);
+  const [feedbackNote, setFeedbackNote] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,11 +27,24 @@ export default function AskPage() {
     try {
       const response = await askQuestion({ question, product_id: productId || undefined });
       setResult(response);
+      setFeedbackNote("");
+      setFeedbackMessage("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ask request failed");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function submitFeedback(feedbackType: string) {
+    if (!result) {
+      return;
+    }
+    const reviewItem = await sendAnswerFeedback(result.answer.id, {
+      feedback_type: feedbackType,
+      notes: feedbackNote || feedbackType.replaceAll("_", " ")
+    });
+    setFeedbackMessage(`Feedback saved to review queue: ${reviewItem.source_type}`);
   }
 
   return (
@@ -79,6 +94,30 @@ export default function AskPage() {
                 <span className="muted">confidence {result.answer.confidence.toFixed(2)}</span>
               </p>
               {result.review_item ? <p className="status warn">Routed to review: {result.review_item.failure_category}</p> : null}
+              <label className="field">
+                <span>Feedback notes</span>
+                <textarea
+                  className="textarea"
+                  style={{ minHeight: 72 }}
+                  value={feedbackNote}
+                  onChange={(event) => setFeedbackNote(event.target.value)}
+                />
+              </label>
+              <div className="button-row">
+                <button className="button secondary" type="button" onClick={() => submitFeedback("helpful")}>
+                  Helpful
+                </button>
+                <button className="button secondary" type="button" onClick={() => submitFeedback("incorrect")}>
+                  Incorrect
+                </button>
+                <button className="button secondary" type="button" onClick={() => submitFeedback("missing_source")}>
+                  Missing Source
+                </button>
+                <button className="button secondary" type="button" onClick={() => submitFeedback("needs_review")}>
+                  Needs Review
+                </button>
+              </div>
+              {feedbackMessage ? <p className="status">{feedbackMessage}</p> : null}
             </div>
           ) : (
             <div className="empty">Submit a question to generate a citation-backed candidate answer.</div>
@@ -98,4 +137,3 @@ export default function AskPage() {
     </>
   );
 }
-
