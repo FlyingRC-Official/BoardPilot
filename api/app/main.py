@@ -480,6 +480,8 @@ def patch_eval_case(
     case = store.eval_cases[case_id]
     before = case.model_dump(mode="json")
     for key, value in payload.items():
+        if key in {"expected_source_ids_json", "expected_chunk_ids_json"}:
+            value = [UUID(str(item)) for item in value]
         if hasattr(case, key):
             setattr(case, key, value)
     store.add_audit_log(

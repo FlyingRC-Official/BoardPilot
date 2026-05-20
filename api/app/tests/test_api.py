@@ -451,6 +451,30 @@ def test_eval_run_records_metrics_and_can_route_failure_to_review():
     assert review["source_type"] == "eval_failure"
 
 
+def test_eval_case_expected_evidence_fields_can_be_listed_and_updated():
+    product, _source, chunks = seed_source()
+    case = client.post(
+        "/eval-cases",
+        json={
+            "product_id": product["id"],
+            "question_text": "Which chunk proves USB power policy?",
+            "expected_chunk_ids_json": [chunks[0]["id"]],
+            "expected_answer_points_json": ["USB connector policy"],
+            "tags_json": ["usb"],
+        },
+    ).json()
+    listed = client.get("/eval-cases").json()
+    assert listed[0]["expected_chunk_ids_json"] == [chunks[0]["id"]]
+
+    updated = client.patch(
+        f"/eval-cases/{case['id']}",
+        json={"expected_chunk_ids_json": [chunks[-1]["id"]], "difficulty": "hard", "active": False},
+    ).json()
+    assert updated["expected_chunk_ids_json"] == [chunks[-1]["id"]]
+    assert updated["difficulty"] == "hard"
+    assert updated["active"] is False
+
+
 def test_seed_eval_cases_run_batch_with_at_least_20_cases():
     seed_payload = client.post("/eval-cases/seed").json()
     assert seed_payload["case_count"] >= 20

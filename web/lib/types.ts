@@ -163,6 +163,18 @@ export type AskResponse = {
   review_item?: ReviewItem | null;
 };
 
+export type EvalCase = {
+  id: string;
+  product_id?: string | null;
+  question_text: string;
+  expected_source_ids_json: string[];
+  expected_chunk_ids_json: string[];
+  expected_answer_points_json: string[];
+  tags_json: string[];
+  difficulty: string;
+  active: boolean;
+};
+
 export type EvalRunResponse = {
   eval_run: {
     id: string;

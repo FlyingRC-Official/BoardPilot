@@ -1,6 +1,7 @@
 import type {
   AskResponse,
   AuditLog,
+  EvalCase,
   EvalRunComparison,
   EvalRunResponse,
   Product,
@@ -126,8 +127,27 @@ export function askQuestion(payload: { question: string; product_id?: string }) 
   return request<AskResponse>("/ask", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export function createEvalCase(payload: { question_text: string; product_id?: string }) {
-  return request("/eval-cases", { method: "POST", body: JSON.stringify(payload) });
+export type EvalCasePayload = {
+  question_text: string;
+  product_id?: string;
+  expected_source_ids_json?: string[];
+  expected_chunk_ids_json?: string[];
+  expected_answer_points_json?: string[];
+  tags_json?: string[];
+  difficulty?: string;
+  active?: boolean;
+};
+
+export function createEvalCase(payload: EvalCasePayload) {
+  return request<EvalCase>("/eval-cases", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function listEvalCases() {
+  return request<EvalCase[]>("/eval-cases");
+}
+
+export function updateEvalCase(id: string, payload: Partial<EvalCasePayload>) {
+  return request<EvalCase>(`/eval-cases/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 
 export function seedEvalCases() {

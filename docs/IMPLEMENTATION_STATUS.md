@@ -52,6 +52,7 @@ Updated: 2026-05-20
 - Review detail now surfaces Eval failure metrics when a ReviewItem originates from an EvalResult.
 - Sources page now inspects source version history, latest-version artifacts, ingestion status, and chunk previews.
 - Sources page can re-run ingestion for the latest source version through the IngestionJob API.
+- Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 
 ## Verified
 
@@ -68,7 +69,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 26 passed.
+- API tests: 27 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
