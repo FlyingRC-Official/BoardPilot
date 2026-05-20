@@ -110,6 +110,7 @@ Updated: 2026-05-20
 - ReviewItem approval, rejection, source-update-needed, FAQ conversion, and EvalCase conversion now refresh `updated_at`.
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Ask questions, retrieval runs, candidates, evidence, model runs, answers, answer feedback, and question attachments now read and mirror through SQLAlchemy when available.
+- Ask and Eval runs now hydrate products, aliases, sources, source versions, chunks, and chunk embeddings from SQLAlchemy before retrieval so database-backed source material remains retrievable after an API restart.
 - Review item queue, detail, update, and decision endpoints now read, hydrate, and mirror through SQLAlchemy when available.
 - Eval case, run, comparison, result, and result-to-review endpoints now read and mirror through SQLAlchemy when available.
 - Ticket, log source, image asset, and OCR import endpoints now read and mirror through SQLAlchemy when available.
@@ -133,7 +134,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 80 passed.
+- API tests: 81 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

@@ -6,6 +6,8 @@ from app.db.base import Base
 from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
 from app.db.store import InMemoryStore
 from app.providers.config_store import hydrate_provider_configs
+from app.retrieval.catalog import hydrate_retrieval_catalog
+from app.retrieval.service import run_retrieval
 from app.main import (
     delete_provider_config_from_database,
     get_answer_from_database,
@@ -525,6 +527,50 @@ def test_source_version_api_helpers_use_database_when_available():
     assert list_artifacts_from_database(session, version.id)[0].content == artifact.content
     assert list_chunks_from_database(session, version.id)[0].enabled is False
     assert list_chunk_embeddings_from_database(session, chunk.id)[0].id == embedding.id
+
+
+def test_retrieval_catalog_hydration_loads_database_chunks_for_ask_pipeline():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["product_aliases"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["chunks"],
+        Base.metadata.tables["chunk_embeddings"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog = CatalogRepository(session)
+    product = catalog.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    catalog.add_alias(ProductAlias(product_id=product.id, alias="F4", confidence=0.9))
+    source = catalog.add_source(Source(product_id=product.id, title="Manual", source_type=SourceType.markdown))
+    version = catalog.add_source_version(SourceVersion(source_id=source.id, version_label="v1", content_hash="0" * 64))
+    chunk = catalog.add_chunks(
+        [
+            Chunk(
+                source_version_id=version.id,
+                product_id=product.id,
+                chunk_index=0,
+                content="USB power is for configuration. Do not power servos from USB.",
+                content_hash="1" * 64,
+                token_count=11,
+            )
+        ]
+    )[0]
+    session.commit()
+    session.expire_all()
+    runtime_store = InMemoryStore()
+
+    counts = hydrate_retrieval_catalog(runtime_store, session, product.id)
+    assert counts["chunks"] == 1
+    assert runtime_store.aliases_for_product(product.id)[0].alias == "F4"
+    question = runtime_store.add_question(
+        Question(product_id=product.id, raw_text="Can USB power servos?", normalized_text="usb power servos")
+    )
+    _run, candidates, evidence = run_retrieval(runtime_store, question)
+    assert any(candidate.chunk_id == chunk.id for candidate in candidates)
+    assert evidence[0].chunk_id == chunk.id
 
 
 def test_ingestion_job_can_hydrate_source_version_from_database_and_persist_outputs():

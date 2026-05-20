@@ -121,7 +121,12 @@ class InMemoryStore:
         return [embedding for embedding in self.chunk_embeddings.values() if embedding.chunk_id == chunk_id]
 
     def enabled_chunks(self, product_id: Optional[UUID] = None) -> List[Chunk]:
-        chunks = [c for c in self.chunks.values() if c.enabled]
+        chunks = []
+        for chunk in self.chunks.values():
+            version = self.source_versions.get(chunk.source_version_id)
+            source = self.sources.get(version.source_id) if version else None
+            if chunk.enabled and (not version or version.status != "disabled") and (not source or source.status != "disabled"):
+                chunks.append(chunk)
         if product_id:
             chunks = [c for c in chunks if c.product_id == product_id]
         return chunks

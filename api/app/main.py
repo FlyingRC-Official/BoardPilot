@@ -68,6 +68,7 @@ from app.models.schemas import (
     now,
 )
 from app.products.service import create_alias, create_product, get_product, list_products
+from app.retrieval.catalog import hydrate_retrieval_catalog
 from app.retrieval.entity_extraction import detect_product_aliases
 from app.retrieval.query_normalization import normalize_query, product_alias_expansions
 from app.retrieval.service import run_retrieval
@@ -1261,6 +1262,7 @@ def ask(
     session: Session = Depends(get_session),
 ) -> AskResponse:
     hydrate_provider_configs(store, session)
+    hydrate_retrieval_catalog(store, session, payload.product_id)
     validated_attachments: list[tuple[QuestionAttachmentCreate, SourceArtifact]] = []
     attachment_contexts: list[str] = []
     for attachment_payload in payload.attachments:
@@ -1491,6 +1493,7 @@ def post_eval_run(
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
+    hydrate_retrieval_catalog(store, session)
     for case in list_eval_cases_from_database(session):
         store.eval_cases.setdefault(case.id, case)
     run, results = run_eval_batch(store, (payload or {}).get("name", "MVP eval"))
