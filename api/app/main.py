@@ -44,6 +44,7 @@ from app.models.schemas import (
     EvalRun,
     Evidence,
     FailureCategory,
+    DisableReasonCreate,
     ImageAsset,
     ImageAssetCreate,
     IngestionJob,
@@ -72,6 +73,7 @@ from app.models.schemas import (
     Source,
     SourceArtifact,
     SourceCreate,
+    SourcePatch,
     SourceType,
     SourceVersion,
     SourceVersionCreate,
@@ -1079,7 +1081,7 @@ def disable_chunks_for_source(source_id: UUID, session: Session) -> list[Chunk]:
 @app.patch("/sources/{source_id}", response_model=Source)
 def patch_source(
     source_id: UUID,
-    payload: Dict[str, Any],
+    payload: SourcePatch,
     user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> Source:
@@ -1087,9 +1089,9 @@ def patch_source(
     if not source:
         raise not_found()
     before = source.model_dump(mode="json")
-    for key, value in payload.items():
+    for key in payload.model_fields_set:
         if key in SOURCE_PATCH_FIELDS:
-            setattr(source, key, value)
+            setattr(source, key, getattr(payload, key))
     source.updated_at = now()
     became_disabled = before.get("status") != "disabled" and source.status == "disabled"
     disabled_chunks = []
@@ -1112,7 +1114,7 @@ def patch_source(
             str(source.id),
             user_id=user.user_id,
             before_json=before,
-            after_json={**source.model_dump(mode="json"), "reason": payload.get("reason", ""), "disabled_chunk_count": len(disabled_chunks)},
+            after_json={**source.model_dump(mode="json"), "reason": payload.reason, "disabled_chunk_count": len(disabled_chunks)},
         )
     return source
 
@@ -1120,7 +1122,7 @@ def patch_source(
 @app.post("/sources/{source_id}/disable", response_model=Source)
 def disable_source(
     source_id: UUID,
-    payload: Dict[str, Any],
+    payload: DisableReasonCreate,
     user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> Source:
@@ -1139,7 +1141,7 @@ def disable_source(
         str(source.id),
         user_id=user.user_id,
         before_json=before,
-        after_json={**source.model_dump(mode="json"), "reason": payload.get("reason", ""), "disabled_chunk_count": len(disabled_chunks)},
+        after_json={**source.model_dump(mode="json"), "reason": payload.reason, "disabled_chunk_count": len(disabled_chunks)},
     )
     return source
 
@@ -1234,7 +1236,7 @@ def get_source_versions(source_id: UUID, session: Session = Depends(get_session)
 @app.post("/source-versions/{version_id}/disable")
 def disable_source_version(
     version_id: UUID,
-    payload: Dict[str, Any],
+    payload: DisableReasonCreate,
     user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
@@ -1261,7 +1263,7 @@ def disable_source_version(
         str(version.id),
         user_id=user.user_id,
         before_json=before,
-        after_json={**version.model_dump(mode="json"), "reason": payload.get("reason", ""), "disabled_chunk_count": len(disabled_chunks)},
+        after_json={**version.model_dump(mode="json"), "reason": payload.reason, "disabled_chunk_count": len(disabled_chunks)},
     )
     return {"version": version, "disabled_chunk_count": len(disabled_chunks)}
 

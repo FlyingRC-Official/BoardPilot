@@ -111,6 +111,18 @@ class Source(SourceCreate):
     updated_at: datetime = Field(default_factory=now)
 
 
+class SourcePatch(BaseModel):
+    title: Optional[str] = None
+    canonical_uri: Optional[str] = None
+    status: Optional[str] = None
+    trust_level: Optional[str] = None
+    reason: str = ""
+
+
+class DisableReasonCreate(BaseModel):
+    reason: str = ""
+
+
 class SourceVersionCreate(BaseModel):
     version_label: str = "v1"
     content: str
