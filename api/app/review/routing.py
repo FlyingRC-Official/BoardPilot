@@ -4,7 +4,7 @@ from app.models.schemas import Answer, EvidenceSufficiency, FailureCategory, Rev
 def route_answer_for_review(answer: Answer):
     if answer.status == "generation_error":
         return ReviewItem(
-            source_type="generation_error",
+            source_type="low_confidence_answer",
             question_id=answer.question_id,
             answer_id=answer.id,
             priority=1,

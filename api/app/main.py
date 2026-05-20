@@ -1406,7 +1406,7 @@ def ask(
     review_item = route_answer_for_review(answer)
     if retrieval_run.error_message:
         review_item = ReviewItem(
-            source_type="retrieval_issue",
+            source_type="low_confidence_answer",
             question_id=question.id,
             answer_id=answer.id,
             priority=1,

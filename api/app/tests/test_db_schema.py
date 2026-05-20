@@ -383,7 +383,7 @@ def test_review_item_helper_hydrates_database_item_for_service():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(bind=engine)
     session = sessionmaker(bind=engine, expire_on_commit=False)()
-    review_item = ReviewItem(source_type="needs_review")
+    review_item = ReviewItem(source_type="user_feedback")
 
     save_review_item_to_database(session, review_item)
     main_app.store.review_items.pop(review_item.id, None)
@@ -890,7 +890,7 @@ def test_ask_api_helpers_mirror_records_to_database_when_available():
         confidence=0.9,
         model_run_id=model_run.id,
     )
-    review_item = ReviewItem(source_type="needs_review", question_id=question.id, answer_id=answer.id)
+    review_item = ReviewItem(source_type="user_feedback", question_id=question.id, answer_id=answer.id)
     attachment = QuestionAttachment(question_id=question.id, artifact_id=artifact.id, attachment_type="file", description="manual")
     eval_case = EvalCase(product_id=product.id, question_text=question.raw_text, expected_chunk_ids_json=[chunk.id])
     eval_run = EvalRun(name="MVP eval", summary_metrics_json={"case_count": 1})

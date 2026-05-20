@@ -73,6 +73,7 @@ Updated: 2026-05-21
 - Added ReviewItem detail API/UI that shows the linked question, generated answer, evidence pack, and retrieval trace.
 - Enabled LLM provider configs to set answer/model-run identity and estimate model cost in EvalRun summaries.
 - Unsupported non-fake LLM provider configs now record failed ModelRuns and route generated Answers to Review as generation errors instead of silently using fake execution.
+- LLM generation errors and reranker degradation now route to the documented low-confidence-answer review source bucket while preserving actionable failure categories.
 - Unsupported non-fake embedding provider configs now fail source ingestion with a saved error reason and source-issue ReviewItem instead of storing fake vectors under a non-fake identity.
 - Unsupported embedding providers are now rejected before chunk insertion, and failed SourceVersions are excluded from retrieval eligibility.
 - Unsupported non-fake reranker provider configs now fall back to merged ranking, mark the RetrievalRun as degraded, and route the Answer to Review as a bad-rerank retrieval issue.

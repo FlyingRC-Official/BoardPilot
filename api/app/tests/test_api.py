@@ -1620,7 +1620,7 @@ def test_unsupported_llm_provider_config_records_failed_model_run_and_routes_rev
     assert payload["answer"]["provider_name"] == "openai"
     assert payload["answer"]["model_name"] == "gpt-example"
     assert payload["answer"]["confidence"] == 0.0
-    assert payload["review_item"]["source_type"] == "generation_error"
+    assert payload["review_item"]["source_type"] == "low_confidence_answer"
     assert payload["review_item"]["failure_category"] == "generation_error"
     model_run = client.get(f"/model-runs/{payload['answer']['model_run_id']}").json()
     assert model_run["status"] == "failed"
@@ -1651,7 +1651,7 @@ def test_unsupported_reranker_provider_config_degrades_retrieval_and_routes_revi
     assert reranked[0]["source"] == "fallback_merged"
     assert reranked[0]["metadata_json"]["reranker_configured_provider_name"] == "cohere"
     assert reranked[0]["metadata_json"]["reranker_model_name"] == "rerank-example"
-    assert payload["review_item"]["source_type"] == "retrieval_issue"
+    assert payload["review_item"]["source_type"] == "low_confidence_answer"
     assert payload["review_item"]["failure_category"] == "bad_rerank"
 
 
