@@ -1455,7 +1455,10 @@ def test_review_to_faq_reingests_approved_answer_as_source_material():
         json={"edited_answer_text": "Use the documented calibration flow only. Do not use secret factory codes."},
     )
 
-    faq_payload = client.post(f"/review-items/{review_item['id']}/to-faq").json()
+    faq_payload = client.post(
+        f"/review-items/{review_item['id']}/to-faq",
+        headers={"X-BoardPilot-User": "reviewer-faq", "X-BoardPilot-Role": "reviewer"},
+    ).json()
     assert faq_payload["status"] == "converted_to_faq"
     assert faq_payload["approved_faq"]["question_text"].startswith("What is the secret")
     assert faq_payload["approved_faq"]["answer_text"].startswith("Use the documented calibration")
@@ -1463,7 +1466,11 @@ def test_review_to_faq_reingests_approved_answer_as_source_material():
     assert faq_payload["chunks"]
     converted_item = client.get(f"/review-items/{review_item['id']}").json()
     assert converted_item["status"] == "converted_to_faq"
+    assert converted_item["reviewer_id"] == "reviewer-faq"
     assert converted_item["updated_at"] != review_item["updated_at"]
+    audit_logs = client.get("/audit-logs").json()
+    faq_audit = [log for log in audit_logs if log["action"] == "review_converted_to_faq"]
+    assert faq_audit[-1]["user_id"] == "reviewer-faq"
 
     rerun = client.post(
         "/ask",
@@ -1488,7 +1495,10 @@ def test_review_to_eval_case_preserves_expected_evidence_and_answer_points():
         json={"edited_answer_text": "USB is for configuration only. Do not power servos from USB."},
     )
 
-    eval_case = client.post(f"/review-items/{review_item['id']}/to-eval-case").json()
+    eval_case = client.post(
+        f"/review-items/{review_item['id']}/to-eval-case",
+        headers={"X-BoardPilot-User": "reviewer-eval", "X-BoardPilot-Role": "reviewer"},
+    ).json()
     assert eval_case["question_text"] == "Can I power servos from USB?"
     assert eval_case["expected_chunk_ids_json"]
     assert eval_case["expected_source_ids_json"]
@@ -1496,7 +1506,11 @@ def test_review_to_eval_case_preserves_expected_evidence_and_answer_points():
     assert "review_regression" in eval_case["tags_json"]
     converted_item = client.get(f"/review-items/{review_item['id']}").json()
     assert converted_item["status"] == "converted_to_eval_case"
+    assert converted_item["reviewer_id"] == "reviewer-eval"
     assert converted_item["updated_at"] != review_item["updated_at"]
+    audit_logs = client.get("/audit-logs").json()
+    eval_audit = [log for log in audit_logs if log["action"] == "review_converted_to_eval_case"]
+    assert eval_audit[-1]["user_id"] == "reviewer-eval"
 
 
 def test_review_item_detail_links_question_answer_evidence_and_trace():

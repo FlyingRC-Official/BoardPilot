@@ -71,7 +71,7 @@ def mark_source_update_needed(
     return item
 
 
-def review_to_eval_case(store: InMemoryStore, item_id: UUID) -> EvalCase:
+def review_to_eval_case(store: InMemoryStore, item_id: UUID, reviewer_id: str = "local") -> EvalCase:
     item = store.review_items[item_id]
     question = store.questions[item.question_id]
     answer = store.answers.get(item.answer_id) if item.answer_id else None
@@ -96,18 +96,20 @@ def review_to_eval_case(store: InMemoryStore, item_id: UUID) -> EvalCase:
             ).model_dump()
         )
     )
+    item.reviewer_id = reviewer_id
     item.status = ReviewStatus.converted_to_eval_case
     item.updated_at = now()
     store.add_audit_log(
         "review_converted_to_eval_case",
         "ReviewItem",
         str(item.id),
+        user_id=reviewer_id,
         after_json={"eval_case_id": str(case.id)},
     )
     return case
 
 
-def review_to_faq(store: InMemoryStore, item_id: UUID) -> tuple[ApprovedFAQ, Source, SourceVersion, SourceArtifact, list]:
+def review_to_faq(store: InMemoryStore, item_id: UUID, reviewer_id: str = "local") -> tuple[ApprovedFAQ, Source, SourceVersion, SourceArtifact, list]:
     item = store.review_items[item_id]
     if item.question_id is None or item.answer_id is None:
         raise ValueError("review item must reference a question and answer")
@@ -144,12 +146,14 @@ def review_to_faq(store: InMemoryStore, item_id: UUID) -> tuple[ApprovedFAQ, Sou
             source_id=source.id,
         )
     )
+    item.reviewer_id = reviewer_id
     item.status = ReviewStatus.converted_to_faq
     item.updated_at = now()
     store.add_audit_log(
         "review_converted_to_faq",
         "ReviewItem",
         str(item.id),
+        user_id=reviewer_id,
         after_json={"approved_faq_id": str(faq.id), "source_id": str(source.id), "source_version_id": str(version.id)},
     )
     return faq, source, version, artifact, chunks

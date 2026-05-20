@@ -1691,14 +1691,14 @@ def post_review_source_update_needed(
 @app.post("/review-items/{item_id}/to-faq")
 def post_review_to_faq(
     item_id: UUID,
-    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> dict:
     if not hydrate_review_context_for_service(session, item_id):
         raise not_found()
     hydrate_provider_configs(store, session)
     try:
-        faq, source, version, artifact, chunks = review_to_faq(store, item_id)
+        faq, source, version, artifact, chunks = review_to_faq(store, item_id, reviewer_id=user.user_id)
     except KeyError:
         raise not_found()
     except ValueError as exc:
@@ -1713,12 +1713,12 @@ def post_review_to_faq(
 @app.post("/review-items/{item_id}/to-eval-case", response_model=EvalCase)
 def post_review_to_eval_case(
     item_id: UUID,
-    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> EvalCase:
     if not hydrate_review_context_for_service(session, item_id):
         raise not_found()
-    case = review_to_eval_case(store, item_id)
+    case = review_to_eval_case(store, item_id, reviewer_id=user.user_id)
     save_eval_case_to_database(session, case)
     save_review_item_to_database(session, store.review_items[item_id])
     return case
