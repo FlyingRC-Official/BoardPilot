@@ -1227,8 +1227,15 @@ def test_explicit_product_selection_still_uses_hard_filter():
 def test_insufficient_evidence_routes_to_review():
     response = client.post("/ask", json={"question": "What is the secret factory calibration code?"})
     payload = response.json()
+    assert payload["answer"]["status"] == "insufficient_evidence"
     assert payload["answer"]["evidence_sufficiency"] == "insufficient"
+    assert payload["answer"]["confidence"] == 0.0
+    assert payload["answer"]["citation_map_json"] == {}
     assert payload["review_item"]["status"] == "open"
+    model_run = client.get(f"/model-runs/{payload['answer']['model_run_id']}").json()
+    assert model_run["status"] == "skipped"
+    assert model_run["error_message"] == "insufficient evidence"
+    assert model_run["cost_json"]["total_cost"] == 0.0
 
 
 def test_answer_feedback_creates_review_item():

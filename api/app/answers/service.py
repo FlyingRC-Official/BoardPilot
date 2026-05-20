@@ -4,7 +4,7 @@ from typing import Optional
 from app.answers.citation import citation_map, has_visible_citations, verify_citations
 from app.answers.sufficiency import assess_sufficiency
 from app.db.store import InMemoryStore
-from app.models.schemas import Answer, ModelRun, ProviderConfig, Question
+from app.models.schemas import Answer, EvidenceSufficiency, ModelRun, ProviderConfig, Question
 from app.providers.base import LLMResult
 from app.providers.llm import llm_provider
 
@@ -37,6 +37,40 @@ def generate_answer(store: InMemoryStore, question: Question, retrieval_run_id, 
     sufficiency, confidence = assess_sufficiency(evidence)
     evidence_quotes = [item.quote for item in evidence]
     provider_config = store.active_provider_config("llm")
+    provider_name = provider_config.provider_name if provider_config else llm_provider.provider_name
+    model_name = provider_config.model_name if provider_config else llm_provider.model_name
+    if sufficiency == EvidenceSufficiency.insufficient:
+        answer_text = "I do not have enough saved evidence to answer this."
+        model_run = store.add_model_run(
+            ModelRun(
+                provider_type="llm",
+                provider_name=provider_name,
+                model_name=model_name,
+                input_hash=hashlib.sha256(question.raw_text.encode("utf-8")).hexdigest(),
+                prompt_version="mvp-v1",
+                token_usage_json={
+                    "input_words": len(question.raw_text.split()),
+                    "output_words": len(answer_text.split()),
+                },
+                cost_json=estimate_model_cost({}, len(question.raw_text.split()), len(answer_text.split())),
+                status="skipped",
+                error_message="insufficient evidence",
+            )
+        )
+        return store.add_answer(
+            Answer(
+                question_id=question.id,
+                retrieval_run_id=retrieval_run_id,
+                status="insufficient_evidence",
+                answer_text=answer_text,
+                citation_map_json={},
+                evidence_sufficiency=sufficiency,
+                confidence=0.0,
+                provider_name=provider_name,
+                model_name=model_name,
+                model_run_id=model_run.id,
+            )
+        )
     llm_result = run_configured_llm(provider_config, question.raw_text, evidence_quotes)
     provider_name = provider_config.provider_name if provider_config else llm_result.provider_name
     model_name = provider_config.model_name if provider_config else llm_result.model_name
