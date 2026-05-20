@@ -110,7 +110,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 60 passed.
+- API tests: 62 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -125,6 +125,7 @@ Results:
 - EvalRun can run the required 20-case seed corpus, categorize failed results, inspect per-case traces, send failed cases to Review, and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - RetrievalCandidate records now preserve raw keyword/vector recall stages in addition to merged and reranked stages, while Eval Recall@20 remains scoped to the merged recall set.
+- Hybrid merge now deduplicates candidates by chunk id, content hash, and near-duplicate source position while preserving deduped chunk ids in candidate metadata.
 - Minimal role-aware access control is present; it is header-based for MVP and can require a configured API key, but still needs real user/session management.
 - Core audit events are inspectable through `GET /audit-logs`; audit writes mirror to SQLAlchemy when available and can still be mirrored to JSONL.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.

@@ -114,6 +114,7 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
                 vector_score=item["vector_score"],
                 merged_score=item["merged_score"],
                 rank=rank,
+                metadata_json={"deduped_chunk_ids": item.get("deduped_chunk_ids", [])},
             )
         )
     for rank, item in enumerate(reranked, start=1):
@@ -130,6 +131,7 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
                 rank=rank,
                 metadata_json={
                     "soft_boost_score": item.get("soft_boost_score", 0.0),
+                    "deduped_chunk_ids": item.get("deduped_chunk_ids", []),
                     "reranker_model_name": item.get("reranker_model_name", "fake-overlap-reranker"),
                 },
             )
