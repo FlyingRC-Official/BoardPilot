@@ -25,6 +25,7 @@ Updated: 2026-05-20
 - Source artifact attachment now honors the requested SourceVersion URL id instead of creating a separate SourceVersion.
 - Source-version service hydration now restores existing artifacts, chunks, and chunk hashes before re-ingestion.
 - SourceVersion records now persist failed ingestion status and error messages.
+- Failed source-version ingestion now creates source-issue ReviewItems with bad-parse failure categories.
 - Added Sources page upload control for storing and ingesting source artifacts.
 - Implemented ReviewItem to ApprovedFAQ conversion with FAQ source re-ingestion.
 - Added source-type parser routing for Markdown, CSV/FAQ, ticket exports, text logs, image descriptions, approved FAQs, and text-extracted PDFs.

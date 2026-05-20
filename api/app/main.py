@@ -529,6 +529,21 @@ def save_review_item_to_database(session: Session, item: ReviewItem) -> None:
         session.rollback()
 
 
+def create_source_issue_review_item_for_failed_version(session: Session, version: SourceVersion) -> Optional[ReviewItem]:
+    if version.status != "failed" or not version.error_message.strip():
+        return None
+    item = store.add_review_item(
+        ReviewItem(
+            source_type="source_issue",
+            priority=1,
+            failure_category=FailureCategory.bad_parse,
+            reviewer_notes=f"SourceVersion {version.id} failed ingestion: {version.error_message}",
+        )
+    )
+    save_review_item_to_database(session, item)
+    return item
+
+
 def get_review_item_from_database(session: Session, item_id: UUID) -> Optional[ReviewItem]:
     try:
         return ReviewEvalRepository(session).get_review_item(item_id)
@@ -949,7 +964,8 @@ def post_source_version(
     except KeyError:
         raise not_found()
     save_source_version_bundle_to_database(session, version, artifact, chunks)
-    return {"version": version, "artifact": artifact, "chunks": chunks}
+    review_item = create_source_issue_review_item_for_failed_version(session, version)
+    return {"version": version, "artifact": artifact, "chunks": chunks, "review_item": review_item}
 
 
 @app.post("/sources/{source_id}/versions/upload")
@@ -976,7 +992,8 @@ async def upload_source_version(
     except KeyError:
         raise not_found()
     save_source_version_bundle_to_database(session, version, artifact, chunks)
-    return {"version": version, "artifact": artifact, "chunks": chunks}
+    review_item = create_source_issue_review_item_for_failed_version(session, version)
+    return {"version": version, "artifact": artifact, "chunks": chunks, "review_item": review_item}
 
 
 @app.post("/sources/{source_id}/versions/webpage")
@@ -1001,7 +1018,8 @@ def post_webpage_snapshot_version(
         store.sources[source_id] = source
         save_source_to_database(session, source)
     save_source_version_bundle_to_database(session, version, artifact, chunks)
-    return {"version": version, "artifact": artifact, "chunks": chunks}
+    review_item = create_source_issue_review_item_for_failed_version(session, version)
+    return {"version": version, "artifact": artifact, "chunks": chunks, "review_item": review_item}
 
 
 @app.get("/sources/{source_id}/versions")
@@ -1065,7 +1083,8 @@ def post_source_artifact(
     except KeyError:
         raise not_found() from None
     save_source_version_bundle_to_database(session, version, artifact, chunks)
-    return {"version": version, "artifact": artifact, "chunks": chunks}
+    review_item = create_source_issue_review_item_for_failed_version(session, version)
+    return {"version": version, "artifact": artifact, "chunks": chunks, "review_item": review_item}
 
 
 @app.get("/source-versions/{version_id}/chunks")
@@ -1109,7 +1128,8 @@ def post_ingestion_job(
     save_runtime_job(session, job)
     save_source_version_to_database(session, store.source_versions[payload.source_version_id])
     save_chunks_to_database(session, chunks)
-    return {"job": job, "chunks": chunks}
+    review_item = create_source_issue_review_item_for_failed_version(session, store.source_versions[payload.source_version_id])
+    return {"job": job, "chunks": chunks, "review_item": review_item}
 
 
 @app.post("/ingestion/jobs/enqueue")
@@ -1733,8 +1753,9 @@ def post_image_asset(
     save_source_to_database(session, source)
     if version and artifact:
         save_source_version_bundle_to_database(session, version, artifact, chunks)
+    review_item = create_source_issue_review_item_for_failed_version(session, version) if version else None
     save_image_asset_to_database(session, image_asset)
-    return {"image_asset": image_asset, "source": source, "version": version, "chunks": chunks}
+    return {"image_asset": image_asset, "source": source, "version": version, "chunks": chunks, "review_item": review_item}
 
 
 @app.post("/image-assets/upload")
@@ -1790,12 +1811,14 @@ async def upload_image_asset(
     save_source_to_database(session, source)
     if version and artifact:
         save_source_version_bundle_to_database(session, version, artifact, chunks)
+    review_item = create_source_issue_review_item_for_failed_version(session, version) if version else None
     save_image_asset_to_database(session, image_asset)
     return {
         "image_asset": image_asset,
         "source": source,
         "version": version,
         "chunks": chunks,
+        "review_item": review_item,
         "upload": {
             "filename": filename,
             "mime_type": file.content_type or "application/octet-stream",

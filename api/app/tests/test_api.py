@@ -350,9 +350,14 @@ def test_failed_source_version_ingestion_saves_error_reason(monkeypatch):
     assert payload["version"]["status"] == "failed"
     assert payload["version"]["error_message"] == "parser failed on malformed source"
     assert payload["chunks"] == []
+    assert payload["review_item"]["source_type"] == "source_issue"
+    assert payload["review_item"]["failure_category"] == "bad_parse"
+    assert "parser failed on malformed source" in payload["review_item"]["reviewer_notes"]
     version = client.get(f"/sources/{source['id']}/versions").json()[0]
     assert version["status"] == "failed"
     assert version["error_message"] == "parser failed on malformed source"
+    review_items = client.get("/review-items").json()
+    assert review_items[0]["id"] == payload["review_item"]["id"]
 
 
 def test_source_disable_is_audited():
@@ -438,6 +443,8 @@ def test_failed_ingestion_job_saves_source_version_error(monkeypatch):
     assert payload["job"]["status"] == "failed"
     assert payload["job"]["error_message"] == "embedding provider unavailable"
     assert payload["chunks"] == []
+    assert payload["review_item"]["source_type"] == "source_issue"
+    assert payload["review_item"]["failure_category"] == "bad_parse"
     version = client.get(f"/sources/{source['id']}/versions").json()[0]
     assert version["status"] == "failed"
     assert version["error_message"] == "embedding provider unavailable"
