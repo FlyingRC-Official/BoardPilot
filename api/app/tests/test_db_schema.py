@@ -30,6 +30,7 @@ from app.main import (
     list_aliases_from_database,
     list_artifacts_from_database,
     list_audit_logs_from_database,
+    list_chunk_embeddings_from_database,
     list_chunks_from_database,
     list_eval_cases_from_database,
     list_eval_results_from_database,
@@ -50,6 +51,7 @@ from app.main import (
     save_alias_to_database,
     save_ask_response_to_database,
     save_approved_faq_to_database,
+    save_chunk_embeddings_to_database,
     save_chunks_to_database,
     save_eval_case_to_database,
     save_eval_run_results_to_database,
@@ -71,6 +73,7 @@ from app.models.schemas import (
     ApprovedFAQ,
     AuditLog,
     Chunk,
+    ChunkEmbedding,
     EvalCase,
     EvalResult,
     EvalRun,
@@ -167,6 +170,7 @@ def test_catalog_repository_round_trips_source_records_in_sqlite():
         Base.metadata.tables["source_versions"],
         Base.metadata.tables["source_artifacts"],
         Base.metadata.tables["chunks"],
+        Base.metadata.tables["chunk_embeddings"],
     ]
     Base.metadata.create_all(bind=engine, tables=create_subset)
     session = sessionmaker(bind=engine, expire_on_commit=False)()
@@ -467,6 +471,7 @@ def test_source_version_api_helpers_use_database_when_available():
         Base.metadata.tables["source_versions"],
         Base.metadata.tables["source_artifacts"],
         Base.metadata.tables["chunks"],
+        Base.metadata.tables["chunk_embeddings"],
     ]
     Base.metadata.create_all(bind=engine, tables=create_subset)
     session = sessionmaker(bind=engine, expire_on_commit=False)()
@@ -487,6 +492,8 @@ def test_source_version_api_helpers_use_database_when_available():
     save_product_to_database(session, product)
     save_source_to_database(session, source)
     save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    embedding = ChunkEmbedding(chunk_id=chunk.id, provider_name="fake", model_name="fake-hash-embedding", embedding_dimension=3, vector=[0.1, 0.2, 0.3])
+    save_chunk_embeddings_to_database(session, [embedding])
     version.status = "disabled"
     chunk.enabled = False
     save_source_version_to_database(session, version)
@@ -498,6 +505,7 @@ def test_source_version_api_helpers_use_database_when_available():
     assert get_artifact_from_database(session, artifact.id).id == artifact.id
     assert list_artifacts_from_database(session, version.id)[0].content == artifact.content
     assert list_chunks_from_database(session, version.id)[0].enabled is False
+    assert list_chunk_embeddings_from_database(session, chunk.id)[0].id == embedding.id
 
 
 def test_ingestion_job_can_hydrate_source_version_from_database_and_persist_outputs():

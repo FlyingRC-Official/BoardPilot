@@ -12,6 +12,7 @@ from app.models.orm import (
     AnswerOrm,
     ApprovedFAQOrm,
     AuditLogOrm,
+    ChunkEmbeddingOrm,
     ChunkOrm,
     EvidenceOrm,
     EvalCaseOrm,
@@ -40,6 +41,7 @@ from app.models.schemas import (
     ApprovedFAQ,
     AuditLog,
     Chunk,
+    ChunkEmbedding,
     EvalCase,
     EvalResult,
     EvalRun,
@@ -153,6 +155,13 @@ class CatalogRepository:
     def chunks_for_version(self, source_version_id: UUID) -> list[Chunk]:
         rows = self.session.scalars(select(ChunkOrm).where(ChunkOrm.source_version_id == str(source_version_id))).all()
         return [_orm_to_model(row, Chunk) for row in rows]
+
+    def add_chunk_embeddings(self, embeddings: Iterable[ChunkEmbedding]) -> list[ChunkEmbedding]:
+        return [self._merge(embedding, ChunkEmbeddingOrm, ChunkEmbedding) for embedding in embeddings]
+
+    def embeddings_for_chunk(self, chunk_id: UUID) -> list[ChunkEmbedding]:
+        rows = self.session.scalars(select(ChunkEmbeddingOrm).where(ChunkEmbeddingOrm.chunk_id == str(chunk_id))).all()
+        return [_orm_to_model(row, ChunkEmbedding) for row in rows]
 
     def _merge(self, model: ModelT, orm_cls: type, model_cls: type[ModelT]) -> ModelT:
         row = self.session.merge(orm_cls(**_model_to_orm_kwargs(model, orm_cls)))

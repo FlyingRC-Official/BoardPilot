@@ -23,6 +23,7 @@ from app.models.schemas import (
     ApprovedFAQ,
     AuditLog,
     Chunk,
+    ChunkEmbedding,
     EvalCase,
     EvalCaseCreate,
     EvalResult,
@@ -212,6 +213,7 @@ def save_source_version_bundle_to_database(
     version: SourceVersion,
     artifact: SourceArtifact,
     chunks: list[Chunk],
+    chunk_embeddings: Optional[list[ChunkEmbedding]] = None,
 ) -> None:
     try:
         repo = CatalogRepository(session)
@@ -221,6 +223,10 @@ def save_source_version_bundle_to_database(
         session.commit()
     except SQLAlchemyError:
         session.rollback()
+        return
+    embeddings = chunk_embeddings if chunk_embeddings is not None else [embedding for chunk in chunks for embedding in store.embeddings_for_chunk(chunk.id)]
+    if embeddings:
+        save_chunk_embeddings_to_database(session, embeddings)
 
 
 def save_source_version_to_database(session: Session, version: SourceVersion) -> None:
@@ -237,6 +243,10 @@ def save_chunks_to_database(session: Session, chunks: list[Chunk]) -> None:
         session.commit()
     except SQLAlchemyError:
         session.rollback()
+        return
+    embeddings = [embedding for chunk in chunks for embedding in store.embeddings_for_chunk(chunk.id)]
+    if embeddings:
+        save_chunk_embeddings_to_database(session, embeddings)
 
 
 def get_source_version_from_database(session: Session, version_id: UUID) -> Optional[SourceVersion]:
@@ -285,6 +295,22 @@ def get_chunk_from_database(session: Session, chunk_id: UUID) -> Optional[Chunk]
     except SQLAlchemyError:
         session.rollback()
         return None
+
+
+def save_chunk_embeddings_to_database(session: Session, embeddings: list[ChunkEmbedding]) -> None:
+    try:
+        CatalogRepository(session).add_chunk_embeddings(embeddings)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_chunk_embeddings_from_database(session: Session, chunk_id: UUID) -> list[ChunkEmbedding]:
+    try:
+        return CatalogRepository(session).embeddings_for_chunk(chunk_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
 
 
 def hydrate_source_version_for_service(session: Session, source_version_id: UUID) -> Optional[SourceVersion]:
@@ -1012,7 +1038,13 @@ def get_source_version_artifacts(version_id: UUID, session: Session = Depends(ge
 
 
 @app.get("/chunks/{chunk_id}/embeddings")
-def get_chunk_embeddings(chunk_id: UUID) -> list:
+def get_chunk_embeddings(chunk_id: UUID, session: Session = Depends(get_session)) -> list:
+    database_embeddings = list_chunk_embeddings_from_database(session, chunk_id)
+    if database_embeddings:
+        return database_embeddings
+    database_chunk = get_chunk_from_database(session, chunk_id)
+    if database_chunk:
+        store.chunks[database_chunk.id] = database_chunk
     if chunk_id not in store.chunks:
         raise not_found()
     return store.embeddings_for_chunk(chunk_id)

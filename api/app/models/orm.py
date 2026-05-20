@@ -135,7 +135,7 @@ class ChunkEmbeddingOrm(Base):
     provider_name: Mapped[str] = mapped_column(String(120), nullable=False)
     model_name: Mapped[str] = mapped_column(String(255), nullable=False)
     embedding_dimension: Mapped[int] = mapped_column(Integer, nullable=False)
-    vector: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+    vector: Mapped[list[float]] = mapped_column(Vector(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
     chunk: Mapped[ChunkOrm] = relationship(back_populates="embeddings")
