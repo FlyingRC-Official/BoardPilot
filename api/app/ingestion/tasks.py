@@ -1,7 +1,7 @@
 from typing import Optional
 
 from app.ingestion.chunking import chunk_text
-from app.models.schemas import ChunkEmbedding, ProviderConfig
+from app.models.schemas import ChunkEmbedding, ProviderConfig, now
 from app.providers.embedding import embedding_provider
 
 
@@ -33,5 +33,6 @@ def ingest_source_version(store, source_version_id):
             )
         )
     version.status = "ingested"
+    version.updated_at = now()
     store.source_versions[version.id] = version
     return inserted

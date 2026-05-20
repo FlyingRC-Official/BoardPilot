@@ -1083,6 +1083,7 @@ def disable_source_version(
         raise not_found()
     before = version.model_dump(mode="json")
     version.status = "disabled"
+    version.updated_at = now()
     disabled_chunks = []
     candidate_chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
     if not candidate_chunks:

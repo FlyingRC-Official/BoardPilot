@@ -496,6 +496,7 @@ def test_failed_source_version_ingestion_saves_error_reason(monkeypatch):
     payload = response.json()
     assert payload["version"]["status"] == "failed"
     assert payload["version"]["error_message"] == "parser failed on malformed source"
+    assert payload["version"]["updated_at"] != payload["version"]["created_at"]
     assert payload["chunks"] == []
     assert payload["review_item"]["source_type"] == "source_issue"
     assert payload["review_item"]["failure_category"] == "bad_parse"
@@ -649,6 +650,7 @@ def test_source_version_disable_removes_chunks_from_retrieval_and_is_audited():
     product, source, chunks = seed_source()
     source_versions = client.get(f"/sources/{source['id']}/versions").json()
     version_id = source_versions[0]["id"]
+    before_updated_at = source_versions[0]["updated_at"]
 
     before = client.post(
         "/ask",
@@ -662,6 +664,7 @@ def test_source_version_disable_removes_chunks_from_retrieval_and_is_audited():
         headers={"X-BoardPilot-User": "maintainer-2", "X-BoardPilot-Role": "support"},
     ).json()
     assert disabled["version"]["status"] == "disabled"
+    assert disabled["version"]["updated_at"] != before_updated_at
     assert disabled["disabled_chunk_count"] == len(chunks)
 
     chunk_list = client.get(f"/source-versions/{version_id}/chunks").json()
@@ -680,12 +683,16 @@ def test_ingestion_job_create_list_get_and_retry():
     product, source, chunks = seed_source()
     source_versions = client.get(f"/sources/{source['id']}/versions").json()
     version_id = source_versions[0]["id"]
+    before_updated_at = source_versions[0]["updated_at"]
 
     created = client.post("/ingestion/jobs", json={"source_version_id": version_id}).json()
     job = created["job"]
     assert job["status"] == "completed"
     assert job["source_version_id"] == version_id
     assert job["chunk_count"] == 0
+    version_after_job = client.get(f"/sources/{source['id']}/versions").json()[0]
+    assert version_after_job["status"] == "ingested"
+    assert version_after_job["updated_at"] != before_updated_at
 
     listed = client.get("/ingestion/jobs").json()
     assert listed[0]["id"] == job["id"]
@@ -696,13 +703,16 @@ def test_ingestion_job_create_list_get_and_retry():
     retried = client.post(f"/ingestion/jobs/{job['id']}/retry").json()
     assert retried["job"]["id"] == job["id"]
     assert retried["job"]["status"] == "completed"
+    version_after_retry = client.get(f"/sources/{source['id']}/versions").json()[0]
+    assert version_after_retry["updated_at"] != version_after_job["updated_at"]
 
 
 def test_failed_ingestion_job_saves_source_version_error(monkeypatch):
     import app.ingestion.jobs as ingestion_jobs
 
     _product, source, _chunks = seed_source()
-    version_id = client.get(f"/sources/{source['id']}/versions").json()[0]["id"]
+    before_version = client.get(f"/sources/{source['id']}/versions").json()[0]
+    version_id = before_version["id"]
 
     def fail_ingestion(_store, _source_version_id):
         raise RuntimeError("embedding provider unavailable")
@@ -718,6 +728,7 @@ def test_failed_ingestion_job_saves_source_version_error(monkeypatch):
     version = client.get(f"/sources/{source['id']}/versions").json()[0]
     assert version["status"] == "failed"
     assert version["error_message"] == "embedding provider unavailable"
+    assert version["updated_at"] != before_version["updated_at"]
 
 
 def test_ingestion_job_enqueue_pushes_redis_message(monkeypatch):

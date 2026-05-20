@@ -11,7 +11,7 @@ from app.ingestion.parsers.pdf import parse_pdf_bytes, parse_pdf_text
 from app.ingestion.parsers.text_log import parse_text_log
 from app.ingestion.parsers.webpage import parse_webpage_snapshot
 from app.ingestion.tasks import ingest_source_version
-from app.models.schemas import Source, SourceArtifact, SourceCreate, SourceType, SourceVersion, SourceVersionCreate, WebpageSnapshotCreate
+from app.models.schemas import Source, SourceArtifact, SourceCreate, SourceType, SourceVersion, SourceVersionCreate, WebpageSnapshotCreate, now
 from app.storage.local import LocalStorageProvider
 
 
@@ -69,9 +69,11 @@ def ingest_source_version_with_status(store: InMemoryStore, version_id: UUID) ->
     except Exception as exc:
         version.status = "failed"
         version.error_message = _error_reason(exc)
+        version.updated_at = now()
         store.source_versions[version.id] = version
         return []
     version.error_message = ""
+    version.updated_at = now()
     store.source_versions[version.id] = version
     return chunks
 

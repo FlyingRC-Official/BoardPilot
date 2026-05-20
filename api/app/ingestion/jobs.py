@@ -3,7 +3,7 @@ from typing import Optional
 
 from app.db.session import store
 from app.ingestion.tasks import ingest_source_version
-from app.models.schemas import IngestionJob
+from app.models.schemas import IngestionJob, now
 
 
 def _error_reason(exc: Exception) -> str:
@@ -24,6 +24,7 @@ def run_ingestion_job(source_version_id, job: Optional[IngestionJob] = None):
             version = store.source_versions[source_version_id]
             version.status = "failed"
             version.error_message = active_job.error_message
+            version.updated_at = now()
             store.source_versions[version.id] = version
         active_job.updated_at = datetime.utcnow()
         store.ingestion_jobs[active_job.id] = active_job
@@ -34,6 +35,7 @@ def run_ingestion_job(source_version_id, job: Optional[IngestionJob] = None):
     if source_version_id in store.source_versions:
         version = store.source_versions[source_version_id]
         version.error_message = ""
+        version.updated_at = now()
         store.source_versions[version.id] = version
     active_job.updated_at = datetime.utcnow()
     store.ingestion_jobs[active_job.id] = active_job
