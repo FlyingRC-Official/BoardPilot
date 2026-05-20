@@ -7,6 +7,7 @@ BoardPilot is a private-deployment RAG support workbench for hardware teams. The
 - FastAPI backend with product/source CRUD, ingestion, ask, evidence, answer, review, and eval endpoints.
 - Fake LLM, embedding, reranker, and OCR providers so the full loop runs without external credentials.
 - In-memory repository for local development and tests.
+- Parser-aware ingestion for Markdown, CSV/FAQ, logs, image/manual descriptions, approved FAQs, and PDF text extraction.
 - Next.js workbench with Ask, Sources, Eval, and Review pages.
 - Docker Compose stack definitions for web, api, Postgres, and Redis.
 

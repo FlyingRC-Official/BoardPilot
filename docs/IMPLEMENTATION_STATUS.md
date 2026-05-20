@@ -22,6 +22,8 @@ Updated: 2026-05-20
 - Added multipart source artifact upload backed by local filesystem storage.
 - Added Sources page upload control for storing and ingesting source artifacts.
 - Implemented ReviewItem to ApprovedFAQ conversion with FAQ source re-ingestion.
+- Added source-type parser routing for Markdown, CSV/FAQ, ticket exports, text logs, image descriptions, approved FAQs, and text-extracted PDFs.
+- Added `pypdf`-backed PDF text extraction with a decoded-text fallback.
 
 ## Verified
 
@@ -38,7 +40,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 9 passed.
+- API tests: 11 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -48,9 +50,7 @@ Results:
 
 - API runtime persistence is still in-memory; SQLAlchemy models and Alembic migration exist but the service layer has not yet been switched to database-backed repositories.
 - Redis-backed background workers are scaffolded but ingestion currently runs inline.
-- File upload handling exists for text-decodable artifacts; richer parser-specific upload handling still needs implementation.
-- PDF parsing is a placeholder that accepts extracted text; real PDF extraction should be added.
-- Image OCR is a fake-provider placeholder.
+- File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
 - ApprovedFAQ conversion re-ingests FAQ content into retrieval; it still needs reviewer editing UI polish and durable database persistence.

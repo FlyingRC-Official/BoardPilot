@@ -4,8 +4,13 @@ from uuid import UUID
 
 from app.core.config import settings
 from app.db.store import InMemoryStore
+from app.ingestion.parsers.csv_faq import parse_csv_faq
+from app.ingestion.parsers.image_stub import parse_image_description
+from app.ingestion.parsers.markdown import parse_markdown
+from app.ingestion.parsers.pdf import parse_pdf_bytes, parse_pdf_text
+from app.ingestion.parsers.text_log import parse_text_log
 from app.ingestion.tasks import ingest_source_version
-from app.models.schemas import Source, SourceArtifact, SourceCreate, SourceVersion, SourceVersionCreate
+from app.models.schemas import Source, SourceArtifact, SourceCreate, SourceType, SourceVersion, SourceVersionCreate
 from app.storage.local import LocalStorageProvider
 
 
@@ -14,10 +19,32 @@ def safe_filename(filename: str) -> str:
     return clean or "artifact.txt"
 
 
+def parser_version_for(source_type: SourceType) -> str:
+    return f"mvp-{source_type.value}-parser-v1"
+
+
+def parse_source_content(source_type: SourceType, text: str) -> str:
+    parsers = {
+        SourceType.markdown: parse_markdown,
+        SourceType.csv_faq: parse_csv_faq,
+        SourceType.ticket_export: parse_csv_faq,
+        SourceType.text_log: parse_text_log,
+        SourceType.pdf: parse_pdf_text,
+        SourceType.image: parse_image_description,
+        SourceType.approved_faq: parse_markdown,
+        SourceType.manual_note: parse_markdown,
+        SourceType.webpage: parse_markdown,
+    }
+    return parsers.get(source_type, parse_markdown)(text)
+
+
 def parse_artifact_text(source: Source, content: bytes) -> str:
-    # MVP parsers consume text. Binary PDF/OCR providers are still provider-backed
-    # follow-up work, so undecodable bytes are preserved as replacement chars.
-    return content.decode("utf-8", errors="replace")
+    # Source-type parsers normalize uploaded artifacts before chunking. PDF uses
+    # pypdf when possible and falls back to decoded text for test fixtures.
+    if source.source_type == SourceType.pdf:
+        return parse_pdf_text(parse_pdf_bytes(content))
+    decoded = content.decode("utf-8", errors="replace")
+    return parse_source_content(source.source_type, decoded)
 
 
 def create_source(store: InMemoryStore, payload: SourceCreate) -> Source:
@@ -33,13 +60,15 @@ def list_sources(store: InMemoryStore) -> list[Source]:
 def create_source_version(store: InMemoryStore, source_id: UUID, payload: SourceVersionCreate) -> tuple[SourceVersion, SourceArtifact, list]:
     if source_id not in store.sources:
         raise KeyError("source not found")
+    source = store.sources[source_id]
     content_hash = hashlib.sha256(payload.content.encode("utf-8")).hexdigest()
+    parsed_content = parse_source_content(source.source_type, payload.content)
     version = store.add_source_version(
         SourceVersion(
             source_id=source_id,
             version_label=payload.version_label,
             content_hash=content_hash,
-            parser_version=payload.parser_version,
+            parser_version=payload.parser_version if payload.parser_version != "mvp-text-v1" else parser_version_for(source.source_type),
         )
     )
     artifact = store.add_artifact(
@@ -49,7 +78,8 @@ def create_source_version(store: InMemoryStore, source_id: UUID, payload: Source
             storage_uri=f"memory://sources/{source_id}/{version.id}",
             size_bytes=len(payload.content.encode("utf-8")),
             checksum=content_hash,
-            content=payload.content,
+            metadata_json={"source_type": source.source_type.value},
+            content=parsed_content,
         )
     )
     chunks = ingest_source_version(store, version.id)
@@ -76,7 +106,7 @@ def create_uploaded_source_version(
             source_id=source_id,
             version_label=version_label or "uploaded",
             content_hash=checksum,
-            parser_version="mvp-upload-text-v1",
+            parser_version=parser_version_for(source.source_type),
             status="created",
         )
     )
@@ -88,7 +118,7 @@ def create_uploaded_source_version(
             mime_type=content_type or "application/octet-stream",
             size_bytes=len(content),
             checksum=checksum,
-            metadata_json={"original_filename": filename},
+            metadata_json={"original_filename": filename, "source_type": source.source_type.value},
             content=parsed_text,
         )
     )

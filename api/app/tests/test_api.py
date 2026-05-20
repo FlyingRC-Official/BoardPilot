@@ -11,7 +11,7 @@ def setup_function():
     store.reset()
 
 
-def seed_source():
+def seed_source(source_type="markdown", title="FlyingRC F4 Manual"):
     product = client.post(
         "/products",
         json={"name": "FlyingRC F4", "slug": "flyingrc-f4", "description": "Flight controller"},
@@ -20,8 +20,8 @@ def seed_source():
         "/sources",
         json={
             "product_id": product["id"],
-            "title": "FlyingRC F4 Manual",
-            "source_type": "markdown",
+            "title": title,
+            "source_type": source_type,
             "trust_level": "official",
         },
     ).json()
@@ -78,6 +78,44 @@ def test_upload_source_version_stores_artifact_and_creates_chunks(tmp_path, monk
     assert payload["artifact"]["metadata_json"]["original_filename"] == "manual.md"
     assert payload["artifact"]["size_bytes"] > 0
     assert payload["chunks"][0]["content"].startswith("Uploaded manual")
+
+
+def test_csv_faq_source_upload_is_normalized_before_chunking(tmp_path, monkeypatch):
+    import app.sources.service as source_service
+
+    monkeypatch.setattr(source_service.settings, "storage_root", str(tmp_path))
+    product, source, _chunks = seed_source(source_type="csv_faq", title="FlyingRC FAQ")
+    response = client.post(
+        f"/sources/{source['id']}/versions/upload",
+        data={"version_label": "faq-upload"},
+        files={
+            "file": (
+                "faq.csv",
+                b"question,answer\nWhat is USB for?,USB is only for configuration.\n",
+                "text/csv",
+            )
+        },
+    )
+    payload = response.json()
+    chunk_text = payload["chunks"][0]["content"]
+    assert payload["version"]["parser_version"] == "mvp-csv_faq-parser-v1"
+    assert "Question: What is USB for?" in chunk_text
+    assert "Answer: USB is only for configuration." in chunk_text
+    assert "question,answer" not in chunk_text
+
+
+def test_json_source_version_uses_source_type_parser():
+    product, source, _chunks = seed_source(source_type="csv_faq", title="FlyingRC FAQ")
+    response = client.post(
+        f"/sources/{source['id']}/versions",
+        json={
+            "version_label": "faq-json",
+            "content": "q,a\nCan I use USB for servos?,No. USB is for configuration only.\n",
+        },
+    )
+    payload = response.json()
+    assert payload["version"]["parser_version"] == "mvp-csv_faq-parser-v1"
+    assert "Question: Can I use USB for servos?" in payload["chunks"][0]["content"]
 
 
 def test_ask_creates_retrieval_evidence_answer_and_citations():
