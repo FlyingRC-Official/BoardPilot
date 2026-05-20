@@ -51,6 +51,7 @@ Updated: 2026-05-20
 - Added EvalRun comparison endpoint and Eval page delta table for comparing consecutive runs.
 - ReviewItem to EvalCase conversion now preserves expected source ids, chunk ids, and reviewer-edited answer points for regression coverage.
 - Review page now supports editable failure categories and reviewer notes, backed by validated and audited ReviewItem updates.
+- Review page now exposes the required reject action through the workbench, backed by audited API rejection.
 - Eval page now surfaces failure-category distribution from EvalRun summary metrics.
 - Added a Settings page for creating, editing, deleting, and listing provider configuration records.
 - Added ReviewItem detail API/UI that shows the linked question, generated answer, evidence pack, and retrieval trace.
@@ -114,7 +115,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 66 passed.
+- API tests: 67 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

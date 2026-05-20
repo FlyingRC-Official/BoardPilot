@@ -1152,6 +1152,29 @@ def test_review_approval_requires_failure_category():
     assert review_audit[-1]["entity_id"] == review_item["id"]
 
 
+def test_review_reject_requires_failure_category_and_is_audited():
+    ask_payload = client.post("/ask", json={"question": "What should be rejected?"}).json()
+    review_item = ask_payload["review_item"]
+
+    missing_category = client.post(f"/review-items/{review_item['id']}/reject", json={})
+    assert missing_category.status_code == 422
+    assert "failure_category" in missing_category.json()["detail"]
+
+    rejected = client.post(
+        f"/review-items/{review_item['id']}/reject",
+        json={"failure_category": "unsupported_claim"},
+        headers={"X-BoardPilot-User": "reviewer-3", "X-BoardPilot-Role": "reviewer"},
+    )
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "rejected"
+    assert rejected.json()["failure_category"] == "unsupported_claim"
+    audit_logs = client.get("/audit-logs").json()
+    review_audit = [log for log in audit_logs if log["action"] == "review_rejected"]
+    assert review_audit
+    assert review_audit[-1]["user_id"] == "reviewer-3"
+    assert review_audit[-1]["entity_id"] == review_item["id"]
+
+
 def test_review_can_be_marked_as_needing_source_update():
     ask_payload = client.post("/ask", json={"question": "What source needs updating?"}).json()
     review_item = ask_payload["review_item"]

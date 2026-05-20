@@ -13,6 +13,7 @@ import {
   listAuditLogs,
   listReviewItems,
   markReviewSourceUpdateNeeded,
+  rejectReviewItem,
   updateReviewItem
 } from "@/lib/api-client";
 import type { AuditLog, ReviewItem, ReviewItemDetail } from "@/lib/types";
@@ -61,6 +62,13 @@ export default function ReviewPage() {
     await approveReviewItem(id, failureCategories[id] || "human_policy_required");
     await refresh();
     setMessage("Review item approved with an audit-log decision.");
+  }
+
+  async function reject(id: string) {
+    await saveDraft(id);
+    await rejectReviewItem(id, failureCategories[id] || "human_policy_required");
+    await refresh();
+    setMessage("Review item rejected with an audit-log decision.");
   }
 
   async function toFaq(id: string) {
@@ -115,6 +123,7 @@ export default function ReviewPage() {
           onFailureChange={(id, value) => setFailureCategories((current) => ({ ...current, [id]: value }))}
           onSaveEdit={saveEdit}
           onApprove={approve}
+          onReject={reject}
           onToFaq={toFaq}
           onToEval={toEval}
           onInspect={inspect}

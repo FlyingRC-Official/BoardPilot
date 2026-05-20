@@ -266,6 +266,13 @@ export function approveReviewItem(id: string, failure_category = "human_policy_r
   });
 }
 
+export function rejectReviewItem(id: string, failure_category = "human_policy_required") {
+  return request<ReviewItem>(`/review-items/${id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ failure_category })
+  });
+}
+
 export function markReviewSourceUpdateNeeded(id: string, failure_category = "stale_source") {
   return request<ReviewItem>(`/review-items/${id}/source-update-needed`, {
     method: "POST",

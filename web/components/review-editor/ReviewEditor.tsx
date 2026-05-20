@@ -21,6 +21,7 @@ export const FAILURE_CATEGORIES = [
 export function ReviewEditor({
   items,
   onApprove,
+  onReject,
   onToFaq,
   onToEval,
   onInspect,
@@ -35,6 +36,7 @@ export function ReviewEditor({
 }: {
   items: ReviewItem[];
   onApprove: (id: string) => void;
+  onReject: (id: string) => void;
   onToFaq: (id: string) => void;
   onToEval: (id: string) => void;
   onInspect: (id: string) => void;
@@ -95,6 +97,9 @@ export function ReviewEditor({
               />
               <button className="button secondary" onClick={() => onApprove(item.id)}>
                 Approve
+              </button>
+              <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onReject(item.id)}>
+                Reject
               </button>
               <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onSaveEdit(item.id)}>
                 Save Edit
