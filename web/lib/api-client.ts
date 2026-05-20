@@ -139,7 +139,12 @@ export async function uploadSourceVersion(sourceId: string, file: File, versionL
   return response.json();
 }
 
-export function askQuestion(payload: { question: string; product_id?: string; metadata_filters_json?: Record<string, unknown> }) {
+export function askQuestion(payload: {
+  question: string;
+  product_id?: string;
+  metadata_filters_json?: Record<string, unknown>;
+  attachments?: Array<{ artifact_id: string; attachment_type: string; description?: string }>;
+}) {
   return request<AskResponse>("/ask", { method: "POST", body: JSON.stringify(payload) });
 }
 

@@ -498,6 +498,34 @@ def test_question_attachments_link_artifacts_and_show_in_review_detail():
     assert detail["attachments"][0]["id"] == attachment["id"]
 
 
+def test_ask_can_attach_existing_artifacts_during_submission():
+    product, source, _chunks = seed_source()
+    version_id = client.get(f"/sources/{source['id']}/versions").json()[0]["id"]
+    artifact = client.get(f"/source-versions/{version_id}/artifacts").json()[0]
+    ask_payload = client.post(
+        "/ask",
+        json={
+            "product_id": product["id"],
+            "question": "Can USB power servos if a log is attached?",
+            "attachments": [
+                {"artifact_id": artifact["id"], "attachment_type": "log", "description": "boot log copied from support case"}
+            ],
+        },
+    ).json()
+
+    assert ask_payload["attachments"][0]["artifact_id"] == artifact["id"]
+    assert ask_payload["attachments"][0]["description"] == "boot log copied from support case"
+    attachments = client.get(f"/questions/{ask_payload['question']['id']}/attachments").json()
+    assert attachments[0]["id"] == ask_payload["attachments"][0]["id"]
+
+    feedback = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "needs_review", "notes": "inspect attached log"},
+    ).json()
+    detail = client.get(f"/review-items/{feedback['id']}/detail").json()
+    assert detail["attachments"][0]["id"] == ask_payload["attachments"][0]["id"]
+
+
 def test_ask_persists_metadata_filters():
     payload = client.post(
         "/ask",

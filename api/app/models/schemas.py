@@ -376,6 +376,7 @@ class AskRequest(BaseModel):
     question: str
     product_id: Optional[UUID] = None
     metadata_filters_json: Dict[str, Any] = Field(default_factory=dict)
+    attachments: List[QuestionAttachmentCreate] = Field(default_factory=list)
 
 
 class AskResponse(BaseModel):
@@ -384,6 +385,7 @@ class AskResponse(BaseModel):
     candidates: List[RetrievalCandidate]
     evidence: List[Evidence]
     answer: Answer
+    attachments: List[QuestionAttachment] = Field(default_factory=list)
     review_item: Optional[ReviewItem] = None
 
 

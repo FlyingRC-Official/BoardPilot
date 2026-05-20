@@ -11,6 +11,7 @@ export default function AskPage() {
   const [productId, setProductId] = useState("");
   const [question, setQuestion] = useState("Can I power servos from the USB connector?");
   const [metadataFilters, setMetadataFilters] = useState("{}");
+  const [attachmentsJson, setAttachmentsJson] = useState("[]");
   const [result, setResult] = useState<AskResponse | null>(null);
   const [feedbackNote, setFeedbackNote] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState("");
@@ -34,10 +35,23 @@ export default function AskPage() {
         setLoading(false);
         return;
       }
+      let parsedAttachments: Array<{ artifact_id: string; attachment_type: string; description?: string }> = [];
+      try {
+        const rawAttachments = attachmentsJson.trim() ? JSON.parse(attachmentsJson) : [];
+        if (!Array.isArray(rawAttachments)) {
+          throw new Error("attachments must be an array");
+        }
+        parsedAttachments = rawAttachments;
+      } catch {
+        setError("Attachments JSON is invalid");
+        setLoading(false);
+        return;
+      }
       const response = await askQuestion({
         question,
         product_id: productId || undefined,
-        metadata_filters_json: parsedFilters
+        metadata_filters_json: parsedFilters,
+        attachments: parsedAttachments
       });
       setResult(response);
       setFeedbackNote("");
@@ -96,6 +110,15 @@ export default function AskPage() {
                 onChange={(event) => setMetadataFilters(event.target.value)}
               />
             </label>
+            <label className="field">
+              <span>Attachments JSON</span>
+              <textarea
+                className="textarea"
+                style={{ minHeight: 84 }}
+                value={attachmentsJson}
+                onChange={(event) => setAttachmentsJson(event.target.value)}
+              />
+            </label>
             <div className="button-row">
               <button className="button" disabled={loading || !question.trim()}>
                 {loading ? "Running..." : "Run Ask"}
@@ -116,6 +139,29 @@ export default function AskPage() {
                 <span className="muted">confidence {result.answer.confidence.toFixed(2)}</span>
               </p>
               {result.review_item ? <p className="status warn">Routed to review: {result.review_item.failure_category}</p> : null}
+              {result.attachments.length ? (
+                <div>
+                  <h3>Attached Context</h3>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Artifact</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.attachments.map((attachment) => (
+                        <tr key={attachment.id}>
+                          <td>{attachment.attachment_type}</td>
+                          <td>{attachment.description || "No description"}</td>
+                          <td>{attachment.artifact_id.slice(0, 8)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
               <label className="field">
                 <span>Feedback notes</span>
                 <textarea

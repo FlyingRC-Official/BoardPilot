@@ -1134,6 +1134,14 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)) -> AskResp
             metadata_filters_json=payload.metadata_filters_json,
         )
     )
+    attachments: list[QuestionAttachment] = []
+    for attachment_payload in payload.attachments:
+        database_artifact = get_artifact_from_database(session, attachment_payload.artifact_id)
+        if attachment_payload.artifact_id not in store.source_artifacts and not database_artifact:
+            raise not_found()
+        attachment = store.add_question_attachment(QuestionAttachment(**attachment_payload.model_dump(), question_id=question.id))
+        save_question_attachment_to_database(session, attachment)
+        attachments.append(attachment)
     retrieval_run, candidates, evidence = run_retrieval(store, question)
     answer = generate_answer(store, question, retrieval_run.id, evidence)
     review_item = route_answer_for_review(answer)
@@ -1146,6 +1154,7 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)) -> AskResp
         candidates=candidates,
         evidence=evidence,
         answer=answer,
+        attachments=attachments,
         review_item=review_item,
     )
 

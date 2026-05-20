@@ -167,9 +167,11 @@ export type AuditLog = {
 };
 
 export type AskResponse = {
+  question: Question;
   evidence: Evidence[];
   candidates: RetrievalCandidate[];
   answer: Answer;
+  attachments: QuestionAttachment[];
   review_item?: ReviewItem | null;
 };
 
