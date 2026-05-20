@@ -40,6 +40,7 @@ from app.models.schemas import (
     SourceVersionCreate,
     Ticket,
     TicketCreate,
+    now,
 )
 from app.products.service import create_alias, create_product, get_product, list_products
 from app.retrieval.entity_extraction import detect_product_aliases
@@ -497,14 +498,31 @@ def get_audit_logs(_user: CurrentUser = Depends(require_roles("admin"))) -> list
 def patch_review_item(
     item_id: UUID,
     payload: Dict[str, Any],
-    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    user: CurrentUser = Depends(require_roles("admin", "reviewer")),
 ) -> ReviewItem:
     if item_id not in store.review_items:
         raise not_found()
     item = store.review_items[item_id]
+    before_json = item.model_dump(mode="json")
+    allowed_fields = {"reviewer_notes", "edited_answer_text", "failure_category", "priority"}
     for key, value in payload.items():
-        if hasattr(item, key):
-            setattr(item, key, value)
+        if key not in allowed_fields:
+            continue
+        if key == "failure_category" and value:
+            try:
+                value = FailureCategory(value)
+            except ValueError:
+                raise HTTPException(status_code=422, detail="invalid failure_category")
+        setattr(item, key, value)
+    item.updated_at = now()
+    store.add_audit_log(
+        "review_item_updated",
+        "ReviewItem",
+        str(item.id),
+        user_id=user.user_id,
+        before_json=before_json,
+        after_json=item.model_dump(mode="json"),
+    )
     return item
 
 

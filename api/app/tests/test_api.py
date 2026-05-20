@@ -442,6 +442,15 @@ def test_review_approval_requires_failure_category():
     assert missing_category.status_code == 422
     assert "failure_category" in missing_category.json()["detail"]
 
+    patched = client.patch(
+        f"/review-items/{review_item['id']}",
+        json={"failure_category": "bad_rerank", "reviewer_notes": "Reranker missed the useful quote."},
+        headers={"X-BoardPilot-User": "reviewer-1", "X-BoardPilot-Role": "reviewer"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["failure_category"] == "bad_rerank"
+    assert patched.json()["reviewer_notes"].startswith("Reranker missed")
+
     approved = client.post(
         f"/review-items/{review_item['id']}/approve",
         json={"failure_category": "insufficient_evidence"},
@@ -449,6 +458,8 @@ def test_review_approval_requires_failure_category():
     )
     assert approved.status_code == 200
     assert approved.json()["failure_category"] == "insufficient_evidence"
+    audit_actions = [item["action"] for item in client.get("/audit-logs").json()]
+    assert "review_item_updated" in audit_actions
 
     audit_logs = client.get("/audit-logs").json()
     review_audit = [log for log in audit_logs if log["action"] == "review_approved"]

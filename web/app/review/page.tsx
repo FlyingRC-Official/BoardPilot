@@ -17,6 +17,8 @@ export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [failureCategories, setFailureCategories] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
 
   async function refresh() {
@@ -27,6 +29,22 @@ export default function ReviewPage() {
       ...current,
       ...Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] || item.edited_answer_text || ""]))
     }));
+    setNotes((current) => ({
+      ...current,
+      ...Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] || item.reviewer_notes || ""]))
+    }));
+    setFailureCategories((current) => ({
+      ...current,
+      ...Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] || item.failure_category || ""]))
+    }));
+  }
+
+  async function saveDraft(id: string) {
+    await updateReviewItem(id, {
+      edited_answer_text: edits[id] || "",
+      reviewer_notes: notes[id] || "",
+      failure_category: failureCategories[id] || undefined
+    });
   }
 
   useEffect(() => {
@@ -34,33 +52,30 @@ export default function ReviewPage() {
   }, []);
 
   async function approve(id: string) {
-    await approveReviewItem(id);
+    await saveDraft(id);
+    await approveReviewItem(id, failureCategories[id] || "human_policy_required");
     await refresh();
     setMessage("Review item approved with an audit-log decision.");
   }
 
   async function toFaq(id: string) {
-    if (edits[id]?.trim()) {
-      await updateReviewItem(id, { edited_answer_text: edits[id].trim() });
-    }
+    await saveDraft(id);
     await convertReviewItemToFaq(id);
     await refresh();
     setMessage("Review item converted to an ApprovedFAQ source and re-ingested.");
   }
 
   async function toEval(id: string) {
-    if (edits[id]?.trim()) {
-      await updateReviewItem(id, { edited_answer_text: edits[id].trim() });
-    }
+    await saveDraft(id);
     await convertReviewItemToEvalCase(id);
     await refresh();
     setMessage("Review item converted to an EvalCase with expected evidence.");
   }
 
   async function saveEdit(id: string) {
-    await updateReviewItem(id, { edited_answer_text: edits[id] || "" });
+    await saveDraft(id);
     await refresh();
-    setMessage("Reviewer edit saved.");
+    setMessage("Reviewer fields saved.");
   }
 
   return (
@@ -76,7 +91,11 @@ export default function ReviewPage() {
         <ReviewEditor
           items={items}
           edits={edits}
+          notes={notes}
+          failureCategories={failureCategories}
           onEdit={(id, value) => setEdits((current) => ({ ...current, [id]: value }))}
+          onNotesChange={(id, value) => setNotes((current) => ({ ...current, [id]: value }))}
+          onFailureChange={(id, value) => setFailureCategories((current) => ({ ...current, [id]: value }))}
           onSaveEdit={saveEdit}
           onApprove={approve}
           onToFaq={toFaq}

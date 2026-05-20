@@ -98,7 +98,10 @@ export function approveReviewItem(id: string, failure_category = "human_policy_r
   });
 }
 
-export function updateReviewItem(id: string, payload: Partial<Pick<ReviewItem, "reviewer_notes">> & { edited_answer_text?: string }) {
+export function updateReviewItem(
+  id: string,
+  payload: Partial<Pick<ReviewItem, "failure_category" | "reviewer_notes" | "edited_answer_text">>
+) {
   return request<ReviewItem>(`/review-items/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload)
