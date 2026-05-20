@@ -467,6 +467,46 @@ def test_failed_support_import_ingestion_creates_source_issue_review_items(monke
     assert ocr_payload["review_item"]["failure_category"] == "bad_parse"
 
 
+def test_unsupported_ocr_provider_config_records_failed_result_and_routes_review():
+    product = client.post(
+        "/products",
+        json={"name": "OCR Board", "slug": "ocr-board", "description": ""},
+    ).json()
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "ocr",
+            "provider_name": "vision-api",
+            "model_name": "ocr-example",
+            "config_json": {"api_key_env": "VISION_API_KEY"},
+        },
+    )
+    image_payload = client.post(
+        "/image-assets",
+        json={
+            "product_id": product["id"],
+            "storage_uri": "local://ocr-board.png",
+            "image_type": "wiring_photo",
+        },
+    ).json()
+
+    ocr_payload = client.post(
+        f"/image-assets/{image_payload['image_asset']['id']}/ocr",
+        json={"ocr_text": "This manual OCR text should not be labeled as provider output.", "confidence": 0.8},
+    ).json()
+
+    assert ocr_payload["ocr_result"]["provider_name"] == "vision-api"
+    assert ocr_payload["ocr_result"]["model_name"] == "ocr-example"
+    assert ocr_payload["ocr_result"]["status"] == "failed"
+    assert ocr_payload["ocr_result"]["ocr_text"] == ""
+    assert ocr_payload["ocr_result"]["confidence"] == 0.0
+    assert "no adapter is installed" in ocr_payload["ocr_result"]["error_message"]
+    assert ocr_payload["version"] is None
+    assert ocr_payload["chunks"] == []
+    assert ocr_payload["review_item"]["source_type"] == "source_issue"
+    assert ocr_payload["review_item"]["failure_category"] == "generation_error"
+
+
 def test_source_disable_is_audited():
     _product, source, _chunks = seed_source()
     disabled = client.post(

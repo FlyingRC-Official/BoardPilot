@@ -368,6 +368,8 @@ class OcrResultOrm(Base):
     model_name: Mapped[str] = mapped_column(String(255), nullable=False)
     ocr_text: Mapped[str] = mapped_column(Text, default="", nullable=False)
     confidence: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="completed", nullable=False)
+    error_message: Mapped[str] = mapped_column(Text, default="", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
 

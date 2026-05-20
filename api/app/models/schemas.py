@@ -365,6 +365,8 @@ class OcrResult(BaseModel):
     model_name: str
     ocr_text: str = ""
     confidence: float = 0.0
+    status: str = "completed"
+    error_message: str = ""
     created_at: datetime = Field(default_factory=now)
 
 

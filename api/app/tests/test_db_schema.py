@@ -352,7 +352,9 @@ def test_support_import_api_helpers_use_database_when_available():
     assert list_log_sources_from_database(session)[0].content == "BOOT OK"
     assert list_image_assets_from_database(session)[0].id == image_asset.id
     assert get_image_asset_from_database(session, image_asset.id).storage_uri == "local://image.png"
-    assert list_ocr_results_from_database(session, image_asset.id)[0].id == ocr.id
+    saved_ocr = list_ocr_results_from_database(session, image_asset.id)[0]
+    assert saved_ocr.id == ocr.id
+    assert saved_ocr.status == "completed"
 
 
 def test_review_item_helper_hydrates_database_item_for_service():
@@ -912,4 +914,6 @@ def test_review_eval_repository_round_trips_remaining_mvp_records_in_sqlite():
     assert review_repo.list_provider_configs()[0].id == provider_config.id
     assert ticket.source_id == source.id
     assert log_source.content == "BOOT OK"
-    assert review_repo.ocr_results_for_image(image_asset.id)[0].id == ocr.id
+    saved_ocr = review_repo.ocr_results_for_image(image_asset.id)[0]
+    assert saved_ocr.id == ocr.id
+    assert saved_ocr.status == "completed"
