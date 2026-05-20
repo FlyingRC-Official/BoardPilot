@@ -9,6 +9,7 @@ import type {
   Product,
   ProductAlias,
   ProviderConfig,
+  ProviderType,
   Answer,
   ImageAsset,
   IngestionJob,
@@ -72,7 +73,7 @@ export function listProviderConfigs() {
 }
 
 export function createProviderConfig(payload: {
-  provider_type: string;
+  provider_type: ProviderType;
   provider_name: string;
   model_name: string;
   config_json: Record<string, unknown>;

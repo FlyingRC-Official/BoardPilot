@@ -2,11 +2,11 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { createProviderConfig, deleteProviderConfig, listProviderConfigs, updateProviderConfig } from "@/lib/api-client";
-import type { ProviderConfig } from "@/lib/types";
+import type { ProviderConfig, ProviderType } from "@/lib/types";
 
 export default function SettingsPage() {
   const [configs, setConfigs] = useState<ProviderConfig[]>([]);
-  const [providerType, setProviderType] = useState("llm");
+  const [providerType, setProviderType] = useState<ProviderType>("llm");
   const [providerName, setProviderName] = useState("fake");
   const [modelName, setModelName] = useState("fake-citation-llm");
   const [configJson, setConfigJson] = useState("{}");
@@ -89,7 +89,7 @@ export default function SettingsPage() {
           <h2>Provider Config</h2>
           <label className="field">
             <span>Type</span>
-            <select className="select" value={providerType} onChange={(event) => setProviderType(event.target.value)}>
+            <select className="select" value={providerType} onChange={(event) => setProviderType(event.target.value as ProviderType)}>
               <option value="llm">LLM</option>
               <option value="embedding">Embedding</option>
               <option value="reranker">Reranker</option>

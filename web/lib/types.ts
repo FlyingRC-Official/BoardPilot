@@ -1,3 +1,5 @@
+export type ProviderType = "llm" | "embedding" | "reranker" | "ocr";
+
 export type Product = {
   id: string;
   name: string;
@@ -16,7 +18,7 @@ export type ProductAlias = {
 
 export type ProviderConfig = {
   id: string;
-  provider_type: string;
+  provider_type: ProviderType;
   provider_name: string;
   model_name: string;
   config_json: Record<string, unknown>;
