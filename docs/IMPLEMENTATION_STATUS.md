@@ -120,6 +120,7 @@ Updated: 2026-05-20
 - Ticket, log source, image asset, and OCR import endpoints now read and mirror through SQLAlchemy when available.
 - ReviewItem to ApprovedFAQ and ReviewItem to EvalCase conversions now hydrate linked database context and persist generated FAQ/source/eval outputs through SQLAlchemy when available.
 - Ingestion job run/enqueue/retry paths now hydrate SourceVersion, Source, Product, Artifact, and existing Chunk context from SQLAlchemy and mirror completed re-ingestion outputs back to SQLAlchemy when available.
+- Redis ingestion worker failures now persist source-issue ReviewItems for failed SourceVersions, matching synchronous ingestion failure routing.
 - ChunkEmbedding records now read and mirror through SQLAlchemy when available, and embedding persistence is isolated so chunk persistence is not rolled back if embedding storage is unavailable.
 - Redis ingestion worker message processing now hydrates job/source context from SQLAlchemy and persists completed job, chunk, and embedding outputs back to SQLAlchemy.
 
@@ -138,7 +139,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 82 passed.
+- API tests: 83 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

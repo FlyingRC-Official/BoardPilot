@@ -5,12 +5,12 @@ import logging
 import time
 
 from app.core.config import settings
-from app.db.repositories import CatalogRepository, RuntimeRepository
+from app.db.repositories import CatalogRepository, ReviewEvalRepository, RuntimeRepository
 from app.db.session import SessionLocal
 from app.ingestion.jobs import run_ingestion_job
 from app.ingestion.queue import QUEUE_NAME, decode_ingestion_job, encode_ingestion_job
 from app.db.session import store
-from app.models.schemas import IngestionJob
+from app.models.schemas import FailureCategory, IngestionJob, ReviewItem
 from app.providers.config_store import hydrate_provider_configs
 
 logger = logging.getLogger("boardpilot.ingestion_worker")
@@ -52,6 +52,15 @@ def persist_ingestion_result(job: IngestionJob, chunks) -> None:
         version = store.source_versions.get(job.source_version_id)
         if version:
             catalog.add_source_version(version)
+            if version.status == "failed" and version.error_message.strip():
+                review_item = ReviewItem(
+                    source_type="source_issue",
+                    priority=1,
+                    failure_category=FailureCategory.bad_parse,
+                    reviewer_notes=f"SourceVersion {version.id} failed ingestion: {version.error_message}",
+                )
+                store.review_items[review_item.id] = review_item
+                ReviewEvalRepository(session).add_review_item(review_item)
         catalog.add_chunks(chunks)
         session.commit()
     finally:

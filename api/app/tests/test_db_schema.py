@@ -708,6 +708,64 @@ def test_ingestion_worker_processes_database_backed_queue_message(monkeypatch):
         main_app.store.reset()
 
 
+def test_ingestion_worker_failed_job_creates_source_issue_review_item(monkeypatch):
+    import app.main as main_app
+    import app.workers.ingestion_worker as worker
+    from app.ingestion.queue import encode_ingestion_job
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+        Base.metadata.tables["chunk_embeddings"],
+        Base.metadata.tables["ingestion_jobs"],
+        Base.metadata.tables["provider_configs"],
+        Base.metadata.tables["review_items"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    monkeypatch.setattr(worker, "SessionLocal", session_factory)
+    session = session_factory()
+    catalog_repo = CatalogRepository(session)
+    runtime_repo = RuntimeRepository(session)
+    review_repo = ReviewEvalRepository(session)
+
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(Source(product_id=product.id, title="Manual", source_type=SourceType.markdown, trust_level="official"))
+    version = catalog_repo.add_source_version(SourceVersion(source_id=source.id, version_label="v1", content_hash="b" * 64))
+    catalog_repo.add_artifact(SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only."))
+    review_repo.add_provider_config(
+        ProviderConfig(provider_type="embedding", provider_name="openai", model_name="text-embedding-example")
+    )
+    job = runtime_repo.add_ingestion_job(IngestionJob(source_version_id=version.id))
+    session.commit()
+    session.close()
+
+    main_app.store.reset()
+    try:
+        worker.process_message(encode_ingestion_job(version.id, job.id))
+
+        session = session_factory()
+        try:
+            failed = RuntimeRepository(session).get_ingestion_job(job.id)
+            failed_version = CatalogRepository(session).get_source_version(version.id)
+            chunks = CatalogRepository(session).chunks_for_version(version.id)
+            review_items = ReviewEvalRepository(session).list_review_items()
+        finally:
+            session.close()
+        assert failed.status == "failed"
+        assert failed_version.status == "failed"
+        assert chunks == []
+        assert review_items[0].source_type == "source_issue"
+        assert review_items[0].failure_category == FailureCategory.bad_parse
+        assert "failed ingestion" in review_items[0].reviewer_notes
+    finally:
+        main_app.store.reset()
+
+
 def test_retrieval_repository_round_trips_ask_records_in_sqlite():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     create_subset = [
