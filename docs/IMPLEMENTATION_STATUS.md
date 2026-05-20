@@ -78,6 +78,7 @@ Updated: 2026-05-21
 - Added a Settings page for creating, editing, deleting, and listing provider configuration records.
 - Added ReviewItem detail API/UI that shows the linked question, generated answer, evidence pack, and retrieval trace.
 - Enabled LLM provider configs to set answer/model-run identity and estimate model cost in EvalRun summaries.
+- Added a credential-gated OpenAI-compatible chat-completions LLM adapter for provider configs named `openai` or `openai_compatible`.
 - Unsupported non-fake LLM provider configs now record failed ModelRuns and route generated Answers to Review as generation errors instead of silently using fake execution.
 - LLM generation errors and reranker degradation now route to the documented low-confidence-answer review source bucket while preserving actionable failure categories.
 - Unsupported non-fake embedding provider configs now fail source ingestion with a saved error reason and source-issue ReviewItem instead of storing fake vectors under a non-fake identity.
@@ -165,7 +166,7 @@ headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 
 Results:
 
-- API tests: 101 passed.
+- API tests: 103 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -179,7 +180,7 @@ Results:
 - Docker Compose has static contract coverage, but live `docker compose up --build` verification could not be run on this machine because the Docker CLI is not installed.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
 - File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; OCR can now use manual text, fake provider behavior, or the optional local Tesseract adapter when installed.
-- Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; cloud OCR provider adapters are still not implemented.
+- Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; cloud embedding, reranker, and OCR provider adapters are still not implemented.
 - EvalRun can run the required 20-case seed corpus, categorize failed results, inspect per-case traces, send failed cases to Review, and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - High-confidence detected product aliases now become hard product filters while lower-confidence aliases remain soft boosts.

@@ -24,6 +24,8 @@ The `.env.example` file documents the required private-deployment variables. `BO
 
 The default provider config is fake/local. Source content should not leave the deployment unless an admin intentionally enables an external LLM, embedding, reranker, or OCR provider.
 
+LLM provider configs support an OpenAI-compatible chat-completions adapter by setting `provider_name` to `openai` or `openai_compatible`. Use `config_json` such as `{"api_key_env":"OPENAI_API_KEY","base_url":"https://api.openai.com/v1"}` so credentials stay in environment variables instead of stored provider records.
+
 ## API Key Gate
 
 Local development leaves `BOARDPILOT_API_KEY` empty, so the workbench can use the role headers directly. In a private deployment, set `BOARDPILOT_API_KEY` for the API and worker, and set the same value as `NEXT_PUBLIC_BOARDPILOT_API_KEY` for the bundled private web workbench so browser requests include `X-BoardPilot-API-Key`.

@@ -1678,9 +1678,9 @@ def test_unsupported_llm_provider_config_records_failed_model_run_and_routes_rev
         "/provider-configs",
         json={
             "provider_type": "llm",
-            "provider_name": "openai",
-            "model_name": "gpt-example",
-            "config_json": {"api_key_env": "OPENAI_API_KEY"},
+            "provider_name": "anthropic",
+            "model_name": "claude-example",
+            "config_json": {"api_key_env": "ANTHROPIC_API_KEY"},
         },
     )
 
@@ -1690,8 +1690,8 @@ def test_unsupported_llm_provider_config_records_failed_model_run_and_routes_rev
     ).json()
 
     assert payload["answer"]["status"] == "generation_error"
-    assert payload["answer"]["provider_name"] == "openai"
-    assert payload["answer"]["model_name"] == "gpt-example"
+    assert payload["answer"]["provider_name"] == "anthropic"
+    assert payload["answer"]["model_name"] == "claude-example"
     assert payload["answer"]["confidence"] == 0.0
     assert payload["review_item"]["source_type"] == "low_confidence_answer"
     assert payload["review_item"]["failure_category"] == "generation_error"

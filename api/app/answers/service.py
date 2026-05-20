@@ -7,6 +7,7 @@ from app.db.store import InMemoryStore
 from app.models.schemas import Answer, EvidenceSufficiency, ModelRun, ProviderConfig, Question
 from app.providers.base import LLMResult
 from app.providers.llm import llm_provider
+from app.providers.openai_compatible import OpenAICompatibleLLMProvider
 
 
 def estimate_model_cost(config_json: dict, input_words: int, output_words: int) -> dict:
@@ -22,6 +23,15 @@ def estimate_model_cost(config_json: dict, input_words: int, output_words: int) 
 
 
 def run_configured_llm(provider_config: Optional[ProviderConfig], question_text: str, evidence_quotes: list[str]) -> LLMResult:
+    if provider_config and (
+        provider_config.provider_name in {"openai", "openai_compatible", "openai-compatible"}
+        or provider_config.config_json.get("adapter") == "openai_compatible"
+    ):
+        return OpenAICompatibleLLMProvider(
+            provider_config.provider_name,
+            provider_config.model_name,
+            provider_config.config_json,
+        ).answer(question_text, evidence_quotes)
     if provider_config and provider_config.provider_name != llm_provider.provider_name:
         return LLMResult(
             provider_config.provider_name,
