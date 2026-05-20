@@ -46,6 +46,7 @@ Updated: 2026-05-20
 - Eval page now surfaces failure-category distribution from EvalRun summary metrics.
 - Added a Settings page for creating, editing, deleting, and listing provider configuration records.
 - Added ReviewItem detail API/UI that shows the linked question, generated answer, evidence pack, and retrieval trace.
+- Enabled LLM provider configs to set answer/model-run identity and estimate model cost in EvalRun summaries.
 
 ## Verified
 
@@ -62,7 +63,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 22 passed.
+- API tests: 23 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -80,7 +81,7 @@ Results:
 - Core audit events are inspectable through `GET /audit-logs`; persistence remains in-memory until SQLAlchemy repositories are wired.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing.
-- EvalRun summaries now include the MVP-required aggregate metric families; comparison UI remains minimal.
+- EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI remains minimal.
 - Review approval/rejection now fails without an explicit failure category.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
@@ -94,4 +95,4 @@ Results:
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Replace header-based local role context with real authentication/session management.
 5. Add richer eval-result context to Review detail.
-6. Add model-cost assumptions and provider-selection wiring into runtime provider calls.
+6. Extend provider-selection wiring to embedding, reranker, and OCR runtime calls.

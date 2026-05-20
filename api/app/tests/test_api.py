@@ -353,8 +353,39 @@ def test_insufficient_evidence_routes_to_review():
     assert payload["review_item"]["status"] == "open"
 
 
+def test_llm_provider_config_sets_model_run_identity_and_cost():
+    product, _source, _chunks = seed_source()
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "llm",
+            "provider_name": "fake",
+            "model_name": "fake-citation-llm-costed",
+            "config_json": {"input_cost_per_1k_words": 0.25, "output_cost_per_1k_words": 0.5, "currency": "USD"},
+        },
+    )
+
+    payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can I power servos from USB?"},
+    ).json()
+    assert payload["answer"]["model_name"] == "fake-citation-llm-costed"
+    model_run = client.get(f"/model-runs/{payload['answer']['model_run_id']}").json()
+    assert model_run["model_name"] == "fake-citation-llm-costed"
+    assert model_run["cost_json"]["total_cost"] > 0
+
+
 def test_eval_run_records_metrics_and_can_route_failure_to_review():
     product, _source, chunks = seed_source()
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "llm",
+            "provider_name": "fake",
+            "model_name": "fake-citation-llm-costed",
+            "config_json": {"input_cost_per_1k_words": 0.25, "output_cost_per_1k_words": 0.5},
+        },
+    )
     case = client.post(
         "/eval-cases",
         json={
@@ -375,7 +406,8 @@ def test_eval_run_records_metrics_and_can_route_failure_to_review():
     assert "failure_category_distribution" in eval_run["summary_metrics_json"]
     assert "latency_p50_ms" in eval_run["summary_metrics_json"]
     assert "latency_p95_ms" in eval_run["summary_metrics_json"]
-    assert "model_cost" in eval_run["summary_metrics_json"]
+    assert eval_run["provider_config_json"]["llm"]["model_name"] == "fake-citation-llm-costed"
+    assert eval_run["summary_metrics_json"]["model_cost"] > 0
     assert results[0]["eval_case_id"] == case["id"]
 
     review = client.post(f"/eval-results/{results[0]['id']}/to-review").json()

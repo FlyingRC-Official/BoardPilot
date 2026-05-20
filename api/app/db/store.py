@@ -169,6 +169,20 @@ class InMemoryStore:
         )
         return config
 
+    def active_provider_config(self, provider_type: str) -> Optional[ProviderConfig]:
+        for config in self.provider_configs.values():
+            if config.provider_type == provider_type and config.enabled:
+                return config
+        return None
+
+    def provider_config_snapshot(self) -> dict:
+        snapshot = {}
+        for provider_type in ("llm", "embedding", "reranker", "ocr"):
+            config = self.active_provider_config(provider_type)
+            if config:
+                snapshot[provider_type] = config.model_dump(mode="json")
+        return snapshot
+
     def add_ticket(self, ticket: Ticket) -> Ticket:
         self.tickets[ticket.id] = ticket
         return ticket

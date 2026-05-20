@@ -9,7 +9,7 @@ from app.retrieval.service import run_retrieval
 
 
 def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRun, list[EvalResult]]:
-    run = EvalRun(name=name)
+    run = EvalRun(name=name, provider_config_json=store.provider_config_snapshot())
     results: list[EvalResult] = []
     for case in [case for case in store.eval_cases.values() if case.active]:
         question = store.add_question(
@@ -40,6 +40,11 @@ def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRu
         )
         results.append(result)
     latencies = [store.retrieval_runs[result.retrieval_run_id].latency_ms for result in results]
+    model_costs = [
+        float(store.model_runs[store.answers[result.answer_id].model_run_id].cost_json.get("total_cost", 0.0))
+        for result in results
+        if store.answers[result.answer_id].model_run_id in store.model_runs
+    ]
     sufficiency_values = [result.metrics_json.get("evidence_sufficiency") for result in results]
     failure_categories: dict[str, int] = {}
     for result in results:
@@ -64,7 +69,7 @@ def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRu
         "failure_category_distribution": failure_categories,
         "latency_p50_ms": percentile(latencies, 0.50),
         "latency_p95_ms": percentile(latencies, 0.95),
-        "model_cost": 0.0,
+        "model_cost": sum(model_costs),
     }
     store.add_eval_run(run)
     return run, results
