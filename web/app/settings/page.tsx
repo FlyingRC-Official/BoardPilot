@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { createProviderConfig, listProviderConfigs } from "@/lib/api-client";
+import { createProviderConfig, deleteProviderConfig, listProviderConfigs, updateProviderConfig } from "@/lib/api-client";
 import type { ProviderConfig } from "@/lib/types";
 
 export default function SettingsPage() {
@@ -11,6 +11,7 @@ export default function SettingsPage() {
   const [modelName, setModelName] = useState("fake-citation-llm");
   const [configJson, setConfigJson] = useState("{}");
   const [enabled, setEnabled] = useState(true);
+  const [selectedConfigId, setSelectedConfigId] = useState("");
   const [message, setMessage] = useState("");
 
   async function refresh() {
@@ -30,15 +31,49 @@ export default function SettingsPage() {
       setMessage("Config JSON is invalid.");
       return;
     }
-    await createProviderConfig({
+    const payload = {
       provider_type: providerType,
       provider_name: providerName,
       model_name: modelName,
       config_json: parsedConfig,
       enabled
-    });
+    };
+    if (selectedConfigId) {
+      await updateProviderConfig(selectedConfigId, payload);
+    } else {
+      await createProviderConfig(payload);
+    }
     await refresh();
-    setMessage("Provider config saved.");
+    setMessage(selectedConfigId ? "Provider config updated." : "Provider config saved.");
+  }
+
+  function editConfig(config: ProviderConfig) {
+    setSelectedConfigId(config.id);
+    setProviderType(config.provider_type);
+    setProviderName(config.provider_name);
+    setModelName(config.model_name);
+    setConfigJson(JSON.stringify(config.config_json, null, 2));
+    setEnabled(config.enabled);
+    setMessage("Editing provider config.");
+  }
+
+  function clearForm() {
+    setSelectedConfigId("");
+    setProviderType("llm");
+    setProviderName("fake");
+    setModelName("fake-citation-llm");
+    setConfigJson("{}");
+    setEnabled(true);
+    setMessage("");
+  }
+
+  async function removeConfig(id: string) {
+    await deleteProviderConfig(id);
+    if (selectedConfigId === id) {
+      clearForm();
+    }
+    await refresh();
+    setMessage("Provider config deleted.");
   }
 
   return (
@@ -77,7 +112,14 @@ export default function SettingsPage() {
             <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
             <span>Enabled</span>
           </label>
-          <button className="button">Save Provider</button>
+          <div className="button-row">
+            <button className="button">{selectedConfigId ? "Update Provider" : "Save Provider"}</button>
+            {selectedConfigId ? (
+              <button className="button secondary" type="button" onClick={clearForm}>
+                New Provider
+              </button>
+            ) : null}
+          </div>
           {message ? <p className="status">{message}</p> : null}
         </form>
         <section className="panel">
@@ -90,6 +132,7 @@ export default function SettingsPage() {
                   <th>Provider</th>
                   <th>Model</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -99,6 +142,19 @@ export default function SettingsPage() {
                     <td>{config.provider_name}</td>
                     <td>{config.model_name}</td>
                     <td>{config.enabled ? "enabled" : "disabled"}</td>
+                    <td>
+                      <button className="button secondary" type="button" onClick={() => editConfig(config)}>
+                        Edit
+                      </button>
+                      <button
+                        className="button secondary"
+                        style={{ marginLeft: 8 }}
+                        type="button"
+                        onClick={() => removeConfig(config.id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -44,7 +44,7 @@ Updated: 2026-05-20
 - ReviewItem to EvalCase conversion now preserves expected source ids, chunk ids, and reviewer-edited answer points for regression coverage.
 - Review page now supports editable failure categories and reviewer notes, backed by validated and audited ReviewItem updates.
 - Eval page now surfaces failure-category distribution from EvalRun summary metrics.
-- Added a Settings page for creating and listing provider configuration records.
+- Added a Settings page for creating, editing, deleting, and listing provider configuration records.
 
 ## Verified
 
@@ -93,4 +93,4 @@ Results:
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Replace header-based local role context with real authentication/session management.
 5. Add a richer review detail layout with linked question, answer, evidence, and eval-result context.
-6. Add provider-config update/delete controls and model-cost assumptions.
+6. Add model-cost assumptions and provider-selection wiring into runtime provider calls.

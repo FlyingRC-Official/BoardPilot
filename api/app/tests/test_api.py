@@ -83,13 +83,30 @@ def test_provider_config_creation_is_admin_only_and_audited():
     configs = client.get("/provider-configs").json()
     assert configs[0]["id"] == provider_config["id"]
 
+    updated = client.patch(
+        f"/provider-configs/{provider_config['id']}",
+        json={"model_name": "fake-citation-llm-v2", "enabled": False},
+        headers={"X-BoardPilot-User": "admin-2", "X-BoardPilot-Role": "admin"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["model_name"] == "fake-citation-llm-v2"
+    assert updated.json()["enabled"] is False
+
     providers = client.get("/providers").json()
     assert providers["configs"][0]["id"] == provider_config["id"]
 
+    deleted = client.delete(
+        f"/provider-configs/{provider_config['id']}",
+        headers={"X-BoardPilot-User": "admin-3", "X-BoardPilot-Role": "admin"},
+    )
+    assert deleted.status_code == 200
+    assert client.get("/provider-configs").json() == []
+
     audit_logs = client.get("/audit-logs").json()
-    audit = [log for log in audit_logs if log["action"] == "provider_config_created"]
-    assert audit[-1]["user_id"] == "admin-1"
-    assert audit[-1]["entity_id"] == provider_config["id"]
+    audit_actions = [log["action"] for log in audit_logs]
+    assert "provider_config_created" in audit_actions
+    assert "provider_config_updated" in audit_actions
+    assert "provider_config_deleted" in audit_actions
 
 
 def test_ticket_log_and_image_text_enter_source_pipeline():

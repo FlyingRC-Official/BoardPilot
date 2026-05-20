@@ -97,6 +97,50 @@ def get_provider_configs(_user: CurrentUser = Depends(require_roles("admin"))) -
     return list(store.provider_configs.values())
 
 
+@app.patch("/provider-configs/{config_id}", response_model=ProviderConfig)
+def patch_provider_config(
+    config_id: UUID,
+    payload: Dict[str, Any],
+    user: CurrentUser = Depends(require_roles("admin")),
+) -> ProviderConfig:
+    if config_id not in store.provider_configs:
+        raise not_found()
+    config = store.provider_configs[config_id]
+    before_json = config.model_dump(mode="json")
+    allowed_fields = {"provider_type", "provider_name", "model_name", "config_json", "enabled"}
+    for key, value in payload.items():
+        if key in allowed_fields:
+            setattr(config, key, value)
+    store.provider_configs[config_id] = config
+    store.add_audit_log(
+        "provider_config_updated",
+        "ProviderConfig",
+        str(config.id),
+        user_id=user.user_id,
+        before_json=before_json,
+        after_json=config.model_dump(mode="json"),
+    )
+    return config
+
+
+@app.delete("/provider-configs/{config_id}")
+def delete_provider_config(
+    config_id: UUID,
+    user: CurrentUser = Depends(require_roles("admin")),
+) -> dict:
+    if config_id not in store.provider_configs:
+        raise not_found()
+    config = store.provider_configs.pop(config_id)
+    store.add_audit_log(
+        "provider_config_deleted",
+        "ProviderConfig",
+        str(config.id),
+        user_id=user.user_id,
+        before_json=config.model_dump(mode="json"),
+    )
+    return {"status": "deleted"}
+
+
 @app.post("/products", response_model=Product)
 def post_product(payload: ProductCreate, _user: CurrentUser = Depends(require_roles("admin"))) -> Product:
     return create_product(store, payload)

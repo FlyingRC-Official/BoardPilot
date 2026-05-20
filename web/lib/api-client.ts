@@ -56,6 +56,17 @@ export function createProviderConfig(payload: {
   return request<ProviderConfig>("/provider-configs", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export function updateProviderConfig(
+  id: string,
+  payload: Partial<Pick<ProviderConfig, "provider_type" | "provider_name" | "model_name" | "config_json" | "enabled">>
+) {
+  return request<ProviderConfig>(`/provider-configs/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function deleteProviderConfig(id: string) {
+  return request<{ status: string }>(`/provider-configs/${id}`, { method: "DELETE" });
+}
+
 export function listSources() {
   return request<Source[]>("/sources");
 }
