@@ -34,6 +34,27 @@ export type Source = {
   trust_level: string;
 };
 
+export type SourceVersion = {
+  id: string;
+  source_id: string;
+  version_label: string;
+  content_hash: string;
+  status: string;
+  parser_version: string;
+  created_at: string;
+};
+
+export type SourceArtifact = {
+  id: string;
+  source_version_id: string;
+  artifact_type: string;
+  storage_uri: string;
+  mime_type: string;
+  size_bytes: number;
+  checksum: string;
+  content: string;
+};
+
 export type Chunk = {
   id: string;
   source_version_id: string;

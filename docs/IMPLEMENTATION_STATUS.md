@@ -50,6 +50,7 @@ Updated: 2026-05-20
 - Extended enabled provider config identity to saved chunk embeddings, reranked candidate metadata, and OCR results.
 - Added explicit source-disable audit logging and a Review action for marking source updates needed.
 - Review detail now surfaces Eval failure metrics when a ReviewItem originates from an EvalResult.
+- Sources page now inspects source version history, latest-version artifacts, ingestion status, and chunk previews.
 
 ## Verified
 

@@ -8,7 +8,10 @@ import type {
   ProviderConfig,
   ReviewItem,
   ReviewItemDetail,
-  Source
+  Source,
+  SourceArtifact,
+  SourceVersion,
+  Chunk
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -83,6 +86,18 @@ export function createSource(payload: {
 
 export function addSourceVersion(sourceId: string, payload: { version_label: string; content: string }) {
   return request(`/sources/${sourceId}/versions`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function listSourceVersions(sourceId: string) {
+  return request<SourceVersion[]>(`/sources/${sourceId}/versions`);
+}
+
+export function listSourceVersionArtifacts(versionId: string) {
+  return request<SourceArtifact[]>(`/source-versions/${versionId}/artifacts`);
+}
+
+export function listSourceVersionChunks(versionId: string) {
+  return request<Chunk[]>(`/source-versions/${versionId}/chunks`);
 }
 
 export async function uploadSourceVersion(sourceId: string, file: File, versionLabel = "uploaded") {

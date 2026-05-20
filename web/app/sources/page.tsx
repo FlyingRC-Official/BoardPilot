@@ -9,15 +9,22 @@ import {
   createSource,
   listProductAliases,
   listProducts,
+  listSourceVersionArtifacts,
+  listSourceVersionChunks,
+  listSourceVersions,
   listSources,
   uploadSourceVersion
 } from "@/lib/api-client";
-import type { Product, ProductAlias, Source } from "@/lib/types";
+import type { Chunk, Product, ProductAlias, Source, SourceArtifact, SourceVersion } from "@/lib/types";
 
 export default function SourcesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [aliases, setAliases] = useState<ProductAlias[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [selectedSource, setSelectedSource] = useState<Source | null>(null);
+  const [versions, setVersions] = useState<SourceVersion[]>([]);
+  const [artifacts, setArtifacts] = useState<SourceArtifact[]>([]);
+  const [chunks, setChunks] = useState<Chunk[]>([]);
   const [productName, setProductName] = useState("FlyingRC F4");
   const [productSlug, setProductSlug] = useState("flyingrc-f4");
   const [alias, setAlias] = useState("F4 FC");
@@ -35,6 +42,22 @@ export default function SourcesPage() {
       setAliases(await listProductAliases(nextProducts[0].id).catch(() => []));
     }
     setSources(await listSources().catch(() => []));
+  }
+
+  async function inspectSource(source: Source) {
+    setSelectedSource(source);
+    const nextVersions = await listSourceVersions(source.id).catch(() => []);
+    setVersions(nextVersions);
+    const latestVersion = nextVersions[nextVersions.length - 1];
+    if (!latestVersion) {
+      setArtifacts([]);
+      setChunks([]);
+      setMessage("Source has no versions yet.");
+      return;
+    }
+    setArtifacts(await listSourceVersionArtifacts(latestVersion.id).catch(() => []));
+    setChunks(await listSourceVersionChunks(latestVersion.id).catch(() => []));
+    setMessage(`Inspecting ${source.title}.`);
   }
 
   useEffect(() => {
@@ -174,8 +197,84 @@ export default function SourcesPage() {
       {message ? <p className="status" style={{ marginTop: 16 }}>{message}</p> : null}
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Current Sources</h2>
-        <SourceViewer sources={sources} />
+        <SourceViewer sources={sources} onInspect={inspectSource} />
       </section>
+      {selectedSource ? (
+        <section className="panel" style={{ marginTop: 16 }}>
+          <h2>Source Detail</h2>
+          <p className="muted">
+            {selectedSource.title} · {versions.length} versions · {chunks.length} chunks in latest version
+          </p>
+          <div className="grid two" style={{ marginTop: 12 }}>
+            <div>
+              <h3>Version History</h3>
+              {versions.length ? (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Label</th>
+                      <th>Status</th>
+                      <th>Parser</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {versions.map((version) => (
+                      <tr key={version.id}>
+                        <td>{version.version_label}</td>
+                        <td>{version.status}</td>
+                        <td>{version.parser_version}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="empty">No versions for this source.</div>
+              )}
+            </div>
+            <div>
+              <h3>Artifacts</h3>
+              {artifacts.length ? (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>MIME</th>
+                      <th>Bytes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {artifacts.map((artifact) => (
+                      <tr key={artifact.id}>
+                        <td>{artifact.artifact_type}</td>
+                        <td>{artifact.mime_type}</td>
+                        <td>{artifact.size_bytes}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="empty">No artifacts on the latest version.</div>
+              )}
+            </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <h3>Chunk Preview</h3>
+            {chunks.length ? (
+              <div className="evidence-list">
+                {chunks.slice(0, 5).map((chunk) => (
+                  <article className="evidence-item" key={chunk.id}>
+                    <strong>Chunk {chunk.chunk_index}</strong>
+                    <span className="muted"> {chunk.token_count} tokens</span>
+                    <blockquote>{chunk.content.slice(0, 320)}</blockquote>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="empty">No chunks on the latest version.</div>
+            )}
+          </div>
+        </section>
+      ) : null}
     </>
   );
 }

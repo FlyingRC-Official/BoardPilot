@@ -189,6 +189,9 @@ def test_product_source_ingestion_and_dedup():
 
     source_versions = client.get(f"/sources/{source['id']}/versions").json()
     version_id = source_versions[0]["id"]
+    artifacts = client.get(f"/source-versions/{version_id}/artifacts").json()
+    assert artifacts[0]["source_version_id"] == version_id
+    assert artifacts[0]["content"]
     chunk_list = client.get(f"/source-versions/{version_id}/chunks").json()
     assert len(chunk_list) == len(chunks)
     embeddings = client.get(f"/chunks/{chunk_list[0]['id']}/embeddings").json()
