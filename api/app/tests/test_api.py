@@ -836,6 +836,47 @@ def test_product_and_source_patch_refresh_updated_at():
     assert patched_source["updated_at"] != source["updated_at"]
 
 
+def test_patch_endpoints_ignore_immutable_fields():
+    product, source, chunks = seed_source()
+    other_product = client.post(
+        "/products",
+        json={"name": "Other Board", "slug": "other-board", "description": ""},
+    ).json()
+    malicious_id = str(uuid4())
+
+    patched_product = client.patch(
+        f"/products/{product['id']}",
+        json={"id": malicious_id, "created_at": "2000-01-01T00:00:00", "description": "Still mutable"},
+    ).json()
+    assert patched_product["id"] == product["id"]
+    assert patched_product["created_at"] == product["created_at"]
+    assert patched_product["description"] == "Still mutable"
+
+    patched_source = client.patch(
+        f"/sources/{source['id']}",
+        json={"id": malicious_id, "product_id": other_product["id"], "title": "Mutable source title"},
+    ).json()
+    assert patched_source["id"] == source["id"]
+    assert patched_source["product_id"] == product["id"]
+    assert patched_source["title"] == "Mutable source title"
+
+    case = client.post(
+        "/eval-cases",
+        json={
+            "product_id": product["id"],
+            "question_text": "Initial immutable field check",
+            "expected_chunk_ids_json": [chunks[0]["id"]],
+        },
+    ).json()
+    patched_case = client.patch(
+        f"/eval-cases/{case['id']}",
+        json={"id": malicious_id, "created_at": "2000-01-01T00:00:00", "difficulty": "hard"},
+    ).json()
+    assert patched_case["id"] == case["id"]
+    assert patched_case["created_at"] == case["created_at"]
+    assert patched_case["difficulty"] == "hard"
+
+
 def test_source_version_disable_removes_chunks_from_retrieval_and_is_audited():
     product, source, chunks = seed_source()
     source_versions = client.get(f"/sources/{source['id']}/versions").json()

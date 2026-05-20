@@ -113,6 +113,7 @@ Updated: 2026-05-21
 - Audit log writes and reads now mirror through SQLAlchemy when the database schema is available, while keeping JSONL mirroring support.
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Product and source patch endpoints now refresh `updated_at` so mutable catalog records reflect edit time.
+- Product, source, and EvalCase patch endpoints now ignore immutable fields such as ids, ownership links, and creation timestamps while still updating approved mutable fields.
 - SourceVersion ingestion success, ingestion failure, and disable transitions now refresh `updated_at` so source-version lifecycle state reflects mutation time.
 - Source disable now refreshes `updated_at`, disables all chunks under the source's versions, and records the disabled chunk count in the audit event; patching a source to disabled follows the same disable semantics.
 - ReviewItem approval, rejection, source-update-needed, FAQ conversion, and EvalCase conversion now refresh `updated_at`.
@@ -144,7 +145,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 88 passed.
+- API tests: 89 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

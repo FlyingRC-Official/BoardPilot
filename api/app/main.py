@@ -97,6 +97,18 @@ app.add_middleware(
 
 MAX_ATTACHMENT_QUERY_CONTEXT_CHARS = 1200
 API_KEY_EXEMPT_PATHS = {"/health"}
+PRODUCT_PATCH_FIELDS = {"name", "slug", "description", "status"}
+SOURCE_PATCH_FIELDS = {"title", "canonical_uri", "status", "trust_level"}
+EVAL_CASE_PATCH_FIELDS = {
+    "product_id",
+    "question_text",
+    "expected_source_ids_json",
+    "expected_chunk_ids_json",
+    "expected_answer_points_json",
+    "tags_json",
+    "difficulty",
+    "active",
+}
 
 
 @app.middleware("http")
@@ -903,7 +915,7 @@ def patch_product(
     if not product:
         raise not_found()
     for key, value in payload.items():
-        if hasattr(product, key):
+        if key in PRODUCT_PATCH_FIELDS:
             setattr(product, key, value)
     product.updated_at = now()
     store.products[product_id] = product
@@ -1000,7 +1012,7 @@ def patch_source(
         raise not_found()
     before = source.model_dump(mode="json")
     for key, value in payload.items():
-        if hasattr(source, key):
+        if key in SOURCE_PATCH_FIELDS:
             setattr(source, key, value)
     source.updated_at = now()
     became_disabled = before.get("status") != "disabled" and source.status == "disabled"
@@ -1535,7 +1547,7 @@ def patch_eval_case(
     for key, value in payload.items():
         if key in {"expected_source_ids_json", "expected_chunk_ids_json"}:
             value = [UUID(str(item)) for item in value]
-        if hasattr(case, key):
+        if key in EVAL_CASE_PATCH_FIELDS:
             setattr(case, key, value)
     case.updated_at = now()
     store.eval_cases[case.id] = case
