@@ -1252,6 +1252,15 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)) -> AskResp
     retrieval_run, candidates, evidence = run_retrieval(store, question)
     answer = generate_answer(store, question, retrieval_run.id, evidence)
     review_item = route_answer_for_review(answer)
+    if retrieval_run.error_message:
+        review_item = ReviewItem(
+            source_type="retrieval_issue",
+            question_id=question.id,
+            answer_id=answer.id,
+            priority=1,
+            failure_category=FailureCategory.bad_rerank,
+            reviewer_notes=retrieval_run.error_message,
+        )
     if review_item:
         review_item = store.add_review_item(review_item)
     save_ask_response_to_database(session, question, retrieval_run, candidates, evidence, answer, review_item)

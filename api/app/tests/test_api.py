@@ -1113,6 +1113,34 @@ def test_unsupported_llm_provider_config_records_failed_model_run_and_routes_rev
     assert "no adapter is installed" in model_run["error_message"]
 
 
+def test_unsupported_reranker_provider_config_degrades_retrieval_and_routes_review():
+    product, _source, _chunks = seed_source()
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "reranker",
+            "provider_name": "cohere",
+            "model_name": "rerank-example",
+            "config_json": {"api_key_env": "COHERE_API_KEY"},
+        },
+    )
+
+    payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can I power servos from USB?"},
+    ).json()
+
+    assert payload["retrieval_run"]["status"] == "completed_with_reranker_error"
+    assert "Reranker provider 'cohere' is configured but no adapter is installed." == payload["retrieval_run"]["error_message"]
+    reranked = [candidate for candidate in payload["candidates"] if candidate["stage"] == "reranked"]
+    assert reranked
+    assert reranked[0]["source"] == "fallback_merged"
+    assert reranked[0]["metadata_json"]["reranker_configured_provider_name"] == "cohere"
+    assert reranked[0]["metadata_json"]["reranker_model_name"] == "rerank-example"
+    assert payload["review_item"]["source_type"] == "retrieval_issue"
+    assert payload["review_item"]["failure_category"] == "bad_rerank"
+
+
 def test_eval_run_records_metrics_and_can_route_failure_to_review():
     product, _source, chunks = seed_source()
     client.post(

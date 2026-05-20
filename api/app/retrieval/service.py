@@ -73,12 +73,15 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
         item["merged_score"] += boost
     reranker_config = store.active_provider_config("reranker")
     reranked = rerank(question.normalized_text, merged, reranker_config)
+    reranker_error = next((item.get("reranker_error", "") for item in reranked if item.get("reranker_error")), "")
 
     run = RetrievalRun(
         question_id=question.id,
         normalized_query=question.normalized_text,
         filter_plan_json=build_filter_plan(question.product_id, question.detected_entities_json, question.metadata_filters_json),
         retrieval_config_json={"keyword_limit": 50, "vector_limit": 50, "evidence_limit": 5},
+        status="completed_with_reranker_error" if reranker_error else "completed",
+        error_message=reranker_error,
     )
     run.completed_at = datetime.utcnow()
     run.latency_ms = int((run.completed_at - started).total_seconds() * 1000)
@@ -137,6 +140,8 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
                     "soft_boost_score": item.get("soft_boost_score", 0.0),
                     "deduped_chunk_ids": item.get("deduped_chunk_ids", []),
                     "reranker_model_name": item.get("reranker_model_name", "fake-overlap-reranker"),
+                    "reranker_configured_provider_name": item.get("reranker_configured_provider_name", ""),
+                    "reranker_error": item.get("reranker_error", ""),
                 },
             )
         )
