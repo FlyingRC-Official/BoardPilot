@@ -44,6 +44,7 @@ Updated: 2026-05-21
 - Added minimal role-aware request context through `X-BoardPilot-User` and `X-BoardPilot-Role` headers.
 - Added first-class `maintainer` and `evaluator` request roles mapped to the required source-maintenance and eval workflows.
 - Added optional `BOARDPILOT_API_KEY` enforcement for private deployments, with web workbench support through `NEXT_PUBLIC_BOARDPILOT_API_KEY`.
+- Added signed session tokens through `POST /sessions`, `X-BoardPilot-Session` request support, configurable token TTL, and bundled workbench support through `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN`.
 - Configured `BOARDPILOT_API_KEY` now protects read endpoints as well as role-aware write endpoints, while leaving health checks and CORS preflight available.
 - Guarded protected mutating endpoints for admin, support, maintainer, reviewer, and evaluator roles while keeping local development defaulted to admin.
 - Ask requests now use the role/API-key request context and persist the submitting user id on Question records.
@@ -160,7 +161,7 @@ headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 
 Results:
 
-- API tests: 99 passed.
+- API tests: 100 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -180,7 +181,7 @@ Results:
 - High-confidence detected product aliases now become hard product filters while lower-confidence aliases remain soft boosts.
 - RetrievalCandidate records now preserve raw keyword/vector recall stages in addition to merged and reranked stages, while Eval Recall@20 remains scoped to the merged recall set.
 - Hybrid merge now deduplicates candidates by chunk id, content hash, and near-duplicate source position while preserving deduped chunk ids in candidate metadata.
-- Minimal role-aware access control is present for admin, support, maintainer, reviewer, evaluator, and viewer roles; it is header-based for MVP, guards Ask feedback mutation, and requires a configured API key across API routes in private deployments, but still needs real user/session management.
+- Minimal role-aware access control is present for admin, support, maintainer, reviewer, evaluator, and viewer roles; it supports signed session tokens, still preserves header-based local development for MVP, guards Ask feedback mutation, and requires either a configured API key or valid session token across API routes in private deployments.
 - Core audit events are inspectable through `GET /audit-logs`; audit writes mirror to SQLAlchemy when available and can still be mirrored to JSONL.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Ask now skips LLM generation when evidence is insufficient, records a skipped ModelRun, and routes the deterministic insufficient-evidence answer to Review.
@@ -189,7 +190,7 @@ Results:
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing, with variable provider dimensions supported in new migrations.
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI shows numeric deltas between two runs.
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
-- Real user/session management is not implemented; MVP role enforcement is header-based with an optional deployment API-key gate.
+- Session tokens are implemented for private deployments, but they are not yet connected to a full identity provider or operator-managed user store.
 - Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors reads/writes through SQLAlchemy when the schema is available.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics.
 - The web workbench is functional and has been visually checked with local headless Chrome screenshots for the four primary MVP pages.

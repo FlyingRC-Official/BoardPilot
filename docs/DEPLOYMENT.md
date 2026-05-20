@@ -28,6 +28,8 @@ The default provider config is fake/local. Source content should not leave the d
 
 Local development leaves `BOARDPILOT_API_KEY` empty, so the workbench can use the role headers directly. In a private deployment, set `BOARDPILOT_API_KEY` for the API and worker, and set the same value as `NEXT_PUBLIC_BOARDPILOT_API_KEY` for the bundled private web workbench so browser requests include `X-BoardPilot-API-Key`.
 
+Admins can also mint signed session tokens with `POST /sessions` while authenticated with the deployment API key. Session requests use `X-BoardPilot-Session` and carry a fixed user id, role, and expiry time, so private deployments do not need to expose the deployment API key to every browser request. `BOARDPILOT_SESSION_TTL_SECONDS` controls the default token lifetime, and the bundled workbench can receive a token through `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN`.
+
 ## MVP Gaps
 
-The current implementation is a runnable development slice. Before production use, replace remaining in-memory service hydration, add real user sessions, and enforce durable audit retention.
+The current implementation is a runnable development slice. Before production use, replace remaining in-memory service hydration, connect session issuance to a real identity provider or operator-managed user store, and enforce durable audit retention.

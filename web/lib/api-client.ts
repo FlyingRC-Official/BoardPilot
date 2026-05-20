@@ -27,13 +27,21 @@ import type {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 const API_KEY = process.env.NEXT_PUBLIC_BOARDPILOT_API_KEY || "";
+const SESSION_TOKEN = process.env.NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN || "";
+
+function authHeaders() {
+  return {
+    ...(API_KEY ? { "X-BoardPilot-API-Key": API_KEY } : {}),
+    ...(SESSION_TOKEN ? { "X-BoardPilot-Session": SESSION_TOKEN } : {})
+  };
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(API_KEY ? { "X-BoardPilot-API-Key": API_KEY } : {}),
+      ...authHeaders(),
       ...(init?.headers || {})
     }
   });
@@ -150,7 +158,7 @@ export async function uploadSourceVersion(sourceId: string, file: File, versionL
     method: "POST",
     body,
     headers: {
-      ...(API_KEY ? { "X-BoardPilot-API-Key": API_KEY } : {})
+      ...authHeaders()
     }
   });
   if (!response.ok) {
@@ -174,7 +182,7 @@ export async function uploadImageAsset(payload: {
     method: "POST",
     body,
     headers: {
-      ...(API_KEY ? { "X-BoardPilot-API-Key": API_KEY } : {})
+      ...authHeaders()
     }
   });
   if (!response.ok) {

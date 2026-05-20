@@ -194,6 +194,38 @@ def test_configured_api_key_is_required_for_role_context(monkeypatch):
         monkeypatch.setattr(settings, "api_key", "")
 
 
+def test_signed_session_token_can_replace_api_key_for_private_requests(monkeypatch):
+    monkeypatch.setattr(settings, "api_key", "session-secret")
+    try:
+        session_response = client.post(
+            "/sessions",
+            json={"user_id": "support-session", "role": "support", "ttl_seconds": 60},
+            headers={"X-BoardPilot-User": "admin-session", "X-BoardPilot-Role": "admin", "X-BoardPilot-API-Key": "session-secret"},
+        )
+        assert session_response.status_code == 200
+        session_payload = session_response.json()
+        assert session_payload["user"] == {"user_id": "support-session", "role": "support"}
+        token = session_payload["session_token"]
+
+        me = client.get("/me", headers={"X-BoardPilot-Session": token})
+        assert me.status_code == 200
+        assert me.json() == {"user_id": "support-session", "role": "support"}
+
+        product = client.post(
+            "/products",
+            json={"name": "Blocked by role", "slug": "blocked-by-role", "description": ""},
+            headers={"X-BoardPilot-Session": token},
+        )
+        assert product.status_code == 403
+
+        tampered = token[:-1] + ("0" if token[-1] != "0" else "1")
+        invalid = client.get("/me", headers={"X-BoardPilot-Session": tampered})
+        assert invalid.status_code == 401
+        assert invalid.json()["detail"] == "invalid session"
+    finally:
+        monkeypatch.setattr(settings, "api_key", "")
+
+
 def test_configured_api_key_protects_read_endpoints_but_allows_health_and_preflight(monkeypatch):
     monkeypatch.setattr(settings, "api_key", "read-secret")
     try:

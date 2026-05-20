@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.answers.service import generate_answer
 from app.core.config import settings
-from app.core.security import CurrentUser, get_current_user, require_roles
+from app.core.security import CurrentUser, SessionCreate, SessionToken, get_current_user, issue_session_token, require_roles, validate_session_token
 from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
 from app.db.session import get_session
 from app.db.session import store
@@ -118,7 +118,19 @@ EVAL_CASE_PATCH_FIELDS = {
 async def enforce_private_api_key(request: Request, call_next):
     if settings.api_key and request.method != "OPTIONS" and request.url.path not in API_KEY_EXEMPT_PATHS:
         supplied_key = request.headers.get("X-BoardPilot-API-Key", "")
-        if not compare_digest(supplied_key, settings.api_key):
+        supplied_session = request.headers.get("X-BoardPilot-Session", "")
+        session_is_valid = False
+        session_error: Optional[HTTPException] = None
+        if supplied_session:
+            try:
+                validate_session_token(supplied_session)
+                session_is_valid = True
+            except HTTPException as exc:
+                session_error = exc
+                session_is_valid = False
+        if not session_is_valid and not compare_digest(supplied_key, settings.api_key):
+            if session_error:
+                return JSONResponse(status_code=session_error.status_code, content={"detail": session_error.detail})
             return JSONResponse(status_code=401, content={"detail": "invalid API key"})
     return await call_next(request)
 
@@ -835,6 +847,14 @@ def providers(session: Session = Depends(get_session)) -> dict:
 @app.get("/me", response_model=CurrentUser)
 def me(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
     return user
+
+
+@app.post("/sessions", response_model=SessionToken)
+def post_session(
+    payload: SessionCreate,
+    _user: CurrentUser = Depends(require_roles("admin")),
+) -> SessionToken:
+    return issue_session_token(payload.user_id, payload.role, payload.ttl_seconds)
 
 
 @app.post("/provider-configs", response_model=ProviderConfig)
