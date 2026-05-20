@@ -544,6 +544,24 @@ def create_source_issue_review_item_for_failed_version(session: Session, version
     return item
 
 
+def review_item_from_answer_feedback(answer: Answer, payload: Dict[str, Any]) -> ReviewItem:
+    feedback_type = payload.get("feedback_type", "user_feedback")
+    source_type, failure_category, priority = {
+        "missing_source": ("source_issue", FailureCategory.missing_source, 1),
+        "incorrect": ("user_feedback", FailureCategory.unsupported_claim, 1),
+        "needs_review": ("user_feedback", FailureCategory.human_policy_required, 2),
+        "helpful": ("user_feedback", None, 4),
+    }.get(feedback_type, ("user_feedback", None, 3))
+    return ReviewItem(
+        source_type=source_type,
+        question_id=answer.question_id,
+        answer_id=answer.id,
+        priority=priority,
+        failure_category=failure_category,
+        reviewer_notes=payload.get("notes", ""),
+    )
+
+
 def get_review_item_from_database(session: Session, item_id: UUID) -> Optional[ReviewItem]:
     try:
         return ReviewEvalRepository(session).get_review_item(item_id)
@@ -1317,12 +1335,7 @@ def post_feedback(
     answer = store.answers.get(answer_id) or get_answer_from_database(session, answer_id)
     if not answer:
         raise not_found()
-    item = ReviewItem(
-        source_type=payload.get("feedback_type", "user_feedback"),
-        question_id=answer.question_id,
-        answer_id=answer.id,
-        reviewer_notes=payload.get("notes", ""),
-    )
+    item = review_item_from_answer_feedback(answer, payload)
     item = store.add_review_item(item)
     save_review_item_to_database(session, item)
     return item

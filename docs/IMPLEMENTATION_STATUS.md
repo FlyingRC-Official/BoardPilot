@@ -69,6 +69,7 @@ Updated: 2026-05-20
 - Ask-time entity extraction now captures product aliases, firmware versions, error codes, connector names, and hardware interfaces.
 - Retrieval tokenization now preserves hardware compound tokens such as error codes and connector/interface names while retaining split subterms.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
+- Ask answer feedback now maps missing-source and incorrect reports to actionable ReviewItem failure categories.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
 - Ask metadata filters now constrain retrieval candidates and are recorded in the retrieval filter plan.
 - Ask requests now accept optional existing-artifact attachments, persist QuestionAttachment records, return them in the Ask response, and the Ask page has a source/artifact picker for attaching context without raw JSON.

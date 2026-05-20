@@ -884,9 +884,19 @@ def test_answer_feedback_creates_review_item():
         json={"feedback_type": "missing_source", "notes": "Need a stronger source citation."},
     )
     assert feedback.status_code == 200
-    assert feedback.json()["source_type"] == "missing_source"
+    assert feedback.json()["source_type"] == "source_issue"
+    assert feedback.json()["failure_category"] == "missing_source"
+    assert feedback.json()["priority"] == 1
     assert feedback.json()["answer_id"] == ask_payload["answer"]["id"]
     assert feedback.json()["reviewer_notes"] == "Need a stronger source citation."
+
+    incorrect = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "incorrect", "notes": "Answer includes an unsupported claim."},
+    ).json()
+    assert incorrect["source_type"] == "user_feedback"
+    assert incorrect["failure_category"] == "unsupported_claim"
+    assert incorrect["priority"] == 1
 
 
 def test_llm_provider_config_sets_model_run_identity_and_cost():
