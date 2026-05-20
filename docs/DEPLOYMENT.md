@@ -26,6 +26,8 @@ The default provider config is fake/local. Source content should not leave the d
 
 LLM provider configs support an OpenAI-compatible chat-completions adapter by setting `provider_name` to `openai` or `openai_compatible`. Embedding provider configs support the same provider names through the OpenAI-compatible embeddings endpoint. Use `config_json` such as `{"api_key_env":"OPENAI_API_KEY","base_url":"https://api.openai.com/v1"}` so credentials stay in environment variables instead of stored provider records.
 
+Reranker provider configs support Cohere Rerank by setting `provider_name` to `cohere`, a Cohere rerank model name, and `config_json` such as `{"api_key_env":"COHERE_API_KEY"}`.
+
 ## API Key Gate
 
 Local development leaves `BOARDPILOT_API_KEY` empty, so the workbench can use the role headers directly. In a private deployment, set `BOARDPILOT_API_KEY` for the API and worker, and set the same value as `NEXT_PUBLIC_BOARDPILOT_API_KEY` for the bundled private web workbench so browser requests include `X-BoardPilot-API-Key`.

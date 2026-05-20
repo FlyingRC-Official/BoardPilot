@@ -1,6 +1,7 @@
 import math
 
 from app.providers.base import EmbeddingProvider, LLMProvider, OCRProvider, RerankerProvider
+from app.providers.cohere import CohereRerankerProvider
 from app.providers.fake import FakeEmbeddingProvider, FakeLLMProvider, FakeOCRProvider, FakeRerankerProvider
 from app.providers.openai_compatible import OpenAICompatibleEmbeddingProvider, OpenAICompatibleLLMProvider
 
@@ -29,6 +30,50 @@ def test_fake_reranker_provider_returns_one_score_per_document():
     assert result.error_message == ""
     assert len(result.scores) == 2
     assert result.scores[0] > result.scores[1]
+
+
+def test_cohere_reranker_provider_requires_credentials(monkeypatch):
+    monkeypatch.delenv("COHERE_API_KEY", raising=False)
+    provider = CohereRerankerProvider("rerank-test", {})
+
+    result = provider.rerank("USB power", ["USB connector setup"])
+
+    assert result.provider_name == "cohere"
+    assert result.model_name == "rerank-test"
+    assert result.scores == []
+    assert result.error_message == "Cohere reranker provider is configured but no API key is available."
+
+
+def test_cohere_reranker_provider_aligns_indexed_scores(monkeypatch):
+    captured = {}
+
+    def fake_post_json(url, headers, payload, timeout):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = payload
+        captured["timeout"] = timeout
+        return {
+            "results": [
+                {"index": 1, "relevance_score": 0.91},
+                {"index": 0, "relevance_score": 0.24},
+            ]
+        }
+
+    monkeypatch.setattr("app.providers.cohere._post_json", fake_post_json)
+    provider = CohereRerankerProvider(
+        "rerank-v4.0-pro",
+        {"api_key": "test-key", "base_url": "https://api.cohere.test/v2", "timeout_seconds": 8},
+    )
+
+    result = provider.rerank("USB power", ["CAN telemetry", "USB setup"])
+
+    assert result.error_message == ""
+    assert result.scores == [0.24, 0.91]
+    assert captured["url"] == "https://api.cohere.test/v2/rerank"
+    assert captured["headers"]["Authorization"] == "Bearer test-key"
+    assert captured["payload"]["model"] == "rerank-v4.0-pro"
+    assert captured["payload"]["documents"] == ["CAN telemetry", "USB setup"]
+    assert captured["timeout"] == 8
 
 
 def test_fake_llm_provider_returns_citation_backed_answer_shape():

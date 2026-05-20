@@ -1745,9 +1745,9 @@ def test_unsupported_reranker_provider_config_degrades_retrieval_and_routes_revi
         "/provider-configs",
         json={
             "provider_type": "reranker",
-            "provider_name": "cohere",
+            "provider_name": "jina",
             "model_name": "rerank-example",
-            "config_json": {"api_key_env": "COHERE_API_KEY"},
+            "config_json": {"api_key_env": "JINA_API_KEY"},
         },
     )
 
@@ -1757,14 +1757,69 @@ def test_unsupported_reranker_provider_config_degrades_retrieval_and_routes_revi
     ).json()
 
     assert payload["retrieval_run"]["status"] == "completed_with_reranker_error"
-    assert "Reranker provider 'cohere' is configured but no adapter is installed." == payload["retrieval_run"]["error_message"]
+    assert "Reranker provider 'jina' is configured but no adapter is installed." == payload["retrieval_run"]["error_message"]
     reranked = [candidate for candidate in payload["candidates"] if candidate["stage"] == "reranked"]
     assert reranked
     assert reranked[0]["source"] == "fallback_merged"
-    assert reranked[0]["metadata_json"]["reranker_configured_provider_name"] == "cohere"
+    assert reranked[0]["metadata_json"]["reranker_configured_provider_name"] == "jina"
     assert reranked[0]["metadata_json"]["reranker_model_name"] == "rerank-example"
     assert payload["review_item"]["source_type"] == "low_confidence_answer"
     assert payload["review_item"]["failure_category"] == "bad_rerank"
+
+
+def test_cohere_reranker_provider_ranks_retrieval_candidates(monkeypatch):
+    import app.providers.cohere as cohere_module
+
+    def fake_post_json(_url, _headers, payload, _timeout):
+        results = []
+        for index, document in enumerate(payload["documents"]):
+            score = 0.95 if "CAN telemetry" in document else 0.12
+            results.append({"index": index, "relevance_score": score})
+        return {"results": sorted(results, key=lambda item: item["relevance_score"], reverse=True)}
+
+    monkeypatch.setattr(cohere_module, "_post_json", fake_post_json)
+    product = client.post(
+        "/products",
+        json={"name": "Rerank Board", "slug": "rerank-board", "description": ""},
+    ).json()
+    source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "Rerank manual",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+    ).json()
+    content = (
+        ("USB power is for configuration only. Do not power servos from USB. " * 35)
+        + "\n\n"
+        + ("CAN telemetry carries ESC status and current data. " * 35)
+    )
+    version_payload = client.post(
+        f"/sources/{source['id']}/versions",
+        json={"version_label": "v1", "content": content},
+    ).json()
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "reranker",
+            "provider_name": "cohere",
+            "model_name": "rerank-v4.0-pro",
+            "config_json": {"api_key": "test-key"},
+        },
+    )
+
+    payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "How do I inspect CAN telemetry?"},
+    ).json()
+
+    reranked = [candidate for candidate in payload["candidates"] if candidate["stage"] == "reranked"]
+    assert payload["retrieval_run"]["status"] == "completed"
+    assert reranked[0]["chunk_id"] == version_payload["chunks"][1]["id"]
+    assert reranked[0]["source"] == "cohere"
+    assert reranked[0]["metadata_json"]["reranker_model_name"] == "rerank-v4.0-pro"
 
 
 def test_eval_run_records_metrics_and_can_route_failure_to_review():

@@ -84,6 +84,7 @@ Updated: 2026-05-21
 - Unsupported non-fake embedding provider configs now fail source ingestion with a saved error reason and source-issue ReviewItem instead of storing fake vectors under a non-fake identity.
 - Added a credential-gated OpenAI-compatible embeddings adapter, and vector recall now uses saved chunk embeddings matching the active provider/model instead of re-embedding source chunks during retrieval.
 - Unsupported embedding providers are now rejected before chunk insertion, and failed SourceVersions are excluded from retrieval eligibility.
+- Added a credential-gated Cohere Rerank adapter that maps indexed Cohere relevance results back onto BoardPilot candidate order.
 - Unsupported non-fake reranker provider configs now fall back to merged ranking, mark the RetrievalRun as degraded, and route the Answer to Review as a bad-rerank retrieval issue.
 - Unsupported non-fake OCR provider configs now record failed OCR results with error messages and route to Review instead of labeling manual/fake OCR text as configured provider output.
 - OCR providers can now return extracted text directly; provider-returned OCR text is saved as an OcrResult and ingested into a source version/chunks without requiring manual OCR text in the request.
@@ -167,7 +168,7 @@ headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 
 Results:
 
-- API tests: 106 passed.
+- API tests: 109 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -181,7 +182,7 @@ Results:
 - Docker Compose has static contract coverage, but live `docker compose up --build` verification could not be run on this machine because the Docker CLI is not installed.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
 - File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; OCR can now use manual text, fake provider behavior, or the optional local Tesseract adapter when installed.
-- Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; cloud reranker and OCR provider adapters are still not implemented.
+- Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; cloud OCR provider adapters are still not implemented.
 - EvalRun can run the required 20-case seed corpus, categorize failed results, inspect per-case traces, send failed cases to Review, and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - High-confidence detected product aliases now become hard product filters while lower-confidence aliases remain soft boosts.
