@@ -9,16 +9,39 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.orm import (
+    AnswerOrm,
     AuditLogOrm,
     ChunkOrm,
+    EvidenceOrm,
     IngestionJobOrm,
+    ModelRunOrm,
     ProductAliasOrm,
     ProductOrm,
+    QuestionAttachmentOrm,
+    QuestionOrm,
+    RetrievalCandidateOrm,
+    RetrievalRunOrm,
     SourceArtifactOrm,
     SourceOrm,
     SourceVersionOrm,
 )
-from app.models.schemas import AuditLog, Chunk, IngestionJob, Product, ProductAlias, Source, SourceArtifact, SourceVersion
+from app.models.schemas import (
+    Answer,
+    AuditLog,
+    Chunk,
+    Evidence,
+    IngestionJob,
+    ModelRun,
+    Product,
+    ProductAlias,
+    Question,
+    QuestionAttachment,
+    RetrievalCandidate,
+    RetrievalRun,
+    Source,
+    SourceArtifact,
+    SourceVersion,
+)
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -124,6 +147,56 @@ class RuntimeRepository:
     def list_audit_logs(self) -> list[AuditLog]:
         rows = self.session.scalars(select(AuditLogOrm)).all()
         return [_orm_to_model(row, AuditLog) for row in rows]
+
+    def _merge(self, model: ModelT, orm_cls: type, model_cls: type[ModelT]) -> ModelT:
+        row = self.session.merge(orm_cls(**_model_to_orm_kwargs(model, orm_cls)))
+        self.session.flush()
+        return _orm_to_model(row, model_cls)
+
+
+class RetrievalRepository:
+    """SQLAlchemy repository for Ask, retrieval, evidence, and answer records."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add_question(self, question: Question) -> Question:
+        return self._merge(question, QuestionOrm, Question)
+
+    def add_question_attachment(self, attachment: QuestionAttachment) -> QuestionAttachment:
+        return self._merge(attachment, QuestionAttachmentOrm, QuestionAttachment)
+
+    def attachments_for_question(self, question_id: UUID) -> list[QuestionAttachment]:
+        rows = self.session.scalars(select(QuestionAttachmentOrm).where(QuestionAttachmentOrm.question_id == str(question_id))).all()
+        return [_orm_to_model(row, QuestionAttachment) for row in rows]
+
+    def add_retrieval_run(self, run: RetrievalRun) -> RetrievalRun:
+        return self._merge(run, RetrievalRunOrm, RetrievalRun)
+
+    def add_candidates(self, candidates: Iterable[RetrievalCandidate]) -> list[RetrievalCandidate]:
+        return [self._merge(candidate, RetrievalCandidateOrm, RetrievalCandidate) for candidate in candidates]
+
+    def candidates_for_run(self, retrieval_run_id: UUID) -> list[RetrievalCandidate]:
+        rows = self.session.scalars(select(RetrievalCandidateOrm).where(RetrievalCandidateOrm.retrieval_run_id == str(retrieval_run_id))).all()
+        candidates = [_orm_to_model(row, RetrievalCandidate) for row in rows]
+        return sorted(candidates, key=lambda candidate: (candidate.stage != "reranked", candidate.rank))
+
+    def add_evidence(self, evidence: Iterable[Evidence]) -> list[Evidence]:
+        return [self._merge(item, EvidenceOrm, Evidence) for item in evidence]
+
+    def evidence_for_run(self, retrieval_run_id: UUID) -> list[Evidence]:
+        rows = self.session.scalars(select(EvidenceOrm).where(EvidenceOrm.retrieval_run_id == str(retrieval_run_id))).all()
+        return sorted([_orm_to_model(row, Evidence) for row in rows], key=lambda item: item.rank)
+
+    def add_model_run(self, model_run: ModelRun) -> ModelRun:
+        return self._merge(model_run, ModelRunOrm, ModelRun)
+
+    def add_answer(self, answer: Answer) -> Answer:
+        return self._merge(answer, AnswerOrm, Answer)
+
+    def get_answer(self, answer_id: UUID) -> Answer | None:
+        row = self.session.get(AnswerOrm, str(answer_id))
+        return _orm_to_model(row, Answer) if row else None
 
     def _merge(self, model: ModelT, orm_cls: type, model_cls: type[ModelT]) -> ModelT:
         row = self.session.merge(orm_cls(**_model_to_orm_kwargs(model, orm_cls)))
