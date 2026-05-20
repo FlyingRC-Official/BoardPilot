@@ -62,6 +62,7 @@ Updated: 2026-05-21
 - ReviewItem to EvalCase conversion now preserves expected source ids, chunk ids, and reviewer-edited answer points for regression coverage.
 - Review page now supports editable failure categories and reviewer notes, backed by validated and audited ReviewItem updates.
 - Review page now exposes the required reject action through the workbench, backed by audited API rejection.
+- Review queue listing now defaults to active work while supporting `status=all` and specific status filters for review history.
 - Review-to-FAQ and Review-to-EvalCase conversions now preserve reviewer identity on the ReviewItem and conversion audit event.
 - Eval page now surfaces failure-category distribution from EvalRun summary metrics.
 - Added a Settings page for creating, editing, deleting, and listing provider configuration records.

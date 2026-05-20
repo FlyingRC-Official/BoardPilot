@@ -1867,6 +1867,14 @@ def test_review_approval_requires_failure_category():
     assert review_audit[-1]["before_json"]["status"] == patched.json()["status"]
     assert review_audit[-1]["after_json"]["status"] == "approved"
 
+    active_items = client.get("/review-items").json()
+    all_items = client.get("/review-items?status=all").json()
+    approved_items = client.get("/review-items?status=approved").json()
+    assert review_item["id"] not in [item["id"] for item in active_items]
+    assert review_item["id"] in [item["id"] for item in all_items]
+    assert review_item["id"] in [item["id"] for item in approved_items]
+    assert client.get("/review-items?status=not_a_status").status_code == 422
+
 
 def test_review_reject_requires_failure_category_and_is_audited():
     ask_payload = client.post("/ask", json={"question": "What should be rejected?"}).json()

@@ -56,6 +56,7 @@ from app.models.schemas import (
     RetrievalRun,
     ReviewItem,
     ReviewItemDetail,
+    ReviewStatus,
     Source,
     SourceArtifact,
     SourceCreate,
@@ -129,6 +130,19 @@ def parse_failure_category(value: Any) -> FailureCategory:
         return FailureCategory(value)
     except ValueError:
         raise HTTPException(status_code=422, detail="invalid failure_category")
+
+
+def filter_review_items_for_queue(items: list[ReviewItem], status: str) -> list[ReviewItem]:
+    if status == "all":
+        return items
+    if status == "active":
+        active_statuses = {ReviewStatus.open, ReviewStatus.in_review, ReviewStatus.needs_source_update}
+        return [item for item in items if item.status in active_statuses]
+    try:
+        requested_status = ReviewStatus(status)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid review status filter")
+    return [item for item in items if item.status == requested_status]
 
 
 def save_runtime_job(session: Session, job: IngestionJob) -> None:
@@ -1648,8 +1662,9 @@ def eval_result_to_review(
 
 
 @app.get("/review-items", response_model=list[ReviewItem])
-def get_review_items(session: Session = Depends(get_session)) -> list[ReviewItem]:
-    return list_review_items_from_database(session) or list(store.review_items.values())
+def get_review_items(status: str = "active", session: Session = Depends(get_session)) -> list[ReviewItem]:
+    items = list_review_items_from_database(session) or list(store.review_items.values())
+    return filter_review_items_for_queue(items, status)
 
 
 @app.get("/review-items/{item_id}", response_model=ReviewItem)
