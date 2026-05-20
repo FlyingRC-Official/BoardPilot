@@ -33,7 +33,7 @@ const SESSION_TOKEN = process.env.NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN || "";
 function authHeaders() {
   return {
     ...(API_KEY ? { "X-BoardPilot-API-Key": API_KEY } : {}),
-    ...(SESSION_TOKEN ? { "X-BoardPilot-Session": SESSION_TOKEN } : {})
+    ...(SESSION_TOKEN ? { Authorization: `Bearer ${SESSION_TOKEN}` } : {})
   };
 }
 

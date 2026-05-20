@@ -32,7 +32,7 @@ Reranker provider configs support Cohere Rerank by setting `provider_name` to `c
 
 Local development leaves `BOARDPILOT_API_KEY` empty, so the workbench can use the role headers directly. In a private deployment, set `BOARDPILOT_API_KEY` for the API and worker, and set the same value as `NEXT_PUBLIC_BOARDPILOT_API_KEY` for the bundled private web workbench so browser requests include `X-BoardPilot-API-Key`.
 
-Admins can also mint signed session tokens with `POST /sessions` while authenticated with the deployment API key. Session requests use `X-BoardPilot-Session` and carry a fixed user id, role, and expiry time, so private deployments do not need to expose the deployment API key to every browser request. `BOARDPILOT_SESSION_TTL_SECONDS` controls the default token lifetime, and the bundled workbench can receive a token through `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN`.
+Admins can also mint signed session tokens with `POST /sessions` while authenticated with the deployment API key. Session requests can use `X-BoardPilot-Session` or `Authorization: Bearer <token>` and carry a fixed user id, role, and expiry time, so private deployments do not need to expose the deployment API key to every browser request. `BOARDPILOT_SESSION_TTL_SECONDS` controls the default token lifetime, and the bundled workbench can receive a token through `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN`.
 
 Set `BOARDPILOT_USERS_JSON` to an object such as `{"alice":"admin","support-1":"support"}` to make session issuance check an operator-managed allowlist. When this setting is present, `POST /sessions` rejects any requested user id and role that do not exactly match the configured map.
 

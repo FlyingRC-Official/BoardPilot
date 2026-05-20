@@ -19,6 +19,7 @@ from app.core.security import (
     get_current_user,
     issue_session_token,
     require_roles,
+    session_token_from_authorization,
     validate_session_subject,
     validate_session_token,
 )
@@ -135,7 +136,9 @@ EVAL_CASE_PATCH_FIELDS = {
 async def enforce_private_api_key(request: Request, call_next):
     if settings.api_key and request.method != "OPTIONS" and request.url.path not in API_KEY_EXEMPT_PATHS:
         supplied_key = request.headers.get("X-BoardPilot-API-Key", "")
-        supplied_session = request.headers.get("X-BoardPilot-Session", "")
+        supplied_session = request.headers.get("X-BoardPilot-Session", "") or session_token_from_authorization(
+            request.headers.get("Authorization", "")
+        )
         session_is_valid = False
         session_error: Optional[HTTPException] = None
         if supplied_session:

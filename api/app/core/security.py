@@ -78,6 +78,13 @@ def validate_session_token(token: str) -> CurrentUser:
     return CurrentUser(user_id=str(payload.get("user_id", "")), role=role)
 
 
+def session_token_from_authorization(authorization: str) -> str:
+    scheme, _, token = authorization.strip().partition(" ")
+    if scheme.lower() == "bearer" and token.strip():
+        return token.strip()
+    return ""
+
+
 def configured_users() -> dict[str, Role]:
     if not settings.users_json.strip():
         return {}
@@ -108,9 +115,11 @@ def get_current_user(
     x_boardpilot_role: Role = Header("admin", alias="X-BoardPilot-Role"),
     x_boardpilot_api_key: str = Header("", alias="X-BoardPilot-API-Key"),
     x_boardpilot_session: str = Header("", alias="X-BoardPilot-Session"),
+    authorization: str = Header("", alias="Authorization"),
 ) -> CurrentUser:
-    if x_boardpilot_session:
-        return validate_session_token(x_boardpilot_session)
+    session_token = x_boardpilot_session or session_token_from_authorization(authorization)
+    if session_token:
+        return validate_session_token(session_token)
     if settings.api_key and not compare_digest(x_boardpilot_api_key, settings.api_key):
         raise HTTPException(status_code=401, detail="invalid API key")
     return CurrentUser(user_id=x_boardpilot_user, role=x_boardpilot_role)

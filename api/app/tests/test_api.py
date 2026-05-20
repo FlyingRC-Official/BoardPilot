@@ -218,10 +218,14 @@ def test_signed_session_token_can_replace_api_key_for_private_requests(monkeypat
         assert me.status_code == 200
         assert me.json() == {"user_id": "support-session", "role": "support"}
 
+        bearer_me = client.get("/me", headers={"Authorization": f"Bearer {token}"})
+        assert bearer_me.status_code == 200
+        assert bearer_me.json() == {"user_id": "support-session", "role": "support"}
+
         product = client.post(
             "/products",
             json={"name": "Blocked by role", "slug": "blocked-by-role", "description": ""},
-            headers={"X-BoardPilot-Session": token},
+            headers={"Authorization": f"Bearer {token}"},
         )
         assert product.status_code == 403
 
