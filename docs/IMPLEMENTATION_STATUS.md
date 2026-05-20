@@ -57,7 +57,8 @@ Updated: 2026-05-20
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
-- Ask requests now accept optional existing-artifact attachments, persist QuestionAttachment records, return them in the Ask response, and show attached context in the Ask page.
+- Ask requests now accept optional existing-artifact attachments, persist QuestionAttachment records, return them in the Ask response, and the Ask page has a source/artifact picker for attaching context without raw JSON.
+- API CORS origins are configurable through `BOARDPILOT_CORS_ORIGINS`, with local Next workbench origins enabled by default.
 - Audit logs can optionally be appended to a durable JSONL file through `BOARDPILOT_AUDIT_LOG_PATH`.
 - Added a Redis ingestion worker entrypoint and Docker Compose worker service scaffold.
 - Source versions can now be disabled with audit logging, which disables their chunks for future retrieval.
@@ -98,7 +99,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 52 passed.
+- API tests: 53 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

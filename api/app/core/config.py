@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     storage_root: str = "storage"
     audit_log_path: str = ""
     api_key: str = ""
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     database_url: str = "sqlite:///:memory:"
     redis_url: str = "redis://localhost:6379/0"
     llm_provider: str = "fake"

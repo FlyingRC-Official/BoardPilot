@@ -50,6 +50,20 @@ def test_health_endpoint():
     assert response.json()["status"] == "ok"
 
 
+def test_local_web_origin_cors_preflight():
+    response = client.options(
+        "/products",
+        headers={
+            "Origin": "http://127.0.0.1:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "X-BoardPilot-API-Key",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:3000"
+    assert "X-BoardPilot-API-Key" in response.headers["access-control-allow-headers"]
+
+
 def test_ingestion_worker_message_round_trip():
     source_version_id = uuid4()
     job_id = uuid4()
