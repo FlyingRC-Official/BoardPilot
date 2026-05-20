@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AuditLogTable } from "@/components/review-editor/AuditLogTable";
 import { ReviewEditor } from "@/components/review-editor/ReviewEditor";
-import { approveReviewItem, convertReviewItemToFaq, listReviewItems, updateReviewItem } from "@/lib/api-client";
-import type { ReviewItem } from "@/lib/types";
+import { approveReviewItem, convertReviewItemToFaq, listAuditLogs, listReviewItems, updateReviewItem } from "@/lib/api-client";
+import type { AuditLog, ReviewItem } from "@/lib/types";
 
 export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
 
   async function refresh() {
     const nextItems = await listReviewItems().catch(() => []);
     setItems(nextItems);
+    setAuditLogs(await listAuditLogs().catch(() => []));
     setEdits((current) => ({
       ...current,
       ...Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] || item.edited_answer_text || ""]))
@@ -63,6 +66,10 @@ export default function ReviewPage() {
           onToFaq={toFaq}
         />
         {message ? <p className="status" style={{ marginTop: 14 }}>{message}</p> : null}
+      </section>
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>Audit Log</h2>
+        <AuditLogTable logs={auditLogs} />
       </section>
     </>
   );

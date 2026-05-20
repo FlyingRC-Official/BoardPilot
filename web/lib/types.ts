@@ -66,6 +66,17 @@ export type ReviewItem = {
   edited_answer_text?: string;
 };
 
+export type AuditLog = {
+  id: string;
+  user_id?: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  before_json: Record<string, unknown>;
+  after_json: Record<string, unknown>;
+  created_at: string;
+};
+
 export type AskResponse = {
   evidence: Evidence[];
   candidates: RetrievalCandidate[];

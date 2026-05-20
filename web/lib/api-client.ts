@@ -1,4 +1,4 @@
-import type { AskResponse, EvalRunResponse, Product, ReviewItem, Source } from "./types";
+import type { AskResponse, AuditLog, EvalRunResponse, Product, ReviewItem, Source } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -73,6 +73,10 @@ export function runEval(name: string) {
 
 export function listReviewItems() {
   return request<ReviewItem[]>("/review-items");
+}
+
+export function listAuditLogs() {
+  return request<AuditLog[]>("/audit-logs");
 }
 
 export function approveReviewItem(id: string, failure_category = "human_policy_required") {
