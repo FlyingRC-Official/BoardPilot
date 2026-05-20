@@ -66,6 +66,7 @@ Updated: 2026-05-20
 - Eval page now shows latest-run per-case results, supports trace inspection with answer/evidence/reranked candidates, and can send failed EvalResults to Review.
 - EvalRun now assigns failure categories for recall, rerank, insufficient-evidence, and unsupported-claim failures so ReviewItems inherit actionable failure reasons.
 - Ask-time entity extraction now captures product aliases, firmware versions, error codes, connector names, and hardware interfaces.
+- Retrieval tokenization now preserves hardware compound tokens such as error codes and connector/interface names while retaining split subterms.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
 - Ask metadata filters now constrain retrieval candidates and are recorded in the retrieval filter plan.
@@ -111,7 +112,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 65 passed.
+- API tests: 66 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

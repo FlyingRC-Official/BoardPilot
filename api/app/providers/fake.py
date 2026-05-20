@@ -1,4 +1,5 @@
 import math
+import re
 from collections import Counter
 from typing import List
 
@@ -6,7 +7,12 @@ from .base import EmbeddingResult, LLMResult, ProviderResult, RerankResult
 
 
 def tokenize(text: str) -> List[str]:
-    return [t.lower() for t in text.replace("/", " ").replace("-", " ").split() if t.strip()]
+    tokens: list[str] = []
+    for raw in re.findall(r"[A-Za-z0-9]+(?:[-_/][A-Za-z0-9]+)*", text.lower()):
+        tokens.append(raw)
+        if any(separator in raw for separator in "-_/"):
+            tokens.extend(part for part in re.split(r"[-_/]+", raw) if part)
+    return tokens
 
 
 class FakeEmbeddingProvider:
@@ -54,4 +60,3 @@ class FakeOCRProvider:
 
     def ocr(self, image_uri: str) -> ProviderResult:
         return ProviderResult(self.provider_name, self.model_name, 0)
-

@@ -1,6 +1,8 @@
 from uuid import uuid4
 
 from app.models.schemas import Chunk
+from app.providers.fake import tokenize
+from app.retrieval.keyword import keyword_score
 from app.retrieval.merge import merge_candidates
 
 
@@ -49,3 +51,13 @@ def test_merge_candidates_deduplicates_near_source_positions():
 
     assert [item["chunk"].id for item in merged] == [first.id, separate.id]
     assert merged[0]["deduped_chunk_ids"] == [str(second.id)]
+
+
+def test_tokenize_preserves_hardware_compound_tokens():
+    tokens = tokenize("ERR-42 on USB-C with CAN-FD")
+
+    assert "err-42" in tokens
+    assert "usb-c" in tokens
+    assert "can-fd" in tokens
+    assert {"err", "42", "usb", "c", "can", "fd"} <= set(tokens)
+    assert keyword_score("ERR-42 USB-C", "Known ERR-42 condition on USB-C") > 0.9
