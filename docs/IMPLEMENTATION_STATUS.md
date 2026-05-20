@@ -70,6 +70,7 @@ Updated: 2026-05-20
 - Provider configuration APIs now read and mirror provider configs through SQLAlchemy when the database schema is available.
 - Audit log writes now mirror into SQLAlchemy when the database schema is available, while keeping JSONL mirroring support.
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
+- Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
 
 ## Verified
 
@@ -86,7 +87,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 42 passed.
+- API tests: 43 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -94,7 +95,7 @@ Results:
 
 ## Important MVP Gaps
 
-- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/provider/job/audit surfaces are database-aware, but the full service layer has not yet been switched to database-backed repositories.
+- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/version/provider/job/audit surfaces are database-aware, but the full service layer has not yet been switched to database-backed repositories.
 - IngestionJob APIs now persist job status in memory, support retry, can enqueue Redis worker messages, and mirror job state to SQLAlchemy when available; full database-backed cross-process job execution remains pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.

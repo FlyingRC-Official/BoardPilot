@@ -20,6 +20,7 @@ from app.models.schemas import (
     AskRequest,
     AskResponse,
     AuditLog,
+    Chunk,
     EvalCase,
     EvalCaseCreate,
     FailureCategory,
@@ -43,8 +44,10 @@ from app.models.schemas import (
     ReviewItem,
     ReviewItemDetail,
     Source,
+    SourceArtifact,
     SourceCreate,
     SourceType,
+    SourceVersion,
     SourceVersionCreate,
     Ticket,
     TicketCreate,
@@ -186,6 +189,70 @@ def get_source_from_database(session: Session, source_id: UUID) -> Optional[Sour
     except SQLAlchemyError:
         session.rollback()
         return None
+
+
+def save_source_version_bundle_to_database(
+    session: Session,
+    version: SourceVersion,
+    artifact: SourceArtifact,
+    chunks: list[Chunk],
+) -> None:
+    try:
+        repo = CatalogRepository(session)
+        repo.add_source_version(version)
+        repo.add_artifact(artifact)
+        repo.add_chunks(chunks)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def save_source_version_to_database(session: Session, version: SourceVersion) -> None:
+    try:
+        CatalogRepository(session).add_source_version(version)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def save_chunks_to_database(session: Session, chunks: list[Chunk]) -> None:
+    try:
+        CatalogRepository(session).add_chunks(chunks)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def get_source_version_from_database(session: Session, version_id: UUID) -> Optional[SourceVersion]:
+    try:
+        return CatalogRepository(session).get_source_version(version_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def list_source_versions_from_database(session: Session, source_id: UUID) -> list[SourceVersion]:
+    try:
+        return CatalogRepository(session).versions_for_source(source_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def list_artifacts_from_database(session: Session, version_id: UUID) -> list[SourceArtifact]:
+    try:
+        return CatalogRepository(session).artifacts_for_version(version_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def list_chunks_from_database(session: Session, version_id: UUID) -> list[Chunk]:
+    try:
+        return CatalogRepository(session).chunks_for_version(version_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
 
 
 @app.get("/health")
@@ -442,11 +509,16 @@ def post_source_version(
     source_id: UUID,
     payload: SourceVersionCreate,
     _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> dict:
+    database_source = get_source_from_database(session, source_id)
+    if database_source and source_id not in store.sources:
+        store.sources[source_id] = database_source
     try:
         version, artifact, chunks = create_source_version(store, source_id, payload)
     except KeyError:
         raise not_found()
+    save_source_version_bundle_to_database(session, version, artifact, chunks)
     return {"version": version, "artifact": artifact, "chunks": chunks}
 
 
@@ -456,7 +528,11 @@ async def upload_source_version(
     version_label: str = Form("uploaded"),
     file: UploadFile = File(...),
     _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> dict:
+    database_source = get_source_from_database(session, source_id)
+    if database_source and source_id not in store.sources:
+        store.sources[source_id] = database_source
     try:
         content = await file.read()
         version, artifact, chunks = create_uploaded_source_version(
@@ -469,12 +545,14 @@ async def upload_source_version(
         )
     except KeyError:
         raise not_found()
+    save_source_version_bundle_to_database(session, version, artifact, chunks)
     return {"version": version, "artifact": artifact, "chunks": chunks}
 
 
 @app.get("/sources/{source_id}/versions")
-def get_source_versions(source_id: UUID) -> list:
-    return [version for version in store.source_versions.values() if version.source_id == source_id]
+def get_source_versions(source_id: UUID, session: Session = Depends(get_session)) -> list:
+    database_versions = list_source_versions_from_database(session, source_id)
+    return database_versions or [version for version in store.source_versions.values() if version.source_id == source_id]
 
 
 @app.post("/source-versions/{version_id}/disable")
@@ -482,17 +560,24 @@ def disable_source_version(
     version_id: UUID,
     payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> dict:
-    if version_id not in store.source_versions:
+    version = store.source_versions.get(version_id) or get_source_version_from_database(session, version_id)
+    if not version:
         raise not_found()
-    version = store.source_versions[version_id]
     before = version.model_dump(mode="json")
     version.status = "disabled"
     disabled_chunks = []
-    for chunk in store.chunks.values():
-        if chunk.source_version_id == version.id:
-            chunk.enabled = False
-            disabled_chunks.append(chunk)
+    candidate_chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
+    if not candidate_chunks:
+        candidate_chunks = list_chunks_from_database(session, version_id)
+    for chunk in candidate_chunks:
+        chunk.enabled = False
+        store.chunks[chunk.id] = chunk
+        disabled_chunks.append(chunk)
+    store.source_versions[version.id] = version
+    save_source_version_to_database(session, version)
+    save_chunks_to_database(session, disabled_chunks)
     store.add_audit_log(
         "source_version_disabled",
         "SourceVersion",
@@ -510,20 +595,32 @@ def post_source_artifact(
     version_id: UUID,
     payload: SourceVersionCreate,
     _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> dict:
+    database_source = get_source_from_database(session, source_id)
+    database_version = get_source_version_from_database(session, version_id)
+    if database_source and source_id not in store.sources:
+        store.sources[source_id] = database_source
+    if database_version and version_id not in store.source_versions:
+        store.source_versions[version_id] = database_version
     if source_id not in store.sources or version_id not in store.source_versions:
         raise not_found()
     version, artifact, chunks = create_source_version(store, source_id, payload)
+    save_source_version_bundle_to_database(session, version, artifact, chunks)
     return {"version": version, "artifact": artifact, "chunks": chunks}
 
 
 @app.get("/source-versions/{version_id}/chunks")
-def get_chunks(version_id: UUID) -> list:
-    return [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
+def get_chunks(version_id: UUID, session: Session = Depends(get_session)) -> list:
+    database_chunks = list_chunks_from_database(session, version_id)
+    return database_chunks or [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
 
 
 @app.get("/source-versions/{version_id}/artifacts")
-def get_source_version_artifacts(version_id: UUID) -> list:
+def get_source_version_artifacts(version_id: UUID, session: Session = Depends(get_session)) -> list:
+    database_artifacts = list_artifacts_from_database(session, version_id)
+    if database_artifacts:
+        return database_artifacts
     if version_id not in store.source_versions:
         raise not_found()
     return [artifact for artifact in store.source_artifacts.values() if artifact.source_version_id == version_id]

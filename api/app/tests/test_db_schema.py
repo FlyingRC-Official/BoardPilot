@@ -11,16 +11,23 @@ from app.main import (
     get_product_from_database,
     get_runtime_job,
     get_source_from_database,
+    get_source_version_from_database,
     list_aliases_from_database,
+    list_artifacts_from_database,
+    list_chunks_from_database,
     list_provider_configs_from_database,
     list_products_from_database,
     list_runtime_jobs,
     list_sources_from_database,
+    list_source_versions_from_database,
     save_alias_to_database,
+    save_chunks_to_database,
     save_provider_config_to_database,
     save_product_to_database,
     save_runtime_job,
     save_source_to_database,
+    save_source_version_bundle_to_database,
+    save_source_version_to_database,
 )
 from app.models.schemas import (
     Answer,
@@ -293,6 +300,46 @@ def test_catalog_api_helpers_use_database_when_available():
     assert list_aliases_from_database(session, product.id)[0].id == alias.id
     assert list_sources_from_database(session)[0].id == source.id
     assert get_source_from_database(session, source.id).title == "Manual"
+
+
+def test_source_version_api_helpers_use_database_when_available():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown, trust_level="official")
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="8" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+    chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content=artifact.content,
+        content_hash="7" * 64,
+        token_count=4,
+    )
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    version.status = "disabled"
+    chunk.enabled = False
+    save_source_version_to_database(session, version)
+    save_chunks_to_database(session, [chunk])
+    session.expire_all()
+
+    assert list_source_versions_from_database(session, source.id)[0].status == "disabled"
+    assert get_source_version_from_database(session, version.id).id == version.id
+    assert list_artifacts_from_database(session, version.id)[0].content == artifact.content
+    assert list_chunks_from_database(session, version.id)[0].enabled is False
 
 
 def test_retrieval_repository_round_trips_ask_records_in_sqlite():

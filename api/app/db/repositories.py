@@ -124,6 +124,10 @@ class CatalogRepository:
     def add_source_version(self, version: SourceVersion) -> SourceVersion:
         return self._merge(version, SourceVersionOrm, SourceVersion)
 
+    def get_source_version(self, source_version_id: UUID) -> SourceVersion | None:
+        row = self.session.get(SourceVersionOrm, str(source_version_id))
+        return _orm_to_model(row, SourceVersion) if row else None
+
     def versions_for_source(self, source_id: UUID) -> list[SourceVersion]:
         rows = self.session.scalars(select(SourceVersionOrm).where(SourceVersionOrm.source_id == str(source_id))).all()
         return [_orm_to_model(row, SourceVersion) for row in rows]
