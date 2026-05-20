@@ -334,6 +334,42 @@ def test_product_source_ingestion_and_dedup():
     assert all(artifact["source_version_id"] == version_id for artifact in version_artifacts)
 
 
+def test_unsupported_embedding_provider_config_fails_ingestion_and_routes_review():
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "embedding",
+            "provider_name": "openai",
+            "model_name": "text-embedding-example",
+            "config_json": {"api_key_env": "OPENAI_API_KEY"},
+        },
+    )
+    product = client.post(
+        "/products",
+        json={"name": "Embedding Board", "slug": "embedding-board", "description": ""},
+    ).json()
+    source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "Embedding manual",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+    ).json()
+
+    payload = client.post(
+        f"/sources/{source['id']}/versions",
+        json={"version_label": "v1", "content": "USB power is configuration only."},
+    ).json()
+
+    assert payload["version"]["status"] == "failed"
+    assert "Embedding provider 'openai' is configured but no adapter is installed." == payload["version"]["error_message"]
+    assert payload["chunks"] == []
+    assert payload["review_item"]["source_type"] == "source_issue"
+    assert payload["review_item"]["failure_category"] == "bad_parse"
+
+
 def test_failed_source_version_ingestion_saves_error_reason(monkeypatch):
     import app.sources.service as source_service
 

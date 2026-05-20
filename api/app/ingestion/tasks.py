@@ -1,6 +1,13 @@
+from typing import Optional
+
 from app.ingestion.chunking import chunk_text
-from app.models.schemas import ChunkEmbedding
+from app.models.schemas import ChunkEmbedding, ProviderConfig
 from app.providers.embedding import embedding_provider
+
+
+def ensure_embedding_provider_available(provider_config: Optional[ProviderConfig]) -> None:
+    if provider_config and provider_config.provider_name != embedding_provider.provider_name:
+        raise RuntimeError(f"Embedding provider '{provider_config.provider_name}' is configured but no adapter is installed.")
 
 
 def ingest_source_version(store, source_version_id):
@@ -11,6 +18,7 @@ def ingest_source_version(store, source_version_id):
     chunks = chunk_text(version.id, source.product_id, text)
     inserted = store.add_chunks(chunks)
     provider_config = store.active_provider_config("embedding")
+    ensure_embedding_provider_available(provider_config)
     for chunk in inserted:
         embedding = embedding_provider.embed(chunk.content)
         provider_name = provider_config.provider_name if provider_config else embedding.provider_name

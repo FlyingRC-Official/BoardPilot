@@ -59,6 +59,7 @@ Updated: 2026-05-20
 - Added ReviewItem detail API/UI that shows the linked question, generated answer, evidence pack, and retrieval trace.
 - Enabled LLM provider configs to set answer/model-run identity and estimate model cost in EvalRun summaries.
 - Unsupported non-fake LLM provider configs now record failed ModelRuns and route generated Answers to Review as generation errors instead of silently using fake execution.
+- Unsupported non-fake embedding provider configs now fail source ingestion with a saved error reason and source-issue ReviewItem instead of storing fake vectors under a non-fake identity.
 - Extended enabled provider config identity to saved chunk embeddings, reranked candidate metadata, and OCR results.
 - Added explicit source-disable audit logging and a Review action for marking source updates needed.
 - Review detail now surfaces Eval failure metrics when a ReviewItem originates from an EvalResult.
@@ -119,7 +120,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 71 passed.
+- API tests: 72 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
