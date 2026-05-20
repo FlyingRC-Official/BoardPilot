@@ -91,6 +91,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+MAX_ATTACHMENT_QUERY_CONTEXT_CHARS = 1200
+
 
 def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="not found")
@@ -297,6 +299,15 @@ def get_artifact_from_database(session: Session, artifact_id: UUID) -> Optional[
     except SQLAlchemyError:
         session.rollback()
         return None
+
+
+def attachment_context_for_query(payload: QuestionAttachmentCreate, artifact: SourceArtifact) -> str:
+    parts = [f"attached_{payload.attachment_type}"]
+    if payload.description.strip():
+        parts.append(payload.description.strip())
+    if artifact.content.strip():
+        parts.append(artifact.content.strip()[:MAX_ATTACHMENT_QUERY_CONTEXT_CHARS])
+    return "\n".join(parts)
 
 
 def list_chunks_from_database(session: Session, version_id: UUID) -> list[Chunk]:
@@ -1208,8 +1219,22 @@ def retry_ingestion_job(
 
 @app.post("/ask", response_model=AskResponse)
 def ask(payload: AskRequest, session: Session = Depends(get_session)) -> AskResponse:
-    detected_entities = detect_product_aliases(store, payload.question)
-    normalized_query = normalize_query(payload.question, product_alias_expansions(detected_entities))
+    validated_attachments: list[tuple[QuestionAttachmentCreate, SourceArtifact]] = []
+    attachment_contexts: list[str] = []
+    for attachment_payload in payload.attachments:
+        artifact = store.source_artifacts.get(attachment_payload.artifact_id) or get_artifact_from_database(
+            session, attachment_payload.artifact_id
+        )
+        if not artifact:
+            raise not_found()
+        store.source_artifacts[artifact.id] = artifact
+        validated_attachments.append((attachment_payload, artifact))
+        context = attachment_context_for_query(attachment_payload, artifact)
+        if context.strip():
+            attachment_contexts.append(context)
+    retrieval_text = "\n\n".join([payload.question, *attachment_contexts])
+    detected_entities = detect_product_aliases(store, retrieval_text)
+    normalized_query = normalize_query(retrieval_text, product_alias_expansions(detected_entities))
     question = store.add_question(
         Question(
             product_id=payload.product_id,
@@ -1220,10 +1245,7 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)) -> AskResp
         )
     )
     attachments: list[QuestionAttachment] = []
-    for attachment_payload in payload.attachments:
-        database_artifact = get_artifact_from_database(session, attachment_payload.artifact_id)
-        if attachment_payload.artifact_id not in store.source_artifacts and not database_artifact:
-            raise not_found()
+    for attachment_payload, _artifact in validated_attachments:
         attachment = store.add_question_attachment(QuestionAttachment(**attachment_payload.model_dump(), question_id=question.id))
         save_question_attachment_to_database(session, attachment)
         attachments.append(attachment)

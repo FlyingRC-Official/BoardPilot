@@ -783,6 +783,63 @@ def test_ask_can_attach_existing_artifacts_during_submission():
     assert detail["attachments"][0]["id"] == ask_payload["attachments"][0]["id"]
 
 
+def test_ask_attachment_content_expands_retrieval_query():
+    product = client.post(
+        "/products",
+        json={"name": "Attachment Board", "slug": "attachment-board", "description": ""},
+    ).json()
+    manual_source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "Attachment Board alarms",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+    ).json()
+    client.post(
+        f"/sources/{manual_source['id']}/versions",
+        json={
+            "version_label": "v1",
+            "content": "ALRM-773 means the CAN-FD harness has reversed telemetry wiring.",
+        },
+    )
+    log_source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "Customer boot log",
+            "source_type": "text_log",
+            "trust_level": "customer",
+        },
+    ).json()
+    log_version = client.post(
+        f"/sources/{log_source['id']}/versions",
+        json={"version_label": "log", "content": "Boot log excerpt: ALRM-773 during startup."},
+    ).json()
+    artifact = log_version["artifact"]
+
+    ask_payload = client.post(
+        "/ask",
+        json={
+            "product_id": product["id"],
+            "question": "What does the attached alarm mean?",
+            "attachments": [
+                {
+                    "artifact_id": artifact["id"],
+                    "attachment_type": "log",
+                    "description": "customer startup log",
+                }
+            ],
+        },
+    ).json()
+
+    assert "alrm-773" in ask_payload["question"]["normalized_text"]
+    evidence_text = "\n".join(item["quote"].lower() for item in ask_payload["evidence"])
+    assert "alrm-773" in evidence_text
+    assert ask_payload["attachments"][0]["artifact_id"] == artifact["id"]
+
+
 def test_ask_persists_metadata_filters():
     payload = client.post(
         "/ask",

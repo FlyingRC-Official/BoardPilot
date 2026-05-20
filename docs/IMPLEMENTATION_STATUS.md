@@ -76,6 +76,7 @@ Updated: 2026-05-20
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
 - Ask metadata filters now constrain retrieval candidates and are recorded in the retrieval filter plan.
 - Ask requests now accept optional existing-artifact attachments, persist QuestionAttachment records, return them in the Ask response, and the Ask page has a source/artifact picker for attaching context without raw JSON.
+- Ask retrieval now expands the normalized query with attached artifact descriptions and content snippets so log/image/file context can affect retrieval.
 - API CORS origins are configurable through `BOARDPILOT_CORS_ORIGINS`, with local Next workbench origins enabled by default.
 - Audit logs can optionally be appended to a durable JSONL file through `BOARDPILOT_AUDIT_LOG_PATH`.
 - Added a Redis ingestion worker entrypoint and Docker Compose worker service scaffold.
@@ -117,7 +118,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 69 passed.
+- API tests: 70 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
