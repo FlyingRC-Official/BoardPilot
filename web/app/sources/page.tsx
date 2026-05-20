@@ -2,14 +2,25 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { SourceViewer } from "@/components/source-viewer/SourceViewer";
-import { addSourceVersion, createProduct, createSource, listProducts, listSources, uploadSourceVersion } from "@/lib/api-client";
-import type { Product, Source } from "@/lib/types";
+import {
+  addSourceVersion,
+  createProduct,
+  createProductAlias,
+  createSource,
+  listProductAliases,
+  listProducts,
+  listSources,
+  uploadSourceVersion
+} from "@/lib/api-client";
+import type { Product, ProductAlias, Source } from "@/lib/types";
 
 export default function SourcesPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [aliases, setAliases] = useState<ProductAlias[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
   const [productName, setProductName] = useState("FlyingRC F4");
   const [productSlug, setProductSlug] = useState("flyingrc-f4");
+  const [alias, setAlias] = useState("F4 FC");
   const [sourceTitle, setSourceTitle] = useState("FlyingRC F4 Manual");
   const [sourceType, setSourceType] = useState("markdown");
   const [sourceId, setSourceId] = useState("");
@@ -18,7 +29,11 @@ export default function SourcesPage() {
   const [message, setMessage] = useState("");
 
   async function refresh() {
-    setProducts(await listProducts().catch(() => []));
+    const nextProducts = await listProducts().catch(() => []);
+    setProducts(nextProducts);
+    if (nextProducts[0]) {
+      setAliases(await listProductAliases(nextProducts[0].id).catch(() => []));
+    }
     setSources(await listSources().catch(() => []));
   }
 
@@ -49,6 +64,18 @@ export default function SourcesPage() {
     setSourceId(source.id);
     await refresh();
     setMessage("Source created.");
+  }
+
+  async function submitAlias(event: FormEvent) {
+    event.preventDefault();
+    const product = products[0];
+    if (!product) {
+      setMessage("Create a product first.");
+      return;
+    }
+    await createProductAlias(product.id, { alias, alias_type: "user_facing", confidence: 0.9 });
+    await refresh();
+    setMessage("Product alias created.");
   }
 
   async function submitVersion(event: FormEvent) {
@@ -114,6 +141,17 @@ export default function SourcesPage() {
           </label>
           <button className="button">Create Source</button>
         </form>
+        <form className="panel form" onSubmit={submitAlias}>
+          <h2>Alias</h2>
+          <label className="field">
+            <span>Alias</span>
+            <input className="input" value={alias} onChange={(event) => setAlias(event.target.value)} />
+          </label>
+          <button className="button">Create Alias</button>
+          <p className="muted">{aliases.length} aliases on the first product.</p>
+        </form>
+      </section>
+      <section className="grid two" style={{ marginTop: 16 }}>
         <form className="panel form" onSubmit={submitVersion}>
           <h2>Version</h2>
           <label className="field">
@@ -122,8 +160,7 @@ export default function SourcesPage() {
           </label>
           <button className="button">Ingest Version</button>
         </form>
-      </section>
-      <section className="panel" style={{ marginTop: 16 }}>
+        <section className="panel">
         <form className="form" onSubmit={submitUpload}>
           <h2>Upload Artifact</h2>
           <label className="field">
@@ -132,6 +169,7 @@ export default function SourcesPage() {
           </label>
           <button className="button secondary">Upload and Ingest</button>
         </form>
+        </section>
       </section>
       {message ? <p className="status" style={{ marginTop: 16 }}>{message}</p> : null}
       <section className="panel" style={{ marginTop: 16 }}>

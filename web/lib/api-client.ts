@@ -1,4 +1,4 @@
-import type { AskResponse, AuditLog, EvalRunResponse, Product, ReviewItem, Source } from "./types";
+import type { AskResponse, AuditLog, EvalRunResponse, Product, ProductAlias, ReviewItem, Source } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -22,6 +22,14 @@ export function listProducts() {
 
 export function createProduct(payload: Pick<Product, "name" | "slug" | "description">) {
   return request<Product>("/products", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function createProductAlias(productId: string, payload: { alias: string; alias_type: string; confidence: number }) {
+  return request<ProductAlias>(`/products/${productId}/aliases`, { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function listProductAliases(productId: string) {
+  return request<ProductAlias[]>(`/products/${productId}/aliases`);
 }
 
 export function listSources() {

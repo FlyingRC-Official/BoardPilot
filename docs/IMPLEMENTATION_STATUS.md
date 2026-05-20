@@ -37,6 +37,7 @@ Updated: 2026-05-20
 - Added typed in-memory AuditLog records and an admin audit log endpoint.
 - Audit logging now records source updates, review decisions, ApprovedFAQ creation, and EvalCase creation/modification with before/after context where available.
 - Added a recent audit-event table to the Review page.
+- Added Sources page controls for creating product aliases used by Ask-time alias detection.
 
 ## Verified
 

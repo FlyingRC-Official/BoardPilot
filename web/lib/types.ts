@@ -6,6 +6,14 @@ export type Product = {
   status: string;
 };
 
+export type ProductAlias = {
+  id: string;
+  product_id: string;
+  alias: string;
+  alias_type: string;
+  confidence: number;
+};
+
 export type Source = {
   id: string;
   product_id: string;
