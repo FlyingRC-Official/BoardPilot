@@ -82,6 +82,13 @@ export function approveReviewItem(id: string, failure_category = "human_policy_r
   });
 }
 
+export function updateReviewItem(id: string, payload: Partial<Pick<ReviewItem, "reviewer_notes">> & { edited_answer_text?: string }) {
+  return request<ReviewItem>(`/review-items/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
 export function convertReviewItemToFaq(id: string) {
   return request(`/review-items/${id}/to-faq`, { method: "POST" });
 }

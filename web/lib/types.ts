@@ -63,6 +63,7 @@ export type ReviewItem = {
   priority: number;
   failure_category?: string;
   reviewer_notes?: string;
+  edited_answer_text?: string;
 };
 
 export type AskResponse = {
@@ -80,4 +81,3 @@ export type EvalRunResponse = {
   };
   results: Array<Record<string, unknown>>;
 };
-

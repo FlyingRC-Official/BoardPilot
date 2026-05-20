@@ -184,10 +184,15 @@ def test_review_to_faq_reingests_approved_answer_as_source_material():
     ).json()
     review_item = ask_payload["review_item"]
     assert review_item
+    client.patch(
+        f"/review-items/{review_item['id']}",
+        json={"edited_answer_text": "Use the documented calibration flow only. Do not use secret factory codes."},
+    )
 
     faq_payload = client.post(f"/review-items/{review_item['id']}/to-faq").json()
     assert faq_payload["status"] == "converted_to_faq"
     assert faq_payload["approved_faq"]["question_text"].startswith("What is the secret")
+    assert faq_payload["approved_faq"]["answer_text"].startswith("Use the documented calibration")
     assert faq_payload["source"]["source_type"] == "approved_faq"
     assert faq_payload["chunks"]
 

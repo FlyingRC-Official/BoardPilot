@@ -25,6 +25,7 @@ Updated: 2026-05-20
 - Added source-type parser routing for Markdown, CSV/FAQ, ticket exports, text logs, image descriptions, approved FAQs, and text-extracted PDFs.
 - Added `pypdf`-backed PDF text extraction with a decoded-text fallback.
 - Added a repeatable 20-case hardware-support Eval seed corpus and Eval page seed action.
+- Added reviewer-edited answer controls before ApprovedFAQ conversion.
 
 ## Verified
 
@@ -55,7 +56,7 @@ Results:
 - EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
-- ApprovedFAQ conversion re-ingests FAQ content into retrieval; it still needs reviewer editing UI polish and durable database persistence.
+- ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval; it still needs durable database persistence and richer review detail UX.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
 
 ## Recommended Next Subtasks
@@ -65,4 +66,4 @@ Results:
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Add authentication with role-aware guards for admin, support, reviewer, and viewer.
 5. Add EvalRun comparison and failure-category reporting UI.
-6. Add reviewer editing controls before FAQ conversion.
+6. Add reviewer notes, failure-category editing, and richer review detail layout.

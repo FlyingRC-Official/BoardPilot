@@ -3,11 +3,17 @@ import type { ReviewItem } from "@/lib/types";
 export function ReviewEditor({
   items,
   onApprove,
-  onToFaq
+  onToFaq,
+  edits,
+  onEdit,
+  onSaveEdit
 }: {
   items: ReviewItem[];
   onApprove: (id: string) => void;
   onToFaq: (id: string) => void;
+  edits: Record<string, string>;
+  onEdit: (id: string, value: string) => void;
+  onSaveEdit: (id: string) => void;
 }) {
   if (!items.length) {
     return <div className="empty">The review queue is empty.</div>;
@@ -32,8 +38,18 @@ export function ReviewEditor({
             </td>
             <td>{item.failure_category || "unassigned"}</td>
             <td>
+              <textarea
+                className="textarea"
+                style={{ minHeight: 72, marginBottom: 8 }}
+                value={edits[item.id] || ""}
+                onChange={(event) => onEdit(item.id, event.target.value)}
+                placeholder="Reviewer-edited answer for FAQ conversion"
+              />
               <button className="button secondary" onClick={() => onApprove(item.id)}>
                 Approve
+              </button>
+              <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onSaveEdit(item.id)}>
+                Save Edit
               </button>
               <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onToFaq(item.id)}>
                 To FAQ
