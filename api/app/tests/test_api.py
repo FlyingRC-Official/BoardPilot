@@ -1,5 +1,8 @@
+import json
+
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.db.session import store
 from app.main import app
 
@@ -107,6 +110,22 @@ def test_provider_config_creation_is_admin_only_and_audited():
     assert "provider_config_created" in audit_actions
     assert "provider_config_updated" in audit_actions
     assert "provider_config_deleted" in audit_actions
+
+
+def test_audit_logs_can_be_written_to_jsonl(tmp_path, monkeypatch):
+    audit_path = tmp_path / "audit.jsonl"
+    monkeypatch.setattr(settings, "audit_log_path", str(audit_path))
+    try:
+        client.post(
+            "/provider-configs",
+            json={"provider_type": "llm", "provider_name": "fake", "model_name": "fake-citation-llm"},
+            headers={"X-BoardPilot-User": "admin-jsonl", "X-BoardPilot-Role": "admin"},
+        )
+        records = [json.loads(line) for line in audit_path.read_text(encoding="utf-8").splitlines()]
+        assert records[-1]["action"] == "provider_config_created"
+        assert records[-1]["user_id"] == "admin-jsonl"
+    finally:
+        monkeypatch.setattr(settings, "audit_log_path", "")
 
 
 def test_ticket_log_and_image_text_enter_source_pipeline():

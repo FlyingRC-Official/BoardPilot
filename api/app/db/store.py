@@ -1,7 +1,10 @@
 from collections import defaultdict
+import json
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 from uuid import UUID
 
+from app.core.config import settings
 from app.models.schemas import (
     Answer,
     ApprovedFAQ,
@@ -240,6 +243,11 @@ class InMemoryStore:
             after_json=after_json or {},
         )
         self.audit_logs[log.id] = log
+        if settings.audit_log_path:
+            path = Path(settings.audit_log_path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(log.model_dump(mode="json"), sort_keys=True) + "\n")
         return log
 
 

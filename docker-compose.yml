@@ -5,6 +5,7 @@ services:
     environment:
       BOARDPILOT_ENV: ${BOARDPILOT_ENV:-local}
       BOARDPILOT_STORAGE_ROOT: /app/storage
+      BOARDPILOT_AUDIT_LOG_PATH: ${BOARDPILOT_AUDIT_LOG_PATH:-/app/storage/audit/audit.jsonl}
       BOARDPILOT_DATABASE_URL: ${BOARDPILOT_DATABASE_URL:-postgresql+psycopg://boardpilot:boardpilot@db:5432/boardpilot}
       BOARDPILOT_REDIS_URL: ${BOARDPILOT_REDIS_URL:-redis://redis:6379/0}
     ports:
@@ -43,4 +44,3 @@ services:
 
 volumes:
   boardpilot_pg:
-

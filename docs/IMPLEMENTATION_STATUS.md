@@ -55,6 +55,7 @@ Updated: 2026-05-20
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
+- Audit logs can optionally be appended to a durable JSONL file through `BOARDPILOT_AUDIT_LOG_PATH`.
 
 ## Verified
 
@@ -71,7 +72,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 29 passed.
+- API tests: 30 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -92,7 +93,7 @@ Results:
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI remains minimal.
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
 - Authentication and role enforcement are not implemented.
-- Audit logging exists as an in-memory event list and needs durable storage.
+- Audit logging exists as an in-memory event list and can also be mirrored to JSONL for durable retention; full database-backed audit storage remains pending.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics; review still needs durable database persistence.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
 
