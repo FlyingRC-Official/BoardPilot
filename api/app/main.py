@@ -28,7 +28,7 @@ from app.products.service import create_alias, create_product, get_product, list
 from app.retrieval.query_normalization import normalize_query
 from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
-from app.review.service import approve_review_item, reject_review_item, review_to_eval_case
+from app.review.service import approve_review_item, reject_review_item, review_to_eval_case, review_to_faq
 from app.sources.service import create_source, create_source_version, create_uploaded_source_version, list_sources
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
@@ -377,12 +377,13 @@ def post_review_reject(item_id: UUID, payload: Dict[str, FailureCategory]) -> Re
 
 @app.post("/review-items/{item_id}/to-faq")
 def post_review_to_faq(item_id: UUID) -> dict:
-    if item_id not in store.review_items:
+    try:
+        faq, source, chunks = review_to_faq(store, item_id)
+    except KeyError:
         raise not_found()
-    item = store.review_items[item_id]
-    item.status = "converted_to_faq"
-    store.audit_log.append({"action": "approved_faq_created", "entity_type": "ReviewItem", "entity_id": str(item.id)})
-    return {"status": "converted_to_faq", "review_item": item}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"status": "converted_to_faq", "approved_faq": faq, "source": source, "chunks": chunks}
 
 
 @app.post("/review-items/{item_id}/to-eval-case", response_model=EvalCase)

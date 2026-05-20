@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.models.schemas import (
     Answer,
+    ApprovedFAQ,
     Chunk,
     EvalCase,
     EvalResult,
@@ -38,6 +39,7 @@ class InMemoryStore:
         self.evidences: Dict[UUID, Evidence] = {}
         self.answers: Dict[UUID, Answer] = {}
         self.review_items: Dict[UUID, ReviewItem] = {}
+        self.approved_faqs: Dict[UUID, ApprovedFAQ] = {}
         self.eval_cases: Dict[UUID, EvalCase] = {}
         self.eval_runs: Dict[UUID, EvalRun] = {}
         self.eval_results: Dict[UUID, EvalResult] = {}
@@ -124,6 +126,11 @@ class InMemoryStore:
         self.review_items[item.id] = item
         self.audit_log.append({"action": "review_item_created", "entity_type": "ReviewItem", "entity_id": str(item.id)})
         return item
+
+    def add_approved_faq(self, faq: ApprovedFAQ) -> ApprovedFAQ:
+        self.approved_faqs[faq.id] = faq
+        self.audit_log.append({"action": "approved_faq_created", "entity_type": "ApprovedFAQ", "entity_id": str(faq.id)})
+        return faq
 
     def add_eval_case(self, case: EvalCase) -> EvalCase:
         self.eval_cases[case.id] = case

@@ -21,6 +21,7 @@ Updated: 2026-05-20
 - Added an initial Alembic migration foundation with pgvector extension setup for Postgres.
 - Added multipart source artifact upload backed by local filesystem storage.
 - Added Sources page upload control for storing and ingesting source artifacts.
+- Implemented ReviewItem to ApprovedFAQ conversion with FAQ source re-ingestion.
 
 ## Verified
 
@@ -37,7 +38,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 8 passed.
+- API tests: 9 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -52,7 +53,7 @@ Results:
 - Image OCR is a fake-provider placeholder.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
-- ApprovedFAQ conversion is a status transition placeholder and does not yet re-ingest FAQ source content.
+- ApprovedFAQ conversion re-ingests FAQ content into retrieval; it still needs reviewer editing UI polish and durable database persistence.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
 
 ## Recommended Next Subtasks
@@ -60,6 +61,6 @@ Results:
 1. Replace the in-memory API store with SQLAlchemy-backed repositories.
 2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
 3. Move ingestion and embedding jobs to Redis-backed workers.
-4. Implement ApprovedFAQ creation and re-ingestion.
-5. Add authentication with role-aware guards for admin, support, reviewer, and viewer.
-6. Expand eval seed data to the required 20 cases and add failure-category reporting UI.
+4. Add authentication with role-aware guards for admin, support, reviewer, and viewer.
+5. Expand eval seed data to the required 20 cases and add failure-category reporting UI.
+6. Add reviewer editing controls before FAQ conversion.

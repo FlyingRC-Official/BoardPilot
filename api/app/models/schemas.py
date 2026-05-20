@@ -227,6 +227,18 @@ class ReviewItem(BaseModel):
     updated_at: datetime = Field(default_factory=now)
 
 
+class ApprovedFAQ(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    product_id: UUID
+    review_item_id: UUID
+    question_text: str
+    answer_text: str
+    source_id: UUID
+    status: str = "active"
+    created_at: datetime = Field(default_factory=now)
+    updated_at: datetime = Field(default_factory=now)
+
+
 class AskRequest(BaseModel):
     question: str
     product_id: Optional[UUID] = None
@@ -285,4 +297,3 @@ class EvalResult(BaseModel):
     failure_category: Optional[FailureCategory] = None
     metrics_json: Dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=now)
-

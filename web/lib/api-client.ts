@@ -77,3 +77,7 @@ export function approveReviewItem(id: string, failure_category = "human_policy_r
     body: JSON.stringify({ failure_category })
   });
 }
+
+export function convertReviewItemToFaq(id: string) {
+  return request(`/review-items/${id}/to-faq`, { method: "POST" });
+}

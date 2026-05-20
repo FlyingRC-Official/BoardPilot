@@ -1,6 +1,14 @@
 import type { ReviewItem } from "@/lib/types";
 
-export function ReviewEditor({ items, onApprove }: { items: ReviewItem[]; onApprove: (id: string) => void }) {
+export function ReviewEditor({
+  items,
+  onApprove,
+  onToFaq
+}: {
+  items: ReviewItem[];
+  onApprove: (id: string) => void;
+  onToFaq: (id: string) => void;
+}) {
   if (!items.length) {
     return <div className="empty">The review queue is empty.</div>;
   }
@@ -27,6 +35,9 @@ export function ReviewEditor({ items, onApprove }: { items: ReviewItem[]; onAppr
               <button className="button secondary" onClick={() => onApprove(item.id)}>
                 Approve
               </button>
+              <button className="button secondary" style={{ marginLeft: 8 }} onClick={() => onToFaq(item.id)}>
+                To FAQ
+              </button>
             </td>
           </tr>
         ))}
@@ -34,4 +45,3 @@ export function ReviewEditor({ items, onApprove }: { items: ReviewItem[]; onAppr
     </table>
   );
 }
-

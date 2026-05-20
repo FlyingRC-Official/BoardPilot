@@ -127,3 +127,26 @@ def test_eval_run_records_metrics_and_can_route_failure_to_review():
 
     review = client.post(f"/eval-results/{results[0]['id']}/to-review").json()
     assert review["source_type"] == "eval_failure"
+
+
+def test_review_to_faq_reingests_approved_answer_as_source_material():
+    product, _source, _chunks = seed_source()
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "What is the secret factory calibration code?"},
+    ).json()
+    review_item = ask_payload["review_item"]
+    assert review_item
+
+    faq_payload = client.post(f"/review-items/{review_item['id']}/to-faq").json()
+    assert faq_payload["status"] == "converted_to_faq"
+    assert faq_payload["approved_faq"]["question_text"].startswith("What is the secret")
+    assert faq_payload["source"]["source_type"] == "approved_faq"
+    assert faq_payload["chunks"]
+
+    rerun = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "secret factory calibration code"},
+    ).json()
+    evidence_text = "\n".join(item["quote"] for item in rerun["evidence"])
+    assert "secret factory calibration code" in evidence_text
