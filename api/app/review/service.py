@@ -20,6 +20,7 @@ from app.sources.service import create_source_version
 
 def approve_review_item(store: InMemoryStore, item_id: UUID, failure_category: FailureCategory, reviewer_id: str = "local") -> ReviewItem:
     item = store.review_items[item_id]
+    before_json = item.model_dump(mode="json")
     item.failure_category = failure_category
     item.reviewer_id = reviewer_id
     item.status = ReviewStatus.approved
@@ -29,6 +30,7 @@ def approve_review_item(store: InMemoryStore, item_id: UUID, failure_category: F
         "ReviewItem",
         str(item.id),
         user_id=reviewer_id,
+        before_json=before_json,
         after_json=item.model_dump(mode="json"),
     )
     return item
@@ -36,6 +38,7 @@ def approve_review_item(store: InMemoryStore, item_id: UUID, failure_category: F
 
 def reject_review_item(store: InMemoryStore, item_id: UUID, failure_category: FailureCategory, reviewer_id: str = "local") -> ReviewItem:
     item = store.review_items[item_id]
+    before_json = item.model_dump(mode="json")
     item.failure_category = failure_category
     item.reviewer_id = reviewer_id
     item.status = ReviewStatus.rejected
@@ -45,6 +48,7 @@ def reject_review_item(store: InMemoryStore, item_id: UUID, failure_category: Fa
         "ReviewItem",
         str(item.id),
         user_id=reviewer_id,
+        before_json=before_json,
         after_json=item.model_dump(mode="json"),
     )
     return item
@@ -57,6 +61,7 @@ def mark_source_update_needed(
     reviewer_id: str = "local",
 ) -> ReviewItem:
     item = store.review_items[item_id]
+    before_json = item.model_dump(mode="json")
     item.failure_category = failure_category
     item.reviewer_id = reviewer_id
     item.status = ReviewStatus.needs_source_update
@@ -66,6 +71,7 @@ def mark_source_update_needed(
         "ReviewItem",
         str(item.id),
         user_id=reviewer_id,
+        before_json=before_json,
         after_json=item.model_dump(mode="json"),
     )
     return item
@@ -73,6 +79,7 @@ def mark_source_update_needed(
 
 def review_to_eval_case(store: InMemoryStore, item_id: UUID, reviewer_id: str = "local") -> EvalCase:
     item = store.review_items[item_id]
+    before_json = item.model_dump(mode="json")
     question = store.questions[item.question_id]
     answer = store.answers.get(item.answer_id) if item.answer_id else None
     evidence = store.evidence_for_run(answer.retrieval_run_id) if answer else []
@@ -104,13 +111,15 @@ def review_to_eval_case(store: InMemoryStore, item_id: UUID, reviewer_id: str = 
         "ReviewItem",
         str(item.id),
         user_id=reviewer_id,
-        after_json={"eval_case_id": str(case.id)},
+        before_json=before_json,
+        after_json={**item.model_dump(mode="json"), "eval_case_id": str(case.id)},
     )
     return case
 
 
 def review_to_faq(store: InMemoryStore, item_id: UUID, reviewer_id: str = "local") -> tuple[ApprovedFAQ, Source, SourceVersion, SourceArtifact, list]:
     item = store.review_items[item_id]
+    before_json = item.model_dump(mode="json")
     if item.question_id is None or item.answer_id is None:
         raise ValueError("review item must reference a question and answer")
     question = store.questions[item.question_id]
@@ -154,6 +163,12 @@ def review_to_faq(store: InMemoryStore, item_id: UUID, reviewer_id: str = "local
         "ReviewItem",
         str(item.id),
         user_id=reviewer_id,
-        after_json={"approved_faq_id": str(faq.id), "source_id": str(source.id), "source_version_id": str(version.id)},
+        before_json=before_json,
+        after_json={
+            **item.model_dump(mode="json"),
+            "approved_faq_id": str(faq.id),
+            "source_id": str(source.id),
+            "source_version_id": str(version.id),
+        },
     )
     return faq, source, version, artifact, chunks

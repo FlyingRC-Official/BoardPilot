@@ -1844,6 +1844,8 @@ def test_review_approval_requires_failure_category():
     assert review_audit
     assert review_audit[-1]["user_id"] == "reviewer-1"
     assert review_audit[-1]["entity_id"] == review_item["id"]
+    assert review_audit[-1]["before_json"]["status"] == patched.json()["status"]
+    assert review_audit[-1]["after_json"]["status"] == "approved"
 
 
 def test_review_reject_requires_failure_category_and_is_audited():
@@ -1875,6 +1877,8 @@ def test_review_reject_requires_failure_category_and_is_audited():
     assert review_audit
     assert review_audit[-1]["user_id"] == "reviewer-3"
     assert review_audit[-1]["entity_id"] == review_item["id"]
+    assert review_audit[-1]["before_json"]["status"] == "open"
+    assert review_audit[-1]["after_json"]["status"] == "rejected"
 
 
 def test_review_can_be_marked_as_needing_source_update():
@@ -1896,8 +1900,11 @@ def test_review_can_be_marked_as_needing_source_update():
     assert marked.json()["status"] == "needs_source_update"
     assert marked.json()["failure_category"] == "stale_source"
     assert marked.json()["updated_at"] != review_item["updated_at"]
-    audit_actions = [item["action"] for item in client.get("/audit-logs").json()]
-    assert "review_marked_source_update_needed" in audit_actions
+    audit_logs = client.get("/audit-logs").json()
+    source_update_audit = [log for log in audit_logs if log["action"] == "review_marked_source_update_needed"]
+    assert source_update_audit
+    assert source_update_audit[-1]["before_json"]["status"] == "open"
+    assert source_update_audit[-1]["after_json"]["status"] == "needs_source_update"
 
 
 def test_source_and_eval_case_changes_are_audit_logged():
