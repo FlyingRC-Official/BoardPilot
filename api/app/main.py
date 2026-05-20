@@ -623,13 +623,17 @@ def create_source_issue_review_item_for_failed_version(session: Session, version
 
 
 def review_item_from_answer_feedback(answer: Answer, payload: Dict[str, Any]) -> ReviewItem:
-    feedback_type = payload.get("feedback_type", "user_feedback")
-    source_type, failure_category, priority, status = {
+    feedback_type = payload.get("feedback_type")
+    feedback_routes = {
         "missing_source": ("source_issue", FailureCategory.missing_source, 1, ReviewStatus.open),
         "incorrect": ("user_feedback", FailureCategory.unsupported_claim, 1, ReviewStatus.open),
         "needs_review": ("user_feedback", FailureCategory.human_policy_required, 2, ReviewStatus.open),
+        "user_feedback": ("user_feedback", None, 3, ReviewStatus.open),
         "helpful": ("user_feedback", None, 4, ReviewStatus.approved),
-    }.get(feedback_type, ("user_feedback", None, 3, ReviewStatus.open))
+    }
+    if feedback_type not in feedback_routes:
+        raise HTTPException(status_code=422, detail="invalid feedback_type")
+    source_type, failure_category, priority, status = feedback_routes[feedback_type]
     return ReviewItem(
         source_type=source_type,
         question_id=answer.question_id,

@@ -1539,6 +1539,20 @@ def test_answer_feedback_creates_review_item():
     assert helpful["id"] not in active_review_ids
     assert helpful["id"] in all_review_ids
 
+    invalid = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "typo_feedback", "notes": "This should not create review work."},
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["detail"] == "invalid feedback_type"
+
+    missing = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"notes": "Missing feedback type should be rejected."},
+    )
+    assert missing.status_code == 422
+    assert missing.json()["detail"] == "invalid feedback_type"
+
 
 def test_llm_provider_config_sets_model_run_identity_and_cost():
     product, _source, _chunks = seed_source()
