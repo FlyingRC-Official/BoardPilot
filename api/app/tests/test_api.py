@@ -256,6 +256,37 @@ def test_source_disable_is_audited():
     assert audit[-1]["after_json"]["reason"] == "stale pinout"
 
 
+def test_source_version_disable_removes_chunks_from_retrieval_and_is_audited():
+    product, source, chunks = seed_source()
+    source_versions = client.get(f"/sources/{source['id']}/versions").json()
+    version_id = source_versions[0]["id"]
+
+    before = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+    ).json()
+    assert before["evidence"]
+
+    disabled = client.post(
+        f"/source-versions/{version_id}/disable",
+        json={"reason": "bad import"},
+        headers={"X-BoardPilot-User": "maintainer-2", "X-BoardPilot-Role": "support"},
+    ).json()
+    assert disabled["version"]["status"] == "disabled"
+    assert disabled["disabled_chunk_count"] == len(chunks)
+
+    chunk_list = client.get(f"/source-versions/{version_id}/chunks").json()
+    assert all(chunk["enabled"] is False for chunk in chunk_list)
+    after = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+    ).json()
+    assert after["evidence"] == []
+    audit = [log for log in client.get("/audit-logs").json() if log["action"] == "source_version_disabled"]
+    assert audit[-1]["user_id"] == "maintainer-2"
+    assert audit[-1]["after_json"]["reason"] == "bad import"
+
+
 def test_ingestion_job_create_list_get_and_retry():
     product, source, chunks = seed_source()
     source_versions = client.get(f"/sources/{source['id']}/versions").json()

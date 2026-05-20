@@ -297,6 +297,33 @@ def get_source_versions(source_id: UUID) -> list:
     return [version for version in store.source_versions.values() if version.source_id == source_id]
 
 
+@app.post("/source-versions/{version_id}/disable")
+def disable_source_version(
+    version_id: UUID,
+    payload: Dict[str, Any],
+    user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> dict:
+    if version_id not in store.source_versions:
+        raise not_found()
+    version = store.source_versions[version_id]
+    before = version.model_dump(mode="json")
+    version.status = "disabled"
+    disabled_chunks = []
+    for chunk in store.chunks.values():
+        if chunk.source_version_id == version.id:
+            chunk.enabled = False
+            disabled_chunks.append(chunk)
+    store.add_audit_log(
+        "source_version_disabled",
+        "SourceVersion",
+        str(version.id),
+        user_id=user.user_id,
+        before_json=before,
+        after_json={**version.model_dump(mode="json"), "reason": payload.get("reason", ""), "disabled_chunk_count": len(disabled_chunks)},
+    )
+    return {"version": version, "disabled_chunk_count": len(disabled_chunks)}
+
+
 @app.post("/sources/{source_id}/versions/{version_id}/artifacts")
 def post_source_artifact(
     source_id: UUID,

@@ -57,6 +57,7 @@ Updated: 2026-05-20
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
 - Audit logs can optionally be appended to a durable JSONL file through `BOARDPILOT_AUDIT_LOG_PATH`.
 - Added a Redis ingestion worker entrypoint and Docker Compose worker service scaffold.
+- Source versions can now be disabled with audit logging, which disables their chunks for future retrieval.
 
 ## Verified
 
@@ -73,7 +74,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 31 passed.
+- API tests: 32 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

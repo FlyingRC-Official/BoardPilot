@@ -109,6 +109,13 @@ export function runIngestionJob(sourceVersionId: string) {
   });
 }
 
+export function disableSourceVersion(versionId: string, reason: string) {
+  return request<{ version: SourceVersion; disabled_chunk_count: number }>(`/source-versions/${versionId}/disable`, {
+    method: "POST",
+    body: JSON.stringify({ reason })
+  });
+}
+
 export async function uploadSourceVersion(sourceId: string, file: File, versionLabel = "uploaded") {
   const body = new FormData();
   body.append("version_label", versionLabel);

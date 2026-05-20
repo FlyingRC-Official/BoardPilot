@@ -7,6 +7,7 @@ import {
   createProduct,
   createProductAlias,
   createSource,
+  disableSourceVersion,
   listProductAliases,
   listProducts,
   listSourceVersionArtifacts,
@@ -34,6 +35,7 @@ export default function SourcesPage() {
   const [sourceId, setSourceId] = useState("");
   const [content, setContent] = useState("USB power is for configuration. Do not power servos from the USB connector.");
   const [file, setFile] = useState<File | null>(null);
+  const [disableReason, setDisableReason] = useState("bad import");
   const [message, setMessage] = useState("");
 
   async function refresh() {
@@ -71,6 +73,18 @@ export default function SourcesPage() {
     setChunks(result.chunks);
     setVersions(await listSourceVersions(selectedSource.id).catch(() => versions));
     setMessage(`Reingestion ${result.job.status}: ${result.job.chunk_count} new chunks.`);
+  }
+
+  async function disableLatestVersion() {
+    if (!selectedSource || !versions.length) {
+      setMessage("Select a source with a version first.");
+      return;
+    }
+    const latestVersion = versions[versions.length - 1];
+    const result = await disableSourceVersion(latestVersion.id, disableReason);
+    setVersions(await listSourceVersions(selectedSource.id).catch(() => versions));
+    setChunks(await listSourceVersionChunks(latestVersion.id).catch(() => chunks));
+    setMessage(`Disabled ${result.disabled_chunk_count} chunks from ${result.version.version_label}.`);
   }
 
   useEffect(() => {
@@ -222,7 +236,14 @@ export default function SourcesPage() {
             <button className="button secondary" type="button" onClick={reingestLatestVersion}>
               Reingest Latest
             </button>
+            <button className="button secondary" type="button" onClick={disableLatestVersion}>
+              Disable Latest
+            </button>
           </div>
+          <label className="field" style={{ marginTop: 12 }}>
+            <span>Disable reason</span>
+            <input className="input" value={disableReason} onChange={(event) => setDisableReason(event.target.value)} />
+          </label>
           <div className="grid two" style={{ marginTop: 12 }}>
             <div>
               <h3>Version History</h3>
