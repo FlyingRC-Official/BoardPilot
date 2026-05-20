@@ -338,6 +338,10 @@ def test_ticket_log_and_image_text_enter_source_pipeline():
     ).json()
     assert ocr_payload["ocr_result"]["model_name"] == "fake-ocr-configured"
     assert "USB CONFIG ONLY" in ocr_payload["chunks"][0]["content"]
+    ocr_results = client.get(f"/image-assets/{image_id}/ocr-results").json()
+    assert ocr_results[0]["id"] == ocr_payload["ocr_result"]["id"]
+    assert ocr_results[0]["status"] == "completed"
+    assert ocr_results[0]["ocr_text"] == "OCR label: USB CONFIG ONLY"
 
     ask_payload = client.post(
         "/ask",
@@ -597,6 +601,14 @@ def test_unsupported_ocr_provider_config_records_failed_result_and_routes_review
     assert ocr_payload["chunks"] == []
     assert ocr_payload["review_item"]["source_type"] == "source_issue"
     assert ocr_payload["review_item"]["failure_category"] == "generation_error"
+    ocr_results = client.get(f"/image-assets/{image_payload['image_asset']['id']}/ocr-results").json()
+    assert ocr_results[0]["id"] == ocr_payload["ocr_result"]["id"]
+    assert ocr_results[0]["status"] == "failed"
+
+
+def test_ocr_result_history_requires_existing_image_asset():
+    response = client.get(f"/image-assets/{uuid4()}/ocr-results")
+    assert response.status_code == 404
 
 
 def test_source_disable_is_audited():

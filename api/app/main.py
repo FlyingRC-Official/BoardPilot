@@ -1908,6 +1908,17 @@ def get_image_assets(session: Session = Depends(get_session)) -> list[ImageAsset
     return list_image_assets_from_database(session) or list(store.image_assets.values())
 
 
+@app.get("/image-assets/{image_id}/ocr-results", response_model=list[OcrResult])
+def get_image_ocr_results(image_id: UUID, session: Session = Depends(get_session)) -> list[OcrResult]:
+    image_asset = store.image_assets.get(image_id) or get_image_asset_from_database(session, image_id)
+    if not image_asset:
+        raise not_found()
+    database_results = list_ocr_results_from_database(session, image_id)
+    if database_results:
+        return database_results
+    return [result for result in store.ocr_results.values() if result.image_asset_id == image_id]
+
+
 @app.post("/image-assets/{image_id}/ocr")
 def post_image_ocr(
     image_id: UUID,
