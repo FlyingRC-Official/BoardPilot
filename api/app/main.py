@@ -92,6 +92,14 @@ def list_runtime_jobs(session: Session) -> list[IngestionJob]:
         return []
 
 
+def list_audit_logs_from_database(session: Session) -> list[AuditLog]:
+    try:
+        return RuntimeRepository(session).list_audit_logs()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
 def get_runtime_job(session: Session, job_id: UUID) -> Optional[IngestionJob]:
     try:
         return RuntimeRepository(session).get_ingestion_job(job_id)
@@ -1213,8 +1221,11 @@ def get_review_item_detail(item_id: UUID, session: Session = Depends(get_session
 
 
 @app.get("/audit-logs", response_model=list[AuditLog])
-def get_audit_logs(_user: CurrentUser = Depends(require_roles("admin"))) -> list[AuditLog]:
-    return list(store.audit_logs.values())
+def get_audit_logs(
+    _user: CurrentUser = Depends(require_roles("admin")),
+    session: Session = Depends(get_session),
+) -> list[AuditLog]:
+    return list_audit_logs_from_database(session) or list(store.audit_logs.values())
 
 
 @app.patch("/review-items/{item_id}", response_model=ReviewItem)

@@ -23,6 +23,7 @@ from app.main import (
     get_source_version_from_database,
     list_aliases_from_database,
     list_artifacts_from_database,
+    list_audit_logs_from_database,
     list_chunks_from_database,
     list_eval_cases_from_database,
     list_eval_results_from_database,
@@ -232,6 +233,7 @@ def test_runtime_repository_round_trips_worker_and_audit_records_in_sqlite():
     assert runtime_repo.list_ingestion_jobs()[0].chunk_count == 2
     assert runtime_repo.list_audit_logs()[0].id == audit.id
     assert runtime_repo.list_audit_logs()[0].after_json == {"chunk_count": 2}
+    assert list_audit_logs_from_database(session)[0].id == audit.id
 
 
 def test_store_audit_log_mirrors_to_database_when_available(monkeypatch):

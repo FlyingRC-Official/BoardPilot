@@ -68,7 +68,7 @@ Updated: 2026-05-20
 - Added SQLAlchemy review/eval/support repository coverage and persisted imported log source content.
 - Ingestion job endpoints now mirror job state into the SQLAlchemy runtime repository when the database schema is available.
 - Provider configuration APIs now read and mirror provider configs through SQLAlchemy when the database schema is available.
-- Audit log writes now mirror into SQLAlchemy when the database schema is available, while keeping JSONL mirroring support.
+- Audit log writes and reads now mirror through SQLAlchemy when the database schema is available, while keeping JSONL mirroring support.
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Ask questions, retrieval runs, candidates, evidence, model runs, answers, answer feedback, and question attachments now read and mirror through SQLAlchemy when available.
