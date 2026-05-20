@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 
-Role = Literal["admin", "support", "reviewer", "viewer"]
+Role = Literal["admin", "support", "maintainer", "reviewer", "evaluator", "viewer"]
 
 
 class CurrentUser(BaseModel):

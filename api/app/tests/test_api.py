@@ -113,6 +113,10 @@ def test_ingestion_worker_message_round_trip():
 def test_role_context_and_mutation_guards():
     viewer = client.get("/me", headers={"X-BoardPilot-User": "viewer-1", "X-BoardPilot-Role": "viewer"})
     assert viewer.json() == {"user_id": "viewer-1", "role": "viewer"}
+    maintainer = client.get("/me", headers={"X-BoardPilot-User": "maintainer-1", "X-BoardPilot-Role": "maintainer"})
+    assert maintainer.json() == {"user_id": "maintainer-1", "role": "maintainer"}
+    evaluator = client.get("/me", headers={"X-BoardPilot-User": "evaluator-1", "X-BoardPilot-Role": "evaluator"})
+    assert evaluator.json() == {"user_id": "evaluator-1", "role": "evaluator"}
 
     forbidden = client.post(
         "/products",
@@ -127,6 +131,45 @@ def test_role_context_and_mutation_guards():
         headers={"X-BoardPilot-Role": "admin"},
     )
     assert allowed.status_code == 200
+
+    maintainer_source = client.post(
+        "/sources",
+        json={
+            "product_id": allowed.json()["id"],
+            "title": "Maintainer Manual",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+        headers={"X-BoardPilot-User": "maintainer-1", "X-BoardPilot-Role": "maintainer"},
+    )
+    assert maintainer_source.status_code == 200
+
+    maintainer_alias = client.post(
+        f"/products/{allowed.json()['id']}/aliases",
+        json={"alias": "Allowed Board", "alias_type": "user_facing", "confidence": 0.9},
+        headers={"X-BoardPilot-User": "maintainer-1", "X-BoardPilot-Role": "maintainer"},
+    )
+    assert maintainer_alias.status_code == 200
+
+    evaluator_case = client.post(
+        "/eval-cases",
+        json={"question_text": "Does the evaluator role work?", "product_id": allowed.json()["id"]},
+        headers={"X-BoardPilot-User": "evaluator-1", "X-BoardPilot-Role": "evaluator"},
+    )
+    assert evaluator_case.status_code == 200
+    evaluator_run = client.post(
+        "/eval-runs",
+        json={"name": "evaluator role smoke"},
+        headers={"X-BoardPilot-User": "evaluator-1", "X-BoardPilot-Role": "evaluator"},
+    )
+    assert evaluator_run.status_code == 200
+
+    evaluator_provider = client.post(
+        "/provider-configs",
+        json={"provider_type": "llm", "provider_name": "fake", "model_name": "fake-citation-llm"},
+        headers={"X-BoardPilot-User": "evaluator-1", "X-BoardPilot-Role": "evaluator"},
+    )
+    assert evaluator_provider.status_code == 403
 
 
 def test_configured_api_key_is_required_for_role_context(monkeypatch):

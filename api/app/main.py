@@ -915,7 +915,7 @@ def patch_product(
 def post_alias(
     product_id: UUID,
     payload: ProductAliasCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> ProductAlias:
     database_product = get_product_from_database(session, product_id)
@@ -942,7 +942,7 @@ def get_aliases(product_id: UUID, session: Session = Depends(get_session)) -> li
 @app.post("/sources", response_model=Source)
 def post_source(
     payload: SourceCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> Source:
     database_product = get_product_from_database(session, payload.product_id)
@@ -992,7 +992,7 @@ def disable_chunks_for_source(source_id: UUID, session: Session) -> list[Chunk]:
 def patch_source(
     source_id: UUID,
     payload: Dict[str, Any],
-    user: CurrentUser = Depends(require_roles("admin", "support")),
+    user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> Source:
     source = store.sources.get(source_id) or get_source_from_database(session, source_id)
@@ -1033,7 +1033,7 @@ def patch_source(
 def disable_source(
     source_id: UUID,
     payload: Dict[str, Any],
-    user: CurrentUser = Depends(require_roles("admin", "support")),
+    user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> Source:
     source = store.sources.get(source_id) or get_source_from_database(session, source_id)
@@ -1060,7 +1060,7 @@ def disable_source(
 def post_source_version(
     source_id: UUID,
     payload: SourceVersionCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -1081,7 +1081,7 @@ async def upload_source_version(
     source_id: UUID,
     version_label: str = Form("uploaded"),
     file: UploadFile = File(...),
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -1109,7 +1109,7 @@ async def upload_source_version(
 def post_webpage_snapshot_version(
     source_id: UUID,
     payload: WebpageSnapshotCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -1147,7 +1147,7 @@ def get_source_versions(source_id: UUID, session: Session = Depends(get_session)
 def disable_source_version(
     version_id: UUID,
     payload: Dict[str, Any],
-    user: CurrentUser = Depends(require_roles("admin", "support")),
+    user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     version = store.source_versions.get(version_id) or get_source_version_from_database(session, version_id)
@@ -1183,7 +1183,7 @@ def post_source_artifact(
     source_id: UUID,
     version_id: UUID,
     payload: SourceVersionCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -1242,7 +1242,7 @@ def get_chunk_embeddings(chunk_id: UUID, session: Session = Depends(get_session)
 @app.post("/ingestion/jobs")
 def post_ingestion_job(
     payload: IngestionJobCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     if not hydrate_source_version_for_service(session, payload.source_version_id):
@@ -1259,7 +1259,7 @@ def post_ingestion_job(
 @app.post("/ingestion/jobs/enqueue")
 def enqueue_ingestion_job_endpoint(
     payload: IngestionJobCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     if not hydrate_source_version_for_service(session, payload.source_version_id):
@@ -1296,7 +1296,7 @@ def get_ingestion_job(job_id: UUID, session: Session = Depends(get_session)) -> 
 @app.post("/ingestion/jobs/{job_id}/retry")
 def retry_ingestion_job(
     job_id: UUID,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     job = store.ingestion_jobs.get(job_id) or get_runtime_job(session, job_id)
@@ -1392,7 +1392,7 @@ def get_question(question_id: UUID, session: Session = Depends(get_session)) -> 
 def post_question_attachment(
     question_id: UUID,
     payload: QuestionAttachmentCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> QuestionAttachment:
     database_question = get_question_from_database(session, question_id)
@@ -1485,7 +1485,7 @@ def post_feedback(
 @app.post("/eval-cases", response_model=EvalCase)
 def post_eval_case(
     payload: EvalCaseCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> EvalCase:
     case = store.add_eval_case(EvalCase(**payload.model_dump()))
@@ -1500,7 +1500,7 @@ def get_eval_cases(session: Session = Depends(get_session)) -> list[EvalCase]:
 
 @app.post("/eval-cases/seed")
 def post_seed_eval_cases(
-    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> dict:
     product, source, cases = seed_eval_cases(store)
@@ -1525,7 +1525,7 @@ def get_eval_case(case_id: UUID, session: Session = Depends(get_session)) -> Eva
 def patch_eval_case(
     case_id: UUID,
     payload: Dict[str, Any],
-    user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> EvalCase:
     case = store.eval_cases.get(case_id) or get_eval_case_from_database(session, case_id)
@@ -1554,7 +1554,7 @@ def patch_eval_case(
 @app.post("/eval-runs")
 def post_eval_run(
     payload: Optional[Dict[str, Any]] = None,
-    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -1609,7 +1609,7 @@ def get_eval_results(run_id: UUID, session: Session = Depends(get_session)) -> l
 @app.post("/eval-results/{result_id}/to-review")
 def eval_result_to_review(
     result_id: UUID,
-    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
     result = store.eval_results.get(result_id) or get_eval_result_from_database(session, result_id)
@@ -1798,7 +1798,7 @@ def post_review_to_eval_case(
 @app.post("/tickets")
 def post_ticket(
     payload: TicketCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -1848,7 +1848,7 @@ def get_tickets(session: Session = Depends(get_session)) -> list[Ticket]:
 @app.post("/log-sources")
 def post_log_source(
     payload: LogSourceCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -1897,7 +1897,7 @@ def get_log_sources(session: Session = Depends(get_session)) -> list[LogSource]:
 @app.post("/image-assets")
 def post_image_asset(
     payload: ImageAssetCreate,
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -1944,7 +1944,7 @@ async def upload_image_asset(
     image_type: str = Form(""),
     manual_description: str = Form(""),
     file: UploadFile = File(...),
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
@@ -2029,7 +2029,7 @@ def get_image_ocr_results(image_id: UUID, session: Session = Depends(get_session
 def post_image_ocr(
     image_id: UUID,
     payload: OcrResultCreate = OcrResultCreate(),
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
