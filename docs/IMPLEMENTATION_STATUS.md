@@ -90,7 +90,7 @@ Results:
 
 ## Important MVP Gaps
 
-- API runtime persistence is still in-memory; SQLAlchemy models, Alembic migrations, and a core catalog repository exist, but the service layer has not yet been switched to database-backed repositories.
+- API runtime persistence is still in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, but the service layer has not yet been switched to database-backed repositories.
 - IngestionJob APIs now persist job status in memory, support retry, and can enqueue Redis worker messages; SQLAlchemy repository coverage exists, but database-backed cross-process job execution remains pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
