@@ -243,6 +243,11 @@ def test_eval_run_records_metrics_and_can_route_failure_to_review():
     results = run_payload["results"]
     assert eval_run["summary_metrics_json"]["case_count"] == 1
     assert "recall_at_20" in eval_run["summary_metrics_json"]
+    assert "evidence_sufficiency_rate" in eval_run["summary_metrics_json"]
+    assert "failure_category_distribution" in eval_run["summary_metrics_json"]
+    assert "latency_p50_ms" in eval_run["summary_metrics_json"]
+    assert "latency_p95_ms" in eval_run["summary_metrics_json"]
+    assert "model_cost" in eval_run["summary_metrics_json"]
     assert results[0]["eval_case_id"] == case["id"]
 
     review = client.post(f"/eval-results/{results[0]['id']}/to-review").json()

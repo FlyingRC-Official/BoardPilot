@@ -39,6 +39,20 @@ def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRu
             )
         )
         results.append(result)
+    latencies = [store.retrieval_runs[result.retrieval_run_id].latency_ms for result in results]
+    sufficiency_values = [result.metrics_json.get("evidence_sufficiency") for result in results]
+    failure_categories: dict[str, int] = {}
+    for result in results:
+        category = result.failure_category.value if result.failure_category else "none"
+        failure_categories[category] = failure_categories.get(category, 0) + 1
+
+    def percentile(values: list[int], percent: float) -> float:
+        if not values:
+            return 0.0
+        ordered = sorted(values)
+        index = min(len(ordered) - 1, int(round((len(ordered) - 1) * percent)))
+        return float(ordered[index])
+
     run.summary_metrics_json = {
         "case_count": len(results),
         "recall_at_20": mean([r.recall_at_20 for r in results]) if results else 0.0,
@@ -46,6 +60,11 @@ def run_eval_batch(store: InMemoryStore, name: str = "MVP eval") -> tuple[EvalRu
         "citation_support_rate": mean([r.citation_support_rate for r in results]) if results else 0.0,
         "unsupported_claim_rate": mean([r.unsupported_claim_rate for r in results]) if results else 0.0,
         "need_review_rate": mean([1.0 if r.need_review else 0.0 for r in results]) if results else 0.0,
+        "evidence_sufficiency_rate": mean([1.0 if value == "sufficient" else 0.0 for value in sufficiency_values]) if results else 0.0,
+        "failure_category_distribution": failure_categories,
+        "latency_p50_ms": percentile(latencies, 0.50),
+        "latency_p95_ms": percentile(latencies, 0.95),
+        "model_cost": 0.0,
     }
     store.add_eval_run(run)
     return run, results

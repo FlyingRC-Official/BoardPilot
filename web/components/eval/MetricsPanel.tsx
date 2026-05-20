@@ -1,5 +1,12 @@
 export function MetricsPanel({ metrics }: { metrics: Record<string, number> }) {
-  const keys = ["recall_at_20", "rerank_at_5", "citation_support_rate", "need_review_rate"];
+  const keys = [
+    "recall_at_20",
+    "rerank_at_5",
+    "citation_support_rate",
+    "evidence_sufficiency_rate",
+    "need_review_rate",
+    "latency_p95_ms"
+  ];
   return (
     <div className="grid three">
       {keys.map((key) => (
@@ -11,4 +18,3 @@ export function MetricsPanel({ metrics }: { metrics: Record<string, number> }) {
     </div>
   );
 }
-
