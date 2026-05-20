@@ -45,6 +45,7 @@ Updated: 2026-05-21
 - Added first-class `maintainer` and `evaluator` request roles mapped to the required source-maintenance and eval workflows.
 - Added optional `BOARDPILOT_API_KEY` enforcement for private deployments, with web workbench support through `NEXT_PUBLIC_BOARDPILOT_API_KEY`.
 - Added signed session tokens through `POST /sessions`, `X-BoardPilot-Session` request support, configurable token TTL, and bundled workbench support through `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN`.
+- Session token issuance is audit logged without persisting the token secret itself.
 - Configured `BOARDPILOT_API_KEY` now protects read endpoints as well as role-aware write endpoints, while leaving health checks and CORS preflight available.
 - Guarded protected mutating endpoints for admin, support, maintainer, reviewer, and evaluator roles while keeping local development defaulted to admin.
 - Ask requests now use the role/API-key request context and persist the submitting user id on Question records.

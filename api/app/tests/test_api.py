@@ -206,6 +206,12 @@ def test_signed_session_token_can_replace_api_key_for_private_requests(monkeypat
         session_payload = session_response.json()
         assert session_payload["user"] == {"user_id": "support-session", "role": "support"}
         token = session_payload["session_token"]
+        audit_logs = client.get("/audit-logs", headers={"X-BoardPilot-API-Key": "session-secret"}).json()
+        session_audit = [log for log in audit_logs if log["action"] == "session_token_issued"][-1]
+        assert session_audit["user_id"] == "admin-session"
+        assert session_audit["entity_id"] == "support-session"
+        assert session_audit["after_json"]["role"] == "support"
+        assert "session_token" not in session_audit["after_json"]
 
         me = client.get("/me", headers={"X-BoardPilot-Session": token})
         assert me.status_code == 200

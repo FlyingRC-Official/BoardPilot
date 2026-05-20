@@ -852,9 +852,17 @@ def me(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
 @app.post("/sessions", response_model=SessionToken)
 def post_session(
     payload: SessionCreate,
-    _user: CurrentUser = Depends(require_roles("admin")),
+    user: CurrentUser = Depends(require_roles("admin")),
 ) -> SessionToken:
-    return issue_session_token(payload.user_id, payload.role, payload.ttl_seconds)
+    session_token = issue_session_token(payload.user_id, payload.role, payload.ttl_seconds)
+    store.add_audit_log(
+        "session_token_issued",
+        "SessionToken",
+        payload.user_id,
+        user_id=user.user_id,
+        after_json={"user_id": payload.user_id, "role": payload.role, "expires_at": session_token.expires_at},
+    )
+    return session_token
 
 
 @app.post("/provider-configs", response_model=ProviderConfig)
