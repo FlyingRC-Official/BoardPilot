@@ -1238,6 +1238,38 @@ def test_insufficient_evidence_routes_to_review():
     assert model_run["cost_json"]["total_cost"] == 0.0
 
 
+def test_partial_evidence_answer_uses_explicit_status_and_review_route():
+    product = client.post(
+        "/products",
+        json={"name": "FlyingRC Mini", "slug": "flyingrc-mini", "description": "Small flight controller"},
+    ).json()
+    source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "FlyingRC Mini Note",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+    ).json()
+    client.post(
+        f"/sources/{source['id']}/versions",
+        json={"version_label": "v1", "content": "The FlyingRC Mini supports CAN-FD on connector J3."},
+    )
+
+    payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Which connector supports CAN-FD on the FlyingRC Mini?"},
+    ).json()
+
+    assert payload["answer"]["status"] == "partial_evidence"
+    assert payload["answer"]["evidence_sufficiency"] == "partial"
+    assert len(payload["evidence"]) == 1
+    assert payload["review_item"]["source_type"] == "low_confidence_answer"
+    assert payload["review_item"]["failure_category"] == "insufficient_evidence"
+    assert payload["review_item"]["priority"] == 2
+
+
 def test_answer_feedback_creates_review_item():
     product, _source, _chunks = seed_source()
     ask_payload = client.post(

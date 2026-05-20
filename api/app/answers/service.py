@@ -99,10 +99,17 @@ def generate_answer(store: InMemoryStore, question: Question, retrieval_run_id, 
     unsupported_claim_risk = bool(evidence and not citations and not generation_error)
     if unsupported_claim_risk:
         confidence = min(confidence, 0.2)
+    status = "candidate"
+    if sufficiency == EvidenceSufficiency.partial:
+        status = "partial_evidence"
+    if unsupported_claim_risk:
+        status = "unsupported_claim_risk"
+    if generation_error:
+        status = "generation_error"
     answer = Answer(
         question_id=question.id,
         retrieval_run_id=retrieval_run_id,
-        status="generation_error" if generation_error else "unsupported_claim_risk" if unsupported_claim_risk else "candidate",
+        status=status,
         answer_text=llm_result.answer_text,
         citation_map_json=citations,
         evidence_sufficiency=sufficiency,

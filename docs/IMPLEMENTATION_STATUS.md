@@ -139,7 +139,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 83 passed.
+- API tests: 84 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -160,6 +160,7 @@ Results:
 - Core audit events are inspectable through `GET /audit-logs`; audit writes mirror to SQLAlchemy when available and can still be mirrored to JSONL.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Ask now skips LLM generation when evidence is insufficient, records a skipped ModelRun, and routes the deterministic insufficient-evidence answer to Review.
+- Ask now returns an explicit `partial_evidence` answer status when evidence exists but is below the sufficiency threshold, while routing the answer to Review.
 - Answer generation now verifies visible citation markers and routes uncited evidence-backed answers to Review as unsupported-claim risks.
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing, with variable provider dimensions supported in new migrations.
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI shows numeric deltas between two runs.
