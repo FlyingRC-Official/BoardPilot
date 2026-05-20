@@ -370,7 +370,7 @@ def test_provider_config_creation_is_admin_only_and_audited():
         headers={"X-BoardPilot-User": "admin-invalid-provider-patch", "X-BoardPilot-Role": "admin"},
     )
     assert invalid_patch.status_code == 422
-    assert invalid_patch.json()["detail"] == "invalid provider_type"
+    assert "speech" in json.dumps(invalid_patch.json()["detail"])
 
     providers = client.get("/providers").json()
     assert providers["configs"][0]["id"] == provider_config["id"]

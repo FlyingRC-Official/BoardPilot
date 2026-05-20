@@ -84,6 +84,13 @@ class Product(ProductCreate):
     updated_at: datetime = Field(default_factory=now)
 
 
+class ProductPatch(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+
 class ProductAliasCreate(BaseModel):
     alias: str
     alias_type: str = "user_facing"
@@ -346,6 +353,14 @@ class ProviderConfigCreate(BaseModel):
     model_name: str
     config_json: Dict[str, Any] = Field(default_factory=dict)
     enabled: bool = True
+
+
+class ProviderConfigPatch(BaseModel):
+    provider_type: Optional[ProviderType] = None
+    provider_name: Optional[str] = None
+    model_name: Optional[str] = None
+    config_json: Optional[Dict[str, Any]] = None
+    enabled: Optional[bool] = None
 
 
 class ProviderConfig(ProviderConfigCreate):

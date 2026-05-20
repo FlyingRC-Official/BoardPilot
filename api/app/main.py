@@ -58,9 +58,10 @@ from app.models.schemas import (
     ProductAlias,
     ProductAliasCreate,
     ProductCreate,
+    ProductPatch,
     ProviderConfig,
     ProviderConfigCreate,
-    ProviderType,
+    ProviderConfigPatch,
     Question,
     QuestionAttachment,
     QuestionAttachmentCreate,
@@ -156,13 +157,6 @@ def parse_failure_category(value: Any) -> FailureCategory:
         return FailureCategory(value)
     except ValueError:
         raise HTTPException(status_code=422, detail="invalid failure_category")
-
-
-def parse_provider_type(value: Any) -> ProviderType:
-    try:
-        return ProviderType(value)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="invalid provider_type")
 
 
 def filter_review_items_for_queue(items: list[ReviewItem], status: str) -> list[ReviewItem]:
@@ -902,7 +896,7 @@ def get_provider_configs(
 @app.patch("/provider-configs/{config_id}", response_model=ProviderConfig)
 def patch_provider_config(
     config_id: UUID,
-    payload: Dict[str, Any],
+    payload: ProviderConfigPatch,
     user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> ProviderConfig:
@@ -914,12 +908,8 @@ def patch_provider_config(
     if not config:
         raise not_found()
     before_json = config.model_dump(mode="json")
-    allowed_fields = {"provider_type", "provider_name", "model_name", "config_json", "enabled"}
-    for key, value in payload.items():
-        if key in allowed_fields:
-            if key == "provider_type":
-                value = parse_provider_type(value)
-            setattr(config, key, value)
+    for key in payload.model_fields_set:
+        setattr(config, key, getattr(payload, key))
     store.provider_configs[config_id] = config
     disable_other_enabled_provider_configs(session, config, user.user_id)
     save_provider_config_to_database(session, config)
@@ -985,16 +975,16 @@ def get_product_endpoint(product_id: UUID, session: Session = Depends(get_sessio
 @app.patch("/products/{product_id}", response_model=Product)
 def patch_product(
     product_id: UUID,
-    payload: Dict[str, Any],
+    payload: ProductPatch,
     _user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> Product:
     product = store.products.get(product_id) or get_product_from_database(session, product_id)
     if not product:
         raise not_found()
-    for key, value in payload.items():
+    for key in payload.model_fields_set:
         if key in PRODUCT_PATCH_FIELDS:
-            setattr(product, key, value)
+            setattr(product, key, getattr(payload, key))
     product.updated_at = now()
     store.products[product_id] = product
     save_product_to_database(session, product)
