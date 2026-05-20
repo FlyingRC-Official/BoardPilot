@@ -97,6 +97,10 @@ class CatalogRepository:
     def add_product(self, product: Product) -> Product:
         return self._merge(product, ProductOrm, Product)
 
+    def get_product(self, product_id: UUID) -> Product | None:
+        row = self.session.get(ProductOrm, str(product_id))
+        return _orm_to_model(row, Product) if row else None
+
     def list_products(self) -> list[Product]:
         return self._list(ProductOrm, Product)
 
@@ -109,6 +113,10 @@ class CatalogRepository:
 
     def add_source(self, source: Source) -> Source:
         return self._merge(source, SourceOrm, Source)
+
+    def get_source(self, source_id: UUID) -> Source | None:
+        row = self.session.get(SourceOrm, str(source_id))
+        return _orm_to_model(row, Source) if row else None
 
     def list_sources(self) -> list[Source]:
         return self._list(SourceOrm, Source)

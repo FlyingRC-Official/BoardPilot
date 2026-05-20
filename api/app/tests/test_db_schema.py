@@ -8,11 +8,19 @@ from app.db.store import InMemoryStore
 from app.main import (
     delete_provider_config_from_database,
     get_provider_config_from_database,
+    get_product_from_database,
     get_runtime_job,
+    get_source_from_database,
+    list_aliases_from_database,
     list_provider_configs_from_database,
+    list_products_from_database,
     list_runtime_jobs,
+    list_sources_from_database,
+    save_alias_to_database,
     save_provider_config_to_database,
+    save_product_to_database,
     save_runtime_job,
+    save_source_to_database,
 )
 from app.models.schemas import (
     Answer,
@@ -260,6 +268,31 @@ def test_provider_config_api_helpers_use_database_when_available():
     assert get_provider_config_from_database(session, config.id).model_name == "fake-citation-llm"
     assert delete_provider_config_from_database(session, config.id).id == config.id
     assert list_provider_configs_from_database(session) == []
+
+
+def test_catalog_api_helpers_use_database_when_available():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["product_aliases"],
+        Base.metadata.tables["sources"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    save_product_to_database(session, product)
+    alias = ProductAlias(product_id=product.id, alias="F4 FC", confidence=0.95)
+    save_alias_to_database(session, alias)
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown, trust_level="official")
+    save_source_to_database(session, source)
+    session.expire_all()
+
+    assert list_products_from_database(session)[0].id == product.id
+    assert get_product_from_database(session, product.id).slug == "flyingrc-f4"
+    assert list_aliases_from_database(session, product.id)[0].id == alias.id
+    assert list_sources_from_database(session)[0].id == source.id
+    assert get_source_from_database(session, source.id).title == "Manual"
 
 
 def test_retrieval_repository_round_trips_ask_records_in_sqlite():

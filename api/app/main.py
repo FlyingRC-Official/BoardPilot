@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.answers.service import generate_answer
 from app.core.config import settings
 from app.core.security import CurrentUser, get_current_user, require_roles
-from app.db.repositories import ReviewEvalRepository, RuntimeRepository
+from app.db.repositories import CatalogRepository, ReviewEvalRepository, RuntimeRepository
 from app.db.session import get_session
 from app.db.session import store
 from app.eval.runs import run_eval_batch
@@ -124,6 +124,70 @@ def delete_provider_config_from_database(session: Session, config_id: UUID) -> O
         return None
 
 
+def save_product_to_database(session: Session, product: Product) -> None:
+    try:
+        CatalogRepository(session).add_product(product)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_products_from_database(session: Session) -> list[Product]:
+    try:
+        return CatalogRepository(session).list_products()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def get_product_from_database(session: Session, product_id: UUID) -> Optional[Product]:
+    try:
+        return CatalogRepository(session).get_product(product_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def save_alias_to_database(session: Session, alias: ProductAlias) -> None:
+    try:
+        CatalogRepository(session).add_alias(alias)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_aliases_from_database(session: Session, product_id: UUID) -> list[ProductAlias]:
+    try:
+        return CatalogRepository(session).aliases_for_product(product_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def save_source_to_database(session: Session, source: Source) -> None:
+    try:
+        CatalogRepository(session).add_source(source)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_sources_from_database(session: Session) -> list[Source]:
+    try:
+        return CatalogRepository(session).list_sources()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def get_source_from_database(session: Session, source_id: UUID) -> Optional[Source]:
+    try:
+        return CatalogRepository(session).get_source(source_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "boardpilot-api"}
@@ -222,17 +286,26 @@ def delete_provider_config(
 
 
 @app.post("/products", response_model=Product)
-def post_product(payload: ProductCreate, _user: CurrentUser = Depends(require_roles("admin"))) -> Product:
-    return create_product(store, payload)
+def post_product(
+    payload: ProductCreate,
+    _user: CurrentUser = Depends(require_roles("admin")),
+    session: Session = Depends(get_session),
+) -> Product:
+    product = create_product(store, payload)
+    save_product_to_database(session, product)
+    return product
 
 
 @app.get("/products", response_model=list[Product])
-def get_products() -> list[Product]:
-    return list_products(store)
+def get_products(session: Session = Depends(get_session)) -> list[Product]:
+    return list_products_from_database(session) or list_products(store)
 
 
 @app.get("/products/{product_id}", response_model=Product)
-def get_product_endpoint(product_id: UUID) -> Product:
+def get_product_endpoint(product_id: UUID, session: Session = Depends(get_session)) -> Product:
+    database_product = get_product_from_database(session, product_id)
+    if database_product:
+        return database_product
     try:
         return get_product(store, product_id)
     except KeyError:
@@ -240,14 +313,20 @@ def get_product_endpoint(product_id: UUID) -> Product:
 
 
 @app.patch("/products/{product_id}", response_model=Product)
-def patch_product(product_id: UUID, payload: Dict[str, Any], _user: CurrentUser = Depends(require_roles("admin"))) -> Product:
-    if product_id not in store.products:
+def patch_product(
+    product_id: UUID,
+    payload: Dict[str, Any],
+    _user: CurrentUser = Depends(require_roles("admin")),
+    session: Session = Depends(get_session),
+) -> Product:
+    product = store.products.get(product_id) or get_product_from_database(session, product_id)
+    if not product:
         raise not_found()
-    product = store.products[product_id]
     for key, value in payload.items():
         if hasattr(product, key):
             setattr(product, key, value)
     store.products[product_id] = product
+    save_product_to_database(session, product)
     return product
 
 
@@ -256,33 +335,51 @@ def post_alias(
     product_id: UUID,
     payload: ProductAliasCreate,
     _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> ProductAlias:
+    database_product = get_product_from_database(session, product_id)
+    if database_product and product_id not in store.products:
+        store.products[product_id] = database_product
     try:
-        return create_alias(store, product_id, payload)
+        alias = create_alias(store, product_id, payload)
     except KeyError:
         raise not_found()
+    save_alias_to_database(session, alias)
+    return alias
 
 
 @app.get("/products/{product_id}/aliases", response_model=list[ProductAlias])
-def get_aliases(product_id: UUID) -> list[ProductAlias]:
-    return store.aliases_for_product(product_id)
+def get_aliases(product_id: UUID, session: Session = Depends(get_session)) -> list[ProductAlias]:
+    return list_aliases_from_database(session, product_id) or store.aliases_for_product(product_id)
 
 
 @app.post("/sources", response_model=Source)
-def post_source(payload: SourceCreate, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> Source:
+def post_source(
+    payload: SourceCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
+) -> Source:
+    database_product = get_product_from_database(session, payload.product_id)
+    if database_product and payload.product_id not in store.products:
+        store.products[payload.product_id] = database_product
     try:
-        return create_source(store, payload)
+        source = create_source(store, payload)
     except KeyError:
         raise not_found()
+    save_source_to_database(session, source)
+    return source
 
 
 @app.get("/sources", response_model=list[Source])
-def get_sources() -> list[Source]:
-    return list_sources(store)
+def get_sources(session: Session = Depends(get_session)) -> list[Source]:
+    return list_sources_from_database(session) or list_sources(store)
 
 
 @app.get("/sources/{source_id}", response_model=Source)
-def get_source(source_id: UUID) -> Source:
+def get_source(source_id: UUID, session: Session = Depends(get_session)) -> Source:
+    database_source = get_source_from_database(session, source_id)
+    if database_source:
+        return database_source
     if source_id not in store.sources:
         raise not_found()
     return store.sources[source_id]
@@ -293,15 +390,17 @@ def patch_source(
     source_id: UUID,
     payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> Source:
-    if source_id not in store.sources:
+    source = store.sources.get(source_id) or get_source_from_database(session, source_id)
+    if not source:
         raise not_found()
-    source = store.sources[source_id]
     before = source.model_dump(mode="json")
     for key, value in payload.items():
         if hasattr(source, key):
             setattr(source, key, value)
     store.sources[source_id] = source
+    save_source_to_database(session, source)
     store.add_audit_log(
         "source_updated",
         "Source",
@@ -318,13 +417,15 @@ def disable_source(
     source_id: UUID,
     payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> Source:
-    if source_id not in store.sources:
+    source = store.sources.get(source_id) or get_source_from_database(session, source_id)
+    if not source:
         raise not_found()
-    source = store.sources[source_id]
     before = source.model_dump(mode="json")
     source.status = "disabled"
     store.sources[source_id] = source
+    save_source_to_database(session, source)
     store.add_audit_log(
         "source_disabled",
         "Source",
