@@ -65,6 +65,7 @@ Updated: 2026-05-20
 - EvalRun now assigns failure categories for recall, rerank, insufficient-evidence, and unsupported-claim failures so ReviewItems inherit actionable failure reasons.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
+- Ask metadata filters now constrain retrieval candidates and are recorded in the retrieval filter plan.
 - Ask requests now accept optional existing-artifact attachments, persist QuestionAttachment records, return them in the Ask response, and the Ask page has a source/artifact picker for attaching context without raw JSON.
 - API CORS origins are configurable through `BOARDPILOT_CORS_ORIGINS`, with local Next workbench origins enabled by default.
 - Audit logs can optionally be appended to a durable JSONL file through `BOARDPILOT_AUDIT_LOG_PATH`.
@@ -107,7 +108,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 57 passed.
+- API tests: 58 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

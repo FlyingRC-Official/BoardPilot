@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Any
 
 from app.db.store import InMemoryStore
-from app.models.schemas import Question, RetrievalCandidate, RetrievalRun
+from app.models.schemas import Chunk, Question, RetrievalCandidate, RetrievalRun
 from app.retrieval.evidence import create_evidence_pack
 from app.retrieval.filter_plan import build_filter_plan
 from app.retrieval.keyword import keyword_recall
@@ -11,9 +12,50 @@ from app.retrieval.rerank import rerank
 from app.retrieval.vector import vector_recall
 
 
+def _value_matches_filter(value: Any, expected: Any) -> bool:
+    if expected in (None, "", [], {}):
+        return True
+    if isinstance(expected, list):
+        return any(_value_matches_filter(value, item) for item in expected)
+    if value is None:
+        return False
+    if isinstance(expected, bool):
+        return value == expected
+    if isinstance(expected, (int, float)) and not isinstance(expected, bool):
+        return value == expected
+    return str(value).lower() == str(expected).lower()
+
+
+def _metadata_value_for_chunk(store: InMemoryStore, chunk: Chunk, field: str) -> Any:
+    if field in {"product_id", "source_version_id", "chunk_id"}:
+        return str(getattr(chunk, "id" if field == "chunk_id" else field))
+    if hasattr(chunk, field):
+        return getattr(chunk, field)
+    version = store.source_versions.get(chunk.source_version_id)
+    source = store.sources.get(version.source_id) if version else None
+    if field == "source_id":
+        return str(source.id) if source else None
+    if field in {"source_type", "trust_level", "source_title", "canonical_uri"} and source:
+        source_field = "title" if field == "source_title" else field
+        value = getattr(source, source_field, None)
+        return value.value if hasattr(value, "value") else value
+    return chunk.metadata_json.get(field)
+
+
+def _chunk_matches_metadata_filters(store: InMemoryStore, chunk: Chunk, filters: dict[str, Any]) -> bool:
+    for field, expected in filters.items():
+        if not _value_matches_filter(_metadata_value_for_chunk(store, chunk, field), expected):
+            return False
+    return True
+
+
 def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRun, list[RetrievalCandidate], list]:
     started = datetime.utcnow()
-    chunks = store.enabled_chunks(question.product_id)
+    chunks = [
+        chunk
+        for chunk in store.enabled_chunks(question.product_id)
+        if _chunk_matches_metadata_filters(store, chunk, question.metadata_filters_json)
+    ]
     keyword_hits = keyword_recall(question.normalized_text, chunks)
     vector_hits = vector_recall(question.normalized_text, chunks)
     merged = merge_candidates(keyword_hits, vector_hits)
@@ -31,7 +73,7 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
     run = RetrievalRun(
         question_id=question.id,
         normalized_query=question.normalized_text,
-        filter_plan_json=build_filter_plan(question.product_id, question.detected_entities_json),
+        filter_plan_json=build_filter_plan(question.product_id, question.detected_entities_json, question.metadata_filters_json),
         retrieval_config_json={"keyword_limit": 50, "vector_limit": 50, "evidence_limit": 5},
     )
     run.completed_at = datetime.utcnow()

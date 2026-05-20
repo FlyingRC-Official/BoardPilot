@@ -635,6 +635,44 @@ def test_ask_persists_metadata_filters():
     assert payload["question"]["metadata_filters_json"] == {"firmware": "1.0", "page": 3}
 
 
+def test_ask_metadata_filters_limit_retrieval_candidates():
+    product, source, chunks = seed_source()
+    normal_source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "Unofficial notes",
+            "source_type": "markdown",
+            "trust_level": "normal",
+        },
+    ).json()
+    normal_version = client.post(
+        f"/sources/{normal_source['id']}/versions",
+        json={"version_label": "v1", "content": "USB power can run a bench servo in unofficial testing."},
+    ).json()
+    official_chunk_ids = {chunk["id"] for chunk in chunks}
+    normal_chunk_ids = {chunk["id"] for chunk in normal_version["chunks"]}
+
+    payload = client.post(
+        "/ask",
+        json={
+            "product_id": product["id"],
+            "question": "Can USB power servos?",
+            "metadata_filters_json": {"trust_level": "official"},
+        },
+    ).json()
+
+    candidate_chunk_ids = {candidate["chunk_id"] for candidate in payload["candidates"]}
+    assert candidate_chunk_ids
+    assert candidate_chunk_ids <= official_chunk_ids
+    assert candidate_chunk_ids.isdisjoint(normal_chunk_ids)
+    assert {
+        "type": "hard_filter",
+        "field": "trust_level",
+        "value": "official",
+    } in payload["retrieval_run"]["filter_plan_json"]["filters"]
+
+
 def test_ask_detects_product_alias_without_hard_filtering():
     product, source, _chunks = seed_source()
     client.post(
