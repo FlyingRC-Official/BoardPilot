@@ -307,6 +307,32 @@ select {
   line-height: 1.45;
 }
 
+.metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px 12px;
+  margin: 10px 0 0;
+}
+
+.metadata-grid div {
+  min-width: 0;
+}
+
+.metadata-grid dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metadata-grid dd {
+  margin: 2px 0 0;
+  color: #26332f;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .trace-item {
   display: grid;
   grid-template-columns: 64px 1fr 70px;

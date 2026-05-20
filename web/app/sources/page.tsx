@@ -22,6 +22,17 @@ import {
 } from "@/lib/api-client";
 import type { Chunk, Product, ProductAlias, Source, SourceArtifact, SourceVersion } from "@/lib/types";
 
+function chunkMetadataRows(chunk: Chunk) {
+  return [
+    ["Status", chunk.enabled ? "enabled" : "disabled"],
+    ["Section", chunk.section_name || chunk.title_path || "-"],
+    ["Chars", `${chunk.char_start}-${chunk.char_end}`],
+    ["Page", chunk.page_number != null ? String(chunk.page_number) : "-"],
+    ["Hash", chunk.content_hash.slice(0, 12)],
+    ...Object.entries(chunk.metadata_json || {}).map(([key, value]) => [key, typeof value === "string" ? value : JSON.stringify(value) ?? String(value)])
+  ];
+}
+
 export default function SourcesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [aliases, setAliases] = useState<ProductAlias[]>([]);
@@ -341,6 +352,7 @@ export default function SourcesPage() {
                       <th>Label</th>
                       <th>Status</th>
                       <th>Parser</th>
+                      <th>Error</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -349,6 +361,7 @@ export default function SourcesPage() {
                         <td>{version.version_label}</td>
                         <td>{version.status}</td>
                         <td>{version.parser_version}</td>
+                        <td>{version.error_message || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -391,6 +404,14 @@ export default function SourcesPage() {
                   <article className="evidence-item" key={chunk.id}>
                     <strong>Chunk {chunk.chunk_index}</strong>
                     <span className="muted"> {chunk.token_count} tokens</span>
+                    <dl className="metadata-grid">
+                      {chunkMetadataRows(chunk).map(([label, value]) => (
+                        <div key={`${chunk.id}-${label}`}>
+                          <dt>{label}</dt>
+                          <dd>{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
                     <blockquote>{chunk.content.slice(0, 320)}</blockquote>
                   </article>
                 ))}

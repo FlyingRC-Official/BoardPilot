@@ -40,6 +40,7 @@ export type SourceVersion = {
   version_label: string;
   content_hash: string;
   status: string;
+  error_message: string;
   parser_version: string;
   created_at: string;
 };
@@ -68,8 +69,16 @@ export type Chunk = {
   source_version_id: string;
   product_id: string;
   chunk_index: number;
+  title_path: string;
   content: string;
+  content_hash: string;
   token_count: number;
+  char_start: number;
+  char_end: number;
+  page_number?: number | null;
+  section_name: string;
+  metadata_json: Record<string, unknown>;
+  enabled: boolean;
 };
 
 export type Evidence = {
