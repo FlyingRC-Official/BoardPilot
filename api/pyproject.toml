@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "boardpilot-api"
 version = "0.1.0"
@@ -8,6 +12,10 @@ dependencies = [
   "uvicorn[standard]>=0.27",
   "pydantic>=2.6",
   "pydantic-settings>=2.2",
+  "sqlalchemy>=2.0",
+  "alembic>=1.13",
+  "psycopg[binary]>=3.1",
+  "pgvector>=0.3",
 ]
 
 [project.optional-dependencies]
@@ -18,4 +26,7 @@ test = [
 
 [tool.pytest.ini_options]
 testpaths = ["app/tests"]
+pythonpath = ["."]
 
+[tool.setuptools.packages.find]
+include = ["app*"]

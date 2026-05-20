@@ -16,7 +16,7 @@ BoardPilot is a private-deployment RAG support workbench for hardware teams. The
 cd api
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[test]"
+pip install ".[test]"
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -25,6 +25,13 @@ Run tests:
 ```bash
 cd api
 pytest
+```
+
+Run migrations:
+
+```bash
+cd api
+alembic upgrade head
 ```
 
 ## Local Web
@@ -44,5 +51,4 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The current API uses in-memory storage. Postgres, pgvector, Redis workers, durable file metadata, and migrations are scaffolded for the private stack but still need production implementation.
-
+The current API request path still uses in-memory storage for fast local development. SQLAlchemy models and an initial Alembic migration are present for the durable Postgres/pgvector schema, while Redis workers and full repository wiring still need production implementation.
