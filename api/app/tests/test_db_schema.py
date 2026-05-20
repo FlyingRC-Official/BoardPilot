@@ -547,6 +547,55 @@ def test_ingestion_job_can_hydrate_source_version_from_database_and_persist_outp
         main_app.store.reset()
 
 
+def test_ingestion_worker_processes_database_backed_queue_message(monkeypatch):
+    import app.main as main_app
+    import app.workers.ingestion_worker as worker
+    from app.ingestion.queue import encode_ingestion_job
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+        Base.metadata.tables["chunk_embeddings"],
+        Base.metadata.tables["ingestion_jobs"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    monkeypatch.setattr(worker, "SessionLocal", session_factory)
+    session = session_factory()
+    catalog_repo = CatalogRepository(session)
+    runtime_repo = RuntimeRepository(session)
+
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(Source(product_id=product.id, title="Manual", source_type=SourceType.markdown, trust_level="official"))
+    version = catalog_repo.add_source_version(SourceVersion(source_id=source.id, version_label="v1", content_hash="b" * 64))
+    catalog_repo.add_artifact(SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only."))
+    job = runtime_repo.add_ingestion_job(IngestionJob(source_version_id=version.id))
+    session.commit()
+    session.close()
+
+    main_app.store.reset()
+    try:
+        worker.process_message(encode_ingestion_job(version.id, job.id))
+
+        session = session_factory()
+        try:
+            completed = RuntimeRepository(session).get_ingestion_job(job.id)
+            chunks = CatalogRepository(session).chunks_for_version(version.id)
+            embeddings = CatalogRepository(session).embeddings_for_chunk(chunks[0].id)
+        finally:
+            session.close()
+        assert completed.status == "completed"
+        assert completed.chunk_count == 1
+        assert chunks[0].content == "USB is configuration only."
+        assert embeddings[0].chunk_id == chunks[0].id
+    finally:
+        main_app.store.reset()
+
+
 def test_retrieval_repository_round_trips_ask_records_in_sqlite():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     create_subset = [
