@@ -65,6 +65,7 @@ Updated: 2026-05-20
 - Added a SQLAlchemy catalog repository round-trip for product, source, artifact content, and chunks.
 - Added SQLAlchemy runtime repository coverage for ingestion jobs and audit logs.
 - Added SQLAlchemy retrieval repository coverage for questions, attachments, retrieval runs, candidates, evidence, model runs, and answers.
+- Added SQLAlchemy review/eval/support repository coverage and persisted imported log source content.
 
 ## Verified
 
@@ -81,7 +82,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 37 passed.
+- API tests: 38 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

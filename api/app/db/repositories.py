@@ -10,37 +10,57 @@ from sqlalchemy.orm import Session
 
 from app.models.orm import (
     AnswerOrm,
+    ApprovedFAQOrm,
     AuditLogOrm,
     ChunkOrm,
     EvidenceOrm,
+    EvalCaseOrm,
+    EvalResultOrm,
+    EvalRunOrm,
+    ImageAssetOrm,
     IngestionJobOrm,
+    LogSourceOrm,
     ModelRunOrm,
+    OcrResultOrm,
     ProductAliasOrm,
     ProductOrm,
+    ProviderConfigOrm,
     QuestionAttachmentOrm,
     QuestionOrm,
     RetrievalCandidateOrm,
     RetrievalRunOrm,
+    ReviewItemOrm,
     SourceArtifactOrm,
     SourceOrm,
     SourceVersionOrm,
+    TicketOrm,
 )
 from app.models.schemas import (
     Answer,
+    ApprovedFAQ,
     AuditLog,
     Chunk,
+    EvalCase,
+    EvalResult,
+    EvalRun,
     Evidence,
+    ImageAsset,
     IngestionJob,
+    LogSource,
     ModelRun,
+    OcrResult,
     Product,
     ProductAlias,
+    ProviderConfig,
     Question,
     QuestionAttachment,
     RetrievalCandidate,
     RetrievalRun,
+    ReviewItem,
     Source,
     SourceArtifact,
     SourceVersion,
+    Ticket,
 )
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -202,3 +222,66 @@ class RetrievalRepository:
         row = self.session.merge(orm_cls(**_model_to_orm_kwargs(model, orm_cls)))
         self.session.flush()
         return _orm_to_model(row, model_cls)
+
+
+class ReviewEvalRepository:
+    """SQLAlchemy repository for review, eval, provider config, and imported support records."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add_eval_case(self, eval_case: EvalCase) -> EvalCase:
+        return self._merge(eval_case, EvalCaseOrm, EvalCase)
+
+    def list_eval_cases(self) -> list[EvalCase]:
+        return self._list(EvalCaseOrm, EvalCase)
+
+    def add_eval_run(self, eval_run: EvalRun) -> EvalRun:
+        return self._merge(eval_run, EvalRunOrm, EvalRun)
+
+    def add_eval_result(self, eval_result: EvalResult) -> EvalResult:
+        return self._merge(eval_result, EvalResultOrm, EvalResult)
+
+    def results_for_eval_run(self, eval_run_id: UUID) -> list[EvalResult]:
+        rows = self.session.scalars(select(EvalResultOrm).where(EvalResultOrm.eval_run_id == str(eval_run_id))).all()
+        return [_orm_to_model(row, EvalResult) for row in rows]
+
+    def add_review_item(self, item: ReviewItem) -> ReviewItem:
+        return self._merge(item, ReviewItemOrm, ReviewItem)
+
+    def list_review_items(self) -> list[ReviewItem]:
+        return self._list(ReviewItemOrm, ReviewItem)
+
+    def add_approved_faq(self, faq: ApprovedFAQ) -> ApprovedFAQ:
+        return self._merge(faq, ApprovedFAQOrm, ApprovedFAQ)
+
+    def add_provider_config(self, config: ProviderConfig) -> ProviderConfig:
+        return self._merge(config, ProviderConfigOrm, ProviderConfig)
+
+    def list_provider_configs(self) -> list[ProviderConfig]:
+        return self._list(ProviderConfigOrm, ProviderConfig)
+
+    def add_ticket(self, ticket: Ticket) -> Ticket:
+        return self._merge(ticket, TicketOrm, Ticket)
+
+    def add_log_source(self, log_source: LogSource) -> LogSource:
+        return self._merge(log_source, LogSourceOrm, LogSource)
+
+    def add_image_asset(self, image_asset: ImageAsset) -> ImageAsset:
+        return self._merge(image_asset, ImageAssetOrm, ImageAsset)
+
+    def add_ocr_result(self, ocr_result: OcrResult) -> OcrResult:
+        return self._merge(ocr_result, OcrResultOrm, OcrResult)
+
+    def ocr_results_for_image(self, image_asset_id: UUID) -> list[OcrResult]:
+        rows = self.session.scalars(select(OcrResultOrm).where(OcrResultOrm.image_asset_id == str(image_asset_id))).all()
+        return [_orm_to_model(row, OcrResult) for row in rows]
+
+    def _merge(self, model: ModelT, orm_cls: type, model_cls: type[ModelT]) -> ModelT:
+        row = self.session.merge(orm_cls(**_model_to_orm_kwargs(model, orm_cls)))
+        self.session.flush()
+        return _orm_to_model(row, model_cls)
+
+    def _list(self, orm_cls: type, model_cls: type[ModelT]) -> list[ModelT]:
+        rows = self.session.scalars(select(orm_cls)).all()
+        return [_orm_to_model(row, model_cls) for row in rows]

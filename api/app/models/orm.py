@@ -340,6 +340,7 @@ class LogSourceOrm(Base):
     product_id: Mapped[Optional[str]] = mapped_column(ForeignKey("products.id"), index=True)
     source_id: Mapped[Optional[str]] = mapped_column(ForeignKey("sources.id"), index=True)
     log_type: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    content: Mapped[str] = mapped_column(Text, default="", nullable=False)
     device_context_json: Mapped[JsonDict] = mapped_column(JSON, default=dict, nullable=False)
     time_range_json: Mapped[JsonDict] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
