@@ -72,6 +72,7 @@ Updated: 2026-05-20
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Ask questions, retrieval runs, candidates, evidence, model runs, answers, answer feedback, and question attachments now read and mirror through SQLAlchemy when available.
+- Review item queue, detail, update, and decision endpoints now read and mirror through SQLAlchemy when available.
 
 ## Verified
 
@@ -96,7 +97,7 @@ Results:
 
 ## Important MVP Gaps
 
-- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/version/ask/provider/job/audit surfaces are database-aware, but the full service layer has not yet been switched to database-backed repositories.
+- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, and product/source/version/ask/review/provider/job/audit surfaces are database-aware, but the full service layer has not yet been switched to database-backed repositories.
 - IngestionJob APIs now persist job status in memory, support retry, can enqueue Redis worker messages, and mirror job state to SQLAlchemy when available; full database-backed cross-process job execution remains pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.

@@ -14,6 +14,7 @@ from app.main import (
     get_product_from_database,
     get_question_from_database,
     get_retrieval_run_from_database,
+    get_review_item_from_database,
     get_runtime_job,
     get_source_from_database,
     get_source_version_from_database,
@@ -25,6 +26,7 @@ from app.main import (
     list_products_from_database,
     list_question_attachments_from_database,
     list_retrieval_candidates_from_database,
+    list_review_items_from_database,
     list_runtime_jobs,
     list_sources_from_database,
     list_source_versions_from_database,
@@ -34,6 +36,7 @@ from app.main import (
     save_provider_config_to_database,
     save_product_to_database,
     save_question_attachment_to_database,
+    save_review_item_to_database,
     save_runtime_job,
     save_source_to_database,
     save_source_version_bundle_to_database,
@@ -493,6 +496,12 @@ def test_ask_api_helpers_mirror_records_to_database_when_available():
         assert get_model_run_from_database(session, model_run.id).id == model_run.id
         assert get_answer_from_database(session, answer.id).citation_map_json["usb"][0] == evidence.id
         assert list_question_attachments_from_database(session, question.id)[0].id == attachment.id
+        review_item.reviewer_notes = "checked by reviewer"
+        review_item.failure_category = FailureCategory.insufficient_evidence
+        save_review_item_to_database(session, review_item)
+        session.expire_all()
+        assert list_review_items_from_database(session)[0].id == review_item.id
+        assert get_review_item_from_database(session, review_item.id).reviewer_notes == "checked by reviewer"
     finally:
         main_app.store.model_runs.pop(model_run.id, None)
 

@@ -365,6 +365,22 @@ def save_review_item_to_database(session: Session, item: ReviewItem) -> None:
         session.rollback()
 
 
+def get_review_item_from_database(session: Session, item_id: UUID) -> Optional[ReviewItem]:
+    try:
+        return ReviewEvalRepository(session).get_review_item(item_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def list_review_items_from_database(session: Session) -> list[ReviewItem]:
+    try:
+        return ReviewEvalRepository(session).list_review_items()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "boardpilot-api"}
@@ -1033,11 +1049,12 @@ def get_eval_results(run_id: UUID) -> list:
 def eval_result_to_review(
     result_id: UUID,
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> ReviewItem:
     if result_id not in store.eval_results:
         raise not_found()
     result = store.eval_results[result_id]
-    return store.add_review_item(
+    item = store.add_review_item(
         ReviewItem(
             source_type="eval_failure",
             question_id=result.question_id,
@@ -1046,34 +1063,39 @@ def eval_result_to_review(
             failure_category=result.failure_category,
         )
     )
+    save_review_item_to_database(session, item)
+    return item
 
 
 @app.get("/review-items", response_model=list[ReviewItem])
-def get_review_items() -> list[ReviewItem]:
-    return list(store.review_items.values())
+def get_review_items(session: Session = Depends(get_session)) -> list[ReviewItem]:
+    return list_review_items_from_database(session) or list(store.review_items.values())
 
 
 @app.get("/review-items/{item_id}", response_model=ReviewItem)
-def get_review_item(item_id: UUID) -> ReviewItem:
+def get_review_item(item_id: UUID, session: Session = Depends(get_session)) -> ReviewItem:
+    database_item = get_review_item_from_database(session, item_id)
+    if database_item:
+        return database_item
     if item_id not in store.review_items:
         raise not_found()
     return store.review_items[item_id]
 
 
 @app.get("/review-items/{item_id}/detail", response_model=ReviewItemDetail)
-def get_review_item_detail(item_id: UUID) -> ReviewItemDetail:
-    if item_id not in store.review_items:
+def get_review_item_detail(item_id: UUID, session: Session = Depends(get_session)) -> ReviewItemDetail:
+    item = store.review_items.get(item_id) or get_review_item_from_database(session, item_id)
+    if not item:
         raise not_found()
-    item = store.review_items[item_id]
     eval_result = store.eval_results.get(item.eval_result_id) if item.eval_result_id else None
     answer_id = item.answer_id or (eval_result.answer_id if eval_result else None)
-    answer = store.answers.get(answer_id) if answer_id else None
+    answer = (store.answers.get(answer_id) or get_answer_from_database(session, answer_id)) if answer_id else None
     question_id = item.question_id or (answer.question_id if answer else None) or (eval_result.question_id if eval_result else None)
-    question = store.questions.get(question_id) if question_id else None
+    question = (store.questions.get(question_id) or get_question_from_database(session, question_id)) if question_id else None
     retrieval_run_id = (answer.retrieval_run_id if answer else None) or (eval_result.retrieval_run_id if eval_result else None)
-    evidence = store.evidence_for_run(retrieval_run_id) if retrieval_run_id else []
-    candidates = store.candidates_for_run(retrieval_run_id) if retrieval_run_id else []
-    attachments = store.attachments_for_question(question_id) if question_id else []
+    evidence = (list_evidence_from_database(session, retrieval_run_id) or store.evidence_for_run(retrieval_run_id)) if retrieval_run_id else []
+    candidates = (list_retrieval_candidates_from_database(session, retrieval_run_id) or store.candidates_for_run(retrieval_run_id)) if retrieval_run_id else []
+    attachments = (list_question_attachments_from_database(session, question_id) or store.attachments_for_question(question_id)) if question_id else []
     return ReviewItemDetail(
         item=item,
         question=question,
@@ -1095,10 +1117,11 @@ def patch_review_item(
     item_id: UUID,
     payload: Dict[str, Any],
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> ReviewItem:
-    if item_id not in store.review_items:
+    item = store.review_items.get(item_id) or get_review_item_from_database(session, item_id)
+    if not item:
         raise not_found()
-    item = store.review_items[item_id]
     before_json = item.model_dump(mode="json")
     allowed_fields = {"reviewer_notes", "edited_answer_text", "failure_category", "priority"}
     for key, value in payload.items():
@@ -1111,6 +1134,8 @@ def patch_review_item(
                 raise HTTPException(status_code=422, detail="invalid failure_category")
         setattr(item, key, value)
     item.updated_at = now()
+    store.review_items[item.id] = item
+    save_review_item_to_database(session, item)
     store.add_audit_log(
         "review_item_updated",
         "ReviewItem",
@@ -1127,10 +1152,13 @@ def post_review_approve(
     item_id: UUID,
     payload: Dict[str, FailureCategory],
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> ReviewItem:
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
-    return approve_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    item = approve_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    save_review_item_to_database(session, item)
+    return item
 
 
 @app.post("/review-items/{item_id}/reject", response_model=ReviewItem)
@@ -1138,10 +1166,13 @@ def post_review_reject(
     item_id: UUID,
     payload: Dict[str, FailureCategory],
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> ReviewItem:
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
-    return reject_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    item = reject_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    save_review_item_to_database(session, item)
+    return item
 
 
 @app.post("/review-items/{item_id}/source-update-needed", response_model=ReviewItem)
@@ -1149,10 +1180,13 @@ def post_review_source_update_needed(
     item_id: UUID,
     payload: Dict[str, FailureCategory],
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> ReviewItem:
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
-    return mark_source_update_needed(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    item = mark_source_update_needed(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
+    save_review_item_to_database(session, item)
+    return item
 
 
 @app.post("/review-items/{item_id}/to-faq")

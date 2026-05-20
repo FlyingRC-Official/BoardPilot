@@ -277,6 +277,10 @@ class ReviewEvalRepository:
     def add_review_item(self, item: ReviewItem) -> ReviewItem:
         return self._merge(item, ReviewItemOrm, ReviewItem)
 
+    def get_review_item(self, item_id: UUID) -> ReviewItem | None:
+        row = self.session.get(ReviewItemOrm, str(item_id))
+        return _orm_to_model(row, ReviewItem) if row else None
+
     def list_review_items(self) -> list[ReviewItem]:
         return self._list(ReviewItemOrm, ReviewItem)
 
