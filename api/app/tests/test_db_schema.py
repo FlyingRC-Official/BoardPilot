@@ -478,7 +478,7 @@ def test_source_version_api_helpers_use_database_when_available():
 
     product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
     source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown, trust_level="official")
-    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="8" * 64)
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="8" * 64, error_message="bad parse")
     artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
     chunk = Chunk(
         source_version_id=version.id,
@@ -501,7 +501,7 @@ def test_source_version_api_helpers_use_database_when_available():
     session.expire_all()
 
     assert list_source_versions_from_database(session, source.id)[0].status == "disabled"
-    assert get_source_version_from_database(session, version.id).id == version.id
+    assert get_source_version_from_database(session, version.id).error_message == "bad parse"
     assert get_artifact_from_database(session, artifact.id).id == artifact.id
     assert list_artifacts_from_database(session, version.id)[0].content == artifact.content
     assert list_chunks_from_database(session, version.id)[0].enabled is False

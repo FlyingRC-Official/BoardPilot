@@ -114,6 +114,7 @@ class SourceVersion(BaseModel):
     version_label: str
     content_hash: str
     status: str = "created"
+    error_message: str = ""
     effective_from: Optional[datetime] = None
     effective_to: Optional[datetime] = None
     parser_version: str = "mvp-text-v1"

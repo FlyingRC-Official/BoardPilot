@@ -76,6 +76,7 @@ class SourceVersionOrm(Base, TimestampMixin):
     version_label: Mapped[str] = mapped_column(String(255), default="v1", nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(50), default="created", nullable=False)
+    error_message: Mapped[str] = mapped_column(Text, default="", nullable=False)
     effective_from: Mapped[Optional[datetime]] = mapped_column(DateTime)
     effective_to: Mapped[Optional[datetime]] = mapped_column(DateTime)
     parser_version: Mapped[str] = mapped_column(String(120), default="mvp-text-v1", nullable=False)

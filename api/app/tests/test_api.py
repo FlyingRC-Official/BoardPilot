@@ -319,6 +319,42 @@ def test_product_source_ingestion_and_dedup():
     assert all(artifact["source_version_id"] == version_id for artifact in version_artifacts)
 
 
+def test_failed_source_version_ingestion_saves_error_reason(monkeypatch):
+    import app.sources.service as source_service
+
+    product = client.post(
+        "/products",
+        json={"name": "FlyingRC F7", "slug": "flyingrc-f7", "description": "Flight controller"},
+    ).json()
+    source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "Broken import",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+    ).json()
+
+    def fail_ingestion(_store, _source_version_id):
+        raise RuntimeError("parser failed on malformed source")
+
+    monkeypatch.setattr(source_service, "ingest_source_version", fail_ingestion)
+    response = client.post(
+        f"/sources/{source['id']}/versions",
+        json={"version_label": "broken", "content": "This import should be recorded as failed."},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"]["status"] == "failed"
+    assert payload["version"]["error_message"] == "parser failed on malformed source"
+    assert payload["chunks"] == []
+    version = client.get(f"/sources/{source['id']}/versions").json()[0]
+    assert version["status"] == "failed"
+    assert version["error_message"] == "parser failed on malformed source"
+
+
 def test_source_disable_is_audited():
     _product, source, _chunks = seed_source()
     disabled = client.post(
@@ -385,6 +421,26 @@ def test_ingestion_job_create_list_get_and_retry():
     retried = client.post(f"/ingestion/jobs/{job['id']}/retry").json()
     assert retried["job"]["id"] == job["id"]
     assert retried["job"]["status"] == "completed"
+
+
+def test_failed_ingestion_job_saves_source_version_error(monkeypatch):
+    import app.ingestion.jobs as ingestion_jobs
+
+    _product, source, _chunks = seed_source()
+    version_id = client.get(f"/sources/{source['id']}/versions").json()[0]["id"]
+
+    def fail_ingestion(_store, _source_version_id):
+        raise RuntimeError("embedding provider unavailable")
+
+    monkeypatch.setattr(ingestion_jobs, "ingest_source_version", fail_ingestion)
+    payload = client.post("/ingestion/jobs", json={"source_version_id": version_id}).json()
+
+    assert payload["job"]["status"] == "failed"
+    assert payload["job"]["error_message"] == "embedding provider unavailable"
+    assert payload["chunks"] == []
+    version = client.get(f"/sources/{source['id']}/versions").json()[0]
+    assert version["status"] == "failed"
+    assert version["error_message"] == "embedding provider unavailable"
 
 
 def test_ingestion_job_enqueue_pushes_redis_message(monkeypatch):

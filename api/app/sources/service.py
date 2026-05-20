@@ -58,6 +58,24 @@ def list_sources(store: InMemoryStore) -> list[Source]:
     return list(store.sources.values())
 
 
+def _error_reason(exc: Exception) -> str:
+    return str(exc) or exc.__class__.__name__
+
+
+def ingest_source_version_with_status(store: InMemoryStore, version_id: UUID) -> list:
+    version = store.source_versions[version_id]
+    try:
+        chunks = ingest_source_version(store, version.id)
+    except Exception as exc:
+        version.status = "failed"
+        version.error_message = _error_reason(exc)
+        store.source_versions[version.id] = version
+        return []
+    version.error_message = ""
+    store.source_versions[version.id] = version
+    return chunks
+
+
 def create_source_version(store: InMemoryStore, source_id: UUID, payload: SourceVersionCreate) -> tuple[SourceVersion, SourceArtifact, list]:
     if source_id not in store.sources:
         raise KeyError("source not found")
@@ -83,7 +101,7 @@ def create_source_version(store: InMemoryStore, source_id: UUID, payload: Source
             content=parsed_content,
         )
     )
-    chunks = ingest_source_version(store, version.id)
+    chunks = ingest_source_version_with_status(store, version.id)
     return version, artifact, chunks
 
 
@@ -114,7 +132,7 @@ def add_text_artifact_to_source_version(
             content=parsed_content,
         )
     )
-    chunks = ingest_source_version(store, version.id)
+    chunks = ingest_source_version_with_status(store, version.id)
     return version, artifact, chunks
 
 
@@ -154,7 +172,7 @@ def create_uploaded_source_version(
             content=parsed_text,
         )
     )
-    chunks = ingest_source_version(store, version.id)
+    chunks = ingest_source_version_with_status(store, version.id)
     return version, artifact, chunks
 
 
@@ -191,5 +209,5 @@ def create_webpage_snapshot_version(
             content=parsed_text,
         )
     )
-    chunks = ingest_source_version(store, version.id)
+    chunks = ingest_source_version_with_status(store, version.id)
     return version, artifact, chunks
