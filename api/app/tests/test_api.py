@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.db.session import store
+from app.ingestion.queue import QUEUE_NAME
 from app.main import app
 from app.workers.ingestion_worker import decode_ingestion_job, encode_ingestion_job
 
@@ -51,9 +52,11 @@ def test_health_endpoint():
 
 def test_ingestion_worker_message_round_trip():
     source_version_id = uuid4()
-    encoded = encode_ingestion_job(source_version_id)
+    job_id = uuid4()
+    encoded = encode_ingestion_job(source_version_id, job_id)
     decoded = decode_ingestion_job(encoded)
     assert decoded.source_version_id == source_version_id
+    assert decoded.job_id == job_id
 
 
 def test_role_context_and_mutation_guards():
@@ -307,6 +310,30 @@ def test_ingestion_job_create_list_get_and_retry():
     retried = client.post(f"/ingestion/jobs/{job['id']}/retry").json()
     assert retried["job"]["id"] == job["id"]
     assert retried["job"]["status"] == "completed"
+
+
+def test_ingestion_job_enqueue_pushes_redis_message(monkeypatch):
+    import app.ingestion.queue as ingestion_queue
+
+    _product, source, _chunks = seed_source()
+    source_versions = client.get(f"/sources/{source['id']}/versions").json()
+    pushed = []
+
+    class FakeRedis:
+        def rpush(self, queue_name, message):
+            pushed.append((queue_name, message))
+            return 1
+
+    monkeypatch.setattr(ingestion_queue, "get_redis_client", lambda: FakeRedis())
+    response = client.post("/ingestion/jobs/enqueue", json={"source_version_id": source_versions[0]["id"]})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["queue"] == QUEUE_NAME
+    assert payload["job"]["status"] == "queued"
+    assert pushed[0][0] == QUEUE_NAME
+    decoded = decode_ingestion_job(pushed[0][1])
+    assert str(decoded.source_version_id) == source_versions[0]["id"]
+    assert str(decoded.job_id) == payload["job"]["id"]
 
 
 def test_upload_source_version_stores_artifact_and_creates_chunks(tmp_path, monkeypatch):

@@ -58,6 +58,7 @@ Updated: 2026-05-20
 - Audit logs can optionally be appended to a durable JSONL file through `BOARDPILOT_AUDIT_LOG_PATH`.
 - Added a Redis ingestion worker entrypoint and Docker Compose worker service scaffold.
 - Source versions can now be disabled with audit logging, which disables their chunks for future retrieval.
+- Added a Redis enqueue API path for ingestion jobs with queue message job ids.
 
 ## Verified
 
@@ -74,7 +75,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 32 passed.
+- API tests: 33 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -83,7 +84,7 @@ Results:
 ## Important MVP Gaps
 
 - API runtime persistence is still in-memory; SQLAlchemy models and Alembic migration exist but the service layer has not yet been switched to database-backed repositories.
-- IngestionJob APIs now persist job status in memory and support retry; a Redis worker entrypoint exists, but API enqueueing and database-backed cross-process job execution remain pending.
+- IngestionJob APIs now persist job status in memory, support retry, and can enqueue Redis worker messages; database-backed cross-process job execution remains pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.

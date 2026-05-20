@@ -1,37 +1,21 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import time
-from dataclasses import dataclass
-from uuid import UUID
 
 from app.core.config import settings
 from app.ingestion.jobs import run_ingestion_job
-
-QUEUE_NAME = "boardpilot:ingestion_jobs"
+from app.ingestion.queue import QUEUE_NAME, decode_ingestion_job, encode_ingestion_job
+from app.db.session import store
 
 logger = logging.getLogger("boardpilot.ingestion_worker")
 
 
-@dataclass
-class IngestionJobMessage:
-    source_version_id: UUID
-
-
-def encode_ingestion_job(source_version_id: UUID) -> str:
-    return json.dumps({"source_version_id": str(source_version_id)}, sort_keys=True)
-
-
-def decode_ingestion_job(raw_message: bytes | str) -> IngestionJobMessage:
-    payload = json.loads(raw_message.decode("utf-8") if isinstance(raw_message, bytes) else raw_message)
-    return IngestionJobMessage(source_version_id=UUID(str(payload["source_version_id"])))
-
-
 def process_message(raw_message: bytes | str) -> None:
     message = decode_ingestion_job(raw_message)
-    run_ingestion_job(message.source_version_id)
+    job = store.ingestion_jobs.get(message.job_id) if message.job_id else None
+    run_ingestion_job(message.source_version_id, job)
 
 
 def run_worker(once: bool = False, poll_timeout_seconds: int = 5) -> None:

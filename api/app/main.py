@@ -11,6 +11,7 @@ from app.eval.runs import run_eval_batch
 from app.eval.seeds import seed_eval_cases
 from app.ingestion.jobs import retry_ingestion_job as retry_ingestion_job_service
 from app.ingestion.jobs import run_ingestion_job
+from app.ingestion.queue import QUEUE_NAME, enqueue_ingestion_job
 from app.models.schemas import (
     AskRequest,
     AskResponse,
@@ -365,6 +366,24 @@ def post_ingestion_job(
         raise not_found()
     job, chunks = run_ingestion_job(payload.source_version_id)
     return {"job": job, "chunks": chunks}
+
+
+@app.post("/ingestion/jobs/enqueue")
+def enqueue_ingestion_job_endpoint(
+    payload: IngestionJobCreate,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+) -> dict:
+    if payload.source_version_id not in store.source_versions:
+        raise not_found()
+    job = store.add_ingestion_job(IngestionJob(source_version_id=payload.source_version_id))
+    try:
+        enqueue_ingestion_job(job)
+    except Exception as exc:
+        job.status = "failed"
+        job.error_message = f"queue enqueue failed: {exc}"
+        job.updated_at = now()
+        raise HTTPException(status_code=503, detail="failed to enqueue ingestion job")
+    return {"job": job, "queue": QUEUE_NAME}
 
 
 @app.get("/ingestion/jobs")
