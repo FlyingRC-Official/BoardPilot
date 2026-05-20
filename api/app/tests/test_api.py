@@ -464,6 +464,13 @@ def test_unsupported_embedding_provider_config_fails_ingestion_and_routes_review
     assert payload["chunks"] == []
     assert payload["review_item"]["source_type"] == "source_issue"
     assert payload["review_item"]["failure_category"] == "bad_parse"
+    assert client.get(f"/source-versions/{payload['version']['id']}/chunks").json() == []
+
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "What does USB power do?"},
+    ).json()
+    assert ask_payload["evidence"] == []
 
 
 def test_failed_source_version_ingestion_saves_error_reason(monkeypatch):

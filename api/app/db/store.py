@@ -125,7 +125,9 @@ class InMemoryStore:
         for chunk in self.chunks.values():
             version = self.source_versions.get(chunk.source_version_id)
             source = self.sources.get(version.source_id) if version else None
-            if chunk.enabled and (not version or version.status != "disabled") and (not source or source.status != "disabled"):
+            version_is_queryable = not version or version.status not in {"disabled", "failed"}
+            source_is_queryable = not source or source.status != "disabled"
+            if chunk.enabled and version_is_queryable and source_is_queryable:
                 chunks.append(chunk)
         if product_id:
             chunks = [c for c in chunks if c.product_id == product_id]
