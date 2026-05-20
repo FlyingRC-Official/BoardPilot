@@ -3,7 +3,7 @@ import re
 from collections import Counter
 from typing import List
 
-from .base import EmbeddingResult, LLMResult, ProviderResult, RerankResult
+from .base import EmbeddingResult, LLMResult, OCRResult, RerankResult
 
 
 def tokenize(text: str) -> List[str]:
@@ -58,5 +58,5 @@ class FakeOCRProvider:
     provider_name = "fake"
     model_name = "fake-ocr-placeholder"
 
-    def ocr(self, image_uri: str) -> ProviderResult:
-        return ProviderResult(self.provider_name, self.model_name, 0)
+    def ocr(self, image_uri: str) -> OCRResult:
+        return OCRResult(self.provider_name, self.model_name, 0)

@@ -385,6 +385,66 @@ def test_uploaded_image_asset_is_stored_and_manual_description_is_ingested(tmp_p
     assert any("IMAGE_UPLOAD_USB_ONLY" in item["quote"] for item in ask_payload["evidence"])
 
 
+def test_configured_ocr_provider_text_is_ingested_without_manual_payload(monkeypatch):
+    import app.main as main_module
+    from app.providers.base import OCRResult
+
+    product = client.post(
+        "/products",
+        json={"name": "OCR Provider Board", "slug": "ocr-provider-board", "description": ""},
+    ).json()
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "ocr",
+            "provider_name": "tesseract",
+            "model_name": "tesseract-eng",
+            "config_json": {"language": "eng"},
+        },
+    )
+    image_payload = client.post(
+        "/image-assets",
+        json={
+            "product_id": product["id"],
+            "storage_uri": "local://ocr-provider-board.png",
+            "image_type": "label",
+        },
+    ).json()
+
+    def fake_ocr(_provider_config, _image_uri):
+        return OCRResult("tesseract", "tesseract-eng", 12, text="OCR_PROVIDER_J3_CAN_FD", confidence=0.91)
+
+    monkeypatch.setattr(main_module, "run_configured_ocr", fake_ocr)
+    ocr_payload = client.post(f"/image-assets/{image_payload['image_asset']['id']}/ocr", json={}).json()
+
+    assert ocr_payload["ocr_result"]["provider_name"] == "tesseract"
+    assert ocr_payload["ocr_result"]["ocr_text"] == "OCR_PROVIDER_J3_CAN_FD"
+    assert ocr_payload["ocr_result"]["confidence"] == 0.91
+    assert ocr_payload["version"]["status"] == "ingested"
+    assert "OCR_PROVIDER_J3_CAN_FD" in ocr_payload["chunks"][0]["content"]
+
+
+def test_tesseract_ocr_provider_reports_missing_executable(monkeypatch):
+    import app.providers.ocr as ocr_module
+    from app.models.schemas import ProviderConfig
+
+    monkeypatch.setattr(ocr_module, "which", lambda _name: None)
+    result = ocr_module.run_configured_ocr(
+        ProviderConfig(
+            provider_type="ocr",
+            provider_name="tesseract",
+            model_name="tesseract-custom",
+            config_json={"language": "eng"},
+        ),
+        "/tmp/nonexistent.png",
+    )
+
+    assert result.provider_name == "tesseract"
+    assert result.model_name == "tesseract-custom"
+    assert result.text == ""
+    assert "tesseract executable is not installed" in result.error_message
+
+
 def test_product_source_ingestion_and_dedup():
     client.post(
         "/provider-configs",

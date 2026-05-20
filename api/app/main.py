@@ -84,7 +84,7 @@ from app.sources.service import (
     list_sources,
     safe_filename,
 )
-from app.providers.ocr import ocr_provider
+from app.providers.ocr import run_configured_ocr
 from app.storage.local import LocalStorageProvider
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
@@ -1984,25 +1984,17 @@ def post_image_ocr(
     if not image_asset:
         raise not_found()
     store.image_assets[image_id] = image_asset
-    provider_config = store.active_provider_config("ocr")
-    ocr_error = ""
-    if provider_config and provider_config.provider_name != ocr_provider.provider_name:
-        provider_name = provider_config.provider_name
-        model_name = provider_config.model_name
-        ocr_error = f"OCR provider '{provider_config.provider_name}' is configured but no adapter is installed."
-    else:
-        provider_result = ocr_provider.ocr(image_asset.storage_uri)
-        provider_name = provider_config.provider_name if provider_config else provider_result.provider_name
-        model_name = provider_config.model_name if provider_config else provider_result.model_name
-        ocr_error = provider_result.error_message
-    ocr_text = "" if ocr_error else payload.ocr_text or ""
+    provider_result = run_configured_ocr(store.active_provider_config("ocr"), image_asset.storage_uri)
+    ocr_error = provider_result.error_message
+    ocr_text = "" if ocr_error else payload.ocr_text or provider_result.text or ""
+    ocr_confidence = 0.0 if ocr_error else payload.confidence or provider_result.confidence
     ocr_result = store.add_ocr_result(
         OcrResult(
             image_asset_id=image_id,
-            provider_name=provider_name,
-            model_name=model_name,
+            provider_name=provider_result.provider_name,
+            model_name=provider_result.model_name,
             ocr_text=ocr_text,
-            confidence=0.0 if ocr_error else payload.confidence,
+            confidence=ocr_confidence,
             status="failed" if ocr_error else "completed",
             error_message=ocr_error,
         )
@@ -2019,7 +2011,7 @@ def post_image_ocr(
         version, artifact, chunks = create_source_version(
             store,
             image_asset.source_id,
-            SourceVersionCreate(version_label="ocr", content=ocr_text, parser_version="fake-ocr-v1"),
+            SourceVersionCreate(version_label="ocr", content=ocr_text, parser_version="ocr-v1"),
         )
     if version and artifact:
         save_source_version_bundle_to_database(session, version, artifact, chunks)

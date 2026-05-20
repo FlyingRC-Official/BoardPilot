@@ -1,6 +1,6 @@
 # BoardPilot Implementation Status
 
-Updated: 2026-05-20
+Updated: 2026-05-21
 
 ## Completed in Current MVP Slice
 
@@ -67,6 +67,8 @@ Updated: 2026-05-20
 - Unsupported embedding providers are now rejected before chunk insertion, and failed SourceVersions are excluded from retrieval eligibility.
 - Unsupported non-fake reranker provider configs now fall back to merged ranking, mark the RetrievalRun as degraded, and route the Answer to Review as a bad-rerank retrieval issue.
 - Unsupported non-fake OCR provider configs now record failed OCR results with error messages and route to Review instead of labeling manual/fake OCR text as configured provider output.
+- OCR providers can now return extracted text directly; provider-returned OCR text is saved as an OcrResult and ingested into a source version/chunks without requiring manual OCR text in the request.
+- Added an optional local Tesseract OCR adapter path for private deployments where the `tesseract` executable is installed.
 - Image asset OCR result history is now inspectable through an API, including completed and failed provider status.
 - Extended enabled provider config identity to saved chunk embeddings, reranked candidate metadata, and OCR results.
 - Added explicit source-disable audit logging and a Review action for marking source updates needed.
@@ -139,7 +141,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 84 passed.
+- API tests: 86 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -149,8 +151,8 @@ Results:
 
 - API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, Docker startup applies migrations automatically, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
-- File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; image OCR is still a fake-provider/manual-description placeholder.
-- Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
+- File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; OCR can now use manual text, fake provider behavior, or the optional local Tesseract adapter when installed.
+- Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; cloud OCR provider adapters are still not implemented.
 - EvalRun can run the required 20-case seed corpus, categorize failed results, inspect per-case traces, send failed cases to Review, and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - High-confidence detected product aliases now become hard product filters while lower-confidence aliases remain soft boosts.

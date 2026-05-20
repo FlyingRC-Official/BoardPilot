@@ -25,6 +25,12 @@ class LLMResult(ProviderResult):
     answer_text: str = ""
 
 
+@dataclass
+class OCRResult(ProviderResult):
+    text: str = ""
+    confidence: float = 0.0
+
+
 class EmbeddingProvider(Protocol):
     def embed(self, text: str) -> EmbeddingResult:
         ...
@@ -41,6 +47,5 @@ class LLMProvider(Protocol):
 
 
 class OCRProvider(Protocol):
-    def ocr(self, image_uri: str) -> ProviderResult:
+    def ocr(self, image_uri: str) -> OCRResult:
         ...
-
