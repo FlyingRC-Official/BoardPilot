@@ -316,6 +316,13 @@ class ReviewItem(BaseModel):
     updated_at: datetime = Field(default_factory=now)
 
 
+class ReviewItemPatch(BaseModel):
+    reviewer_notes: Optional[str] = None
+    edited_answer_text: Optional[str] = None
+    failure_category: Optional[FailureCategory] = None
+    priority: Optional[int] = None
+
+
 class ReviewDecisionCreate(BaseModel):
     failure_category: FailureCategory
 
@@ -471,6 +478,21 @@ class EvalCase(EvalCaseCreate):
     id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
+
+
+class EvalCasePatch(BaseModel):
+    product_id: Optional[UUID] = None
+    question_text: Optional[str] = None
+    expected_source_ids_json: Optional[List[UUID]] = None
+    expected_chunk_ids_json: Optional[List[UUID]] = None
+    expected_answer_points_json: Optional[List[str]] = None
+    tags_json: Optional[List[str]] = None
+    difficulty: Optional[str] = None
+    active: Optional[bool] = None
+
+
+class EvalRunCreate(BaseModel):
+    name: str = "MVP eval"
 
 
 class EvalRun(BaseModel):

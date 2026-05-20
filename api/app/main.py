@@ -40,8 +40,10 @@ from app.models.schemas import (
     ChunkEmbedding,
     EvalCase,
     EvalCaseCreate,
+    EvalCasePatch,
     EvalResult,
     EvalRun,
+    EvalRunCreate,
     Evidence,
     FailureCategory,
     DisableReasonCreate,
@@ -70,6 +72,7 @@ from app.models.schemas import (
     ReviewDecisionCreate,
     ReviewItem,
     ReviewItemDetail,
+    ReviewItemPatch,
     ReviewStatus,
     Source,
     SourceArtifact,
@@ -150,13 +153,6 @@ async def enforce_private_api_key(request: Request, call_next):
 
 def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="not found")
-
-
-def parse_failure_category(value: Any) -> FailureCategory:
-    try:
-        return FailureCategory(value)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="invalid failure_category")
 
 
 def filter_review_items_for_queue(items: list[ReviewItem], status: str) -> list[ReviewItem]:
@@ -1604,7 +1600,7 @@ def get_eval_case(case_id: UUID, session: Session = Depends(get_session)) -> Eva
 @app.patch("/eval-cases/{case_id}", response_model=EvalCase)
 def patch_eval_case(
     case_id: UUID,
-    payload: Dict[str, Any],
+    payload: EvalCasePatch,
     user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> EvalCase:
@@ -1612,11 +1608,9 @@ def patch_eval_case(
     if not case:
         raise not_found()
     before = case.model_dump(mode="json")
-    for key, value in payload.items():
-        if key in {"expected_source_ids_json", "expected_chunk_ids_json"}:
-            value = [UUID(str(item)) for item in value]
+    for key in payload.model_fields_set:
         if key in EVAL_CASE_PATCH_FIELDS:
-            setattr(case, key, value)
+            setattr(case, key, getattr(payload, key))
     case.updated_at = now()
     store.eval_cases[case.id] = case
     save_eval_case_to_database(session, case)
@@ -1633,7 +1627,7 @@ def patch_eval_case(
 
 @app.post("/eval-runs")
 def post_eval_run(
-    payload: Optional[Dict[str, Any]] = None,
+    payload: Optional[EvalRunCreate] = None,
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> dict:
@@ -1641,7 +1635,7 @@ def post_eval_run(
     hydrate_retrieval_catalog(store, session)
     for case in list_eval_cases_from_database(session):
         store.eval_cases.setdefault(case.id, case)
-    run, results = run_eval_batch(store, (payload or {}).get("name", "MVP eval"))
+    run, results = run_eval_batch(store, (payload or EvalRunCreate()).name)
     save_eval_run_results_to_database(session, run, results)
     return {"eval_run": run, "results": results}
 
@@ -1760,7 +1754,7 @@ def get_audit_logs(
 @app.patch("/review-items/{item_id}", response_model=ReviewItem)
 def patch_review_item(
     item_id: UUID,
-    payload: Dict[str, Any],
+    payload: ReviewItemPatch,
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
@@ -1768,13 +1762,8 @@ def patch_review_item(
     if not item:
         raise not_found()
     before_json = item.model_dump(mode="json")
-    allowed_fields = {"reviewer_notes", "edited_answer_text", "failure_category", "priority"}
-    for key, value in payload.items():
-        if key not in allowed_fields:
-            continue
-        if key == "failure_category" and value:
-            value = parse_failure_category(value)
-        setattr(item, key, value)
+    for key in payload.model_fields_set:
+        setattr(item, key, getattr(payload, key))
     item.updated_at = now()
     store.review_items[item.id] = item
     save_review_item_to_database(session, item)
