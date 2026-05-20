@@ -911,6 +911,55 @@ def test_unsupported_ocr_provider_config_records_failed_result_and_routes_review
     assert ocr_results[0]["status"] == "failed"
 
 
+def test_openai_compatible_ocr_provider_text_is_ingested(tmp_path, monkeypatch):
+    import app.providers.openai_compatible as openai_module
+
+    captured = {}
+    image_path = tmp_path / "board-label.png"
+    image_path.write_bytes(b"png-bytes")
+
+    def fake_post_json(url, headers, payload, timeout):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = payload
+        captured["timeout"] = timeout
+        return {"choices": [{"message": {"content": "J3 CAN-FD GPS PORT"}}]}
+
+    monkeypatch.setattr(openai_module, "_post_json", fake_post_json)
+    product = client.post(
+        "/products",
+        json={"name": "Vision OCR Board", "slug": "vision-ocr-board", "description": ""},
+    ).json()
+    client.post(
+        "/provider-configs",
+        json={
+            "provider_type": "ocr",
+            "provider_name": "openai_compatible",
+            "model_name": "gpt-4.1-mini",
+            "config_json": {"api_key": "test-key", "base_url": "https://llm.internal/v1", "detail": "low"},
+        },
+    )
+    image_payload = client.post(
+        "/image-assets",
+        json={
+            "product_id": product["id"],
+            "storage_uri": str(image_path),
+            "image_type": "wiring_photo",
+        },
+    ).json()
+
+    ocr_payload = client.post(f"/image-assets/{image_payload['image_asset']['id']}/ocr", json={}).json()
+
+    assert ocr_payload["ocr_result"]["provider_name"] == "openai_compatible"
+    assert ocr_payload["ocr_result"]["model_name"] == "gpt-4.1-mini"
+    assert ocr_payload["ocr_result"]["status"] == "completed"
+    assert ocr_payload["ocr_result"]["ocr_text"] == "J3 CAN-FD GPS PORT"
+    assert ocr_payload["version"]["status"] == "ingested"
+    assert "J3 CAN-FD GPS PORT" in ocr_payload["chunks"][0]["content"]
+    assert captured["url"] == "https://llm.internal/v1/chat/completions"
+    assert captured["payload"]["messages"][0]["content"][1]["image_url"]["detail"] == "low"
+
+
 def test_ocr_result_history_requires_existing_image_asset():
     response = client.get(f"/image-assets/{uuid4()}/ocr-results")
     assert response.status_code == 404

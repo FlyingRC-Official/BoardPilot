@@ -8,6 +8,7 @@ from app.models.schemas import ProviderConfig
 
 from .base import OCRResult
 from .fake import FakeOCRProvider
+from .openai_compatible import OpenAICompatibleOCRProvider
 
 ocr_provider = FakeOCRProvider()
 
@@ -85,6 +86,16 @@ def run_configured_ocr(provider_config: Optional[ProviderConfig], image_uri: str
             language=str(config.get("language", "eng") or "eng"),
             psm=str(config.get("psm", "6") or "6"),
             model_name=provider_config.model_name,
+        ).ocr(image_uri)
+
+    if (
+        provider_config.provider_name in {"openai", "openai_compatible", "openai-compatible"}
+        or provider_config.config_json.get("adapter") == "openai_compatible"
+    ):
+        return OpenAICompatibleOCRProvider(
+            provider_config.provider_name,
+            provider_config.model_name,
+            provider_config.config_json,
         ).ocr(image_uri)
 
     return OCRResult(

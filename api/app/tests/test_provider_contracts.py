@@ -3,7 +3,7 @@ import math
 from app.providers.base import EmbeddingProvider, LLMProvider, OCRProvider, RerankerProvider
 from app.providers.cohere import CohereRerankerProvider
 from app.providers.fake import FakeEmbeddingProvider, FakeLLMProvider, FakeOCRProvider, FakeRerankerProvider
-from app.providers.openai_compatible import OpenAICompatibleEmbeddingProvider, OpenAICompatibleLLMProvider
+from app.providers.openai_compatible import OpenAICompatibleEmbeddingProvider, OpenAICompatibleLLMProvider, OpenAICompatibleOCRProvider
 
 
 def test_fake_embedding_provider_returns_structured_normalized_result():
@@ -176,6 +176,52 @@ def test_openai_compatible_embedding_provider_parses_embedding_response(monkeypa
     assert captured["headers"]["Authorization"] == "Bearer test-key"
     assert captured["payload"] == {"model": "hardware-embed", "input": "USB power"}
     assert captured["timeout"] == 9
+
+
+def test_openai_compatible_ocr_provider_requires_credentials(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    image_path = tmp_path / "label.png"
+    image_path.write_bytes(b"png-bytes")
+    provider = OpenAICompatibleOCRProvider("openai", "gpt-vision-test", {})
+
+    result = provider.ocr(str(image_path))
+
+    assert result.provider_name == "openai"
+    assert result.model_name == "gpt-vision-test"
+    assert result.text == ""
+    assert result.error_message == "OpenAI-compatible OCR provider is configured but no API key is available."
+
+
+def test_openai_compatible_ocr_provider_sends_base64_image_url(tmp_path, monkeypatch):
+    captured = {}
+    image_path = tmp_path / "label.png"
+    image_path.write_bytes(b"png-bytes")
+
+    def fake_post_json(url, headers, payload, timeout):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["payload"] = payload
+        captured["timeout"] = timeout
+        return {"choices": [{"message": {"content": "USB CONFIG ONLY"}}]}
+
+    monkeypatch.setattr("app.providers.openai_compatible._post_json", fake_post_json)
+    provider = OpenAICompatibleOCRProvider(
+        "openai_compatible",
+        "gpt-4.1-mini",
+        {"api_key": "test-key", "base_url": "https://llm.internal/v1", "detail": "low", "timeout_seconds": 11},
+    )
+
+    result = provider.ocr(str(image_path))
+
+    image_part = captured["payload"]["messages"][0]["content"][1]["image_url"]
+    assert result.error_message == ""
+    assert result.text == "USB CONFIG ONLY"
+    assert captured["url"] == "https://llm.internal/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer test-key"
+    assert captured["payload"]["model"] == "gpt-4.1-mini"
+    assert image_part["url"].startswith("data:image/png;base64,")
+    assert image_part["detail"] == "low"
+    assert captured["timeout"] == 11
 
 
 def test_fake_ocr_provider_returns_structured_placeholder_result():

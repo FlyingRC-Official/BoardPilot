@@ -1,11 +1,14 @@
+import base64
 import json
+import mimetypes
 import os
 import time
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from .base import EmbeddingResult, LLMResult
+from .base import EmbeddingResult, LLMResult, OCRResult
 
 
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
@@ -191,3 +194,101 @@ class OpenAICompatibleEmbeddingProvider:
                 vector=[],
             )
         return EmbeddingResult(self.provider_name, self.model_name, latency_ms, vector=[float(value) for value in vector])
+
+
+class OpenAICompatibleOCRProvider:
+    def __init__(self, provider_name: str, model_name: str, config_json: dict[str, Any]) -> None:
+        self.provider_name = provider_name
+        self.model_name = model_name
+        self.config_json = config_json
+
+    def _image_data_url(self, image_uri: str) -> tuple[str, str]:
+        image_path = Path(image_uri)
+        if not image_path.exists():
+            return "", f"OCR image file does not exist: {image_uri}"
+        mime_type = mimetypes.guess_type(image_path.name)[0] or "image/png"
+        encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}", ""
+
+    def ocr(self, image_uri: str) -> OCRResult:
+        started = time.monotonic()
+        api_key = _api_key(self.config_json)
+        if not api_key:
+            return OCRResult(
+                self.provider_name,
+                self.model_name,
+                0,
+                error_message="OpenAI-compatible OCR provider is configured but no API key is available.",
+            )
+        image_url, image_error = self._image_data_url(image_uri)
+        if image_error:
+            return OCRResult(self.provider_name, self.model_name, 0, error_message=image_error)
+
+        prompt = str(
+            self.config_json.get(
+                "prompt",
+                "Extract all visible text from this hardware support image. Return only the extracted text.",
+            )
+            or ""
+        )
+        try:
+            response = _post_json(
+                _chat_url(self.config_json),
+                {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                {
+                    "model": self.model_name,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_url,
+                                        "detail": str(self.config_json.get("detail", "auto") or "auto"),
+                                    },
+                                },
+                            ],
+                        }
+                    ],
+                    "temperature": float(self.config_json.get("temperature", 0.0) or 0.0),
+                },
+                float(self.config_json.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS) or DEFAULT_TIMEOUT_SECONDS),
+            )
+        except HTTPError as exc:
+            latency_ms = int((time.monotonic() - started) * 1000)
+            error_detail = exc.read().decode("utf-8", errors="replace").strip()
+            return OCRResult(
+                self.provider_name,
+                self.model_name,
+                latency_ms,
+                error_message=error_detail or f"OpenAI-compatible OCR request failed with HTTP {exc.code}.",
+            )
+        except (TimeoutError, URLError, OSError) as exc:
+            latency_ms = int((time.monotonic() - started) * 1000)
+            return OCRResult(
+                self.provider_name,
+                self.model_name,
+                latency_ms,
+                error_message=str(exc) or exc.__class__.__name__,
+            )
+
+        latency_ms = int((time.monotonic() - started) * 1000)
+        text = (
+            response.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+            .strip()
+        )
+        if not text:
+            return OCRResult(
+                self.provider_name,
+                self.model_name,
+                latency_ms,
+                error_message="OpenAI-compatible OCR response did not include extracted text.",
+            )
+        return OCRResult(self.provider_name, self.model_name, latency_ms, text=text, confidence=0.0)
