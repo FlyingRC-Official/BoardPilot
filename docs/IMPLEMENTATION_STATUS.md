@@ -43,6 +43,7 @@ Updated: 2026-05-20
 - Added EvalRun comparison endpoint and Eval page delta table for comparing consecutive runs.
 - ReviewItem to EvalCase conversion now preserves expected source ids, chunk ids, and reviewer-edited answer points for regression coverage.
 - Review page now supports editable failure categories and reviewer notes, backed by validated and audited ReviewItem updates.
+- Eval page now surfaces failure-category distribution from EvalRun summary metrics.
 
 ## Verified
 
@@ -90,5 +91,5 @@ Results:
 2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Replace header-based local role context with real authentication/session management.
-5. Add failure-category reporting UI.
-6. Add a richer review detail layout with linked question, answer, evidence, and eval-result context.
+5. Add a richer review detail layout with linked question, answer, evidence, and eval-result context.
+6. Add admin controls for provider configs and model-cost assumptions.
