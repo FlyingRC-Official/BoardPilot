@@ -39,6 +39,28 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
     store.add_retrieval_run(run)
 
     candidates: list[RetrievalCandidate] = []
+    for rank, (chunk, score) in enumerate(keyword_hits, start=1):
+        candidates.append(
+            RetrievalCandidate(
+                retrieval_run_id=run.id,
+                chunk_id=chunk.id,
+                stage="keyword",
+                source="keyword",
+                keyword_score=score,
+                rank=rank,
+            )
+        )
+    for rank, (chunk, score) in enumerate(vector_hits, start=1):
+        candidates.append(
+            RetrievalCandidate(
+                retrieval_run_id=run.id,
+                chunk_id=chunk.id,
+                stage="vector",
+                source="vector",
+                vector_score=score,
+                rank=rank,
+            )
+        )
     for rank, item in enumerate(merged, start=1):
         candidates.append(
             RetrievalCandidate(

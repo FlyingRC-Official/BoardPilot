@@ -553,6 +553,8 @@ def test_ask_creates_retrieval_evidence_answer_and_citations():
     assert payload["evidence"]
     assert payload["answer"]["citation_map_json"]
     assert payload["answer"]["model_run_id"]
+    stages = {candidate["stage"] for candidate in payload["candidates"]}
+    assert {"keyword", "vector", "merged", "reranked"} <= stages
 
     model_run = client.get(f"/model-runs/{payload['answer']['model_run_id']}").json()
     assert model_run["provider_type"] == "llm"

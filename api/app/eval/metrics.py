@@ -6,7 +6,7 @@ from app.models.schemas import Evidence, RetrievalCandidate
 def recall_at_20(expected_chunk_ids: list[UUID], candidates: list[RetrievalCandidate]) -> float:
     if not expected_chunk_ids:
         return 1.0
-    top_20 = {candidate.chunk_id for candidate in candidates if candidate.rank <= 20}
+    top_20 = {candidate.chunk_id for candidate in candidates if candidate.stage == "merged" and candidate.rank <= 20}
     return len(set(expected_chunk_ids) & top_20) / len(set(expected_chunk_ids))
 
 
@@ -23,4 +23,3 @@ def citation_support_rate(evidence: list[Evidence], citation_map: dict) -> float
     if not cited:
         return 0.0
     return len(cited & valid) / len(cited)
-

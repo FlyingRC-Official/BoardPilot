@@ -11,6 +11,7 @@ Updated: 2026-05-20
 - Added fake LLM, embedding, reranker, and OCR provider abstractions.
 - Added source ingestion from text content into deduplicated chunks.
 - Added hybrid retrieval using keyword overlap, fake vector similarity, merge/dedup, rerank, and saved evidence.
+- Retrieval now saves keyword, vector, merged, and reranked candidate stages for trace inspection.
 - Added citation-backed answer generation that only cites saved Evidence ids.
 - Added review routing for partial or insufficient evidence.
 - Added EvalCase and EvalRun flow with MVP metrics.
@@ -117,6 +118,7 @@ Results:
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus, categorize failed results, inspect per-case traces, send failed cases to Review, and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
+- RetrievalCandidate records now preserve raw keyword/vector recall stages in addition to merged and reranked stages, while Eval Recall@20 remains scoped to the merged recall set.
 - Minimal role-aware access control is present; it is header-based for MVP and can require a configured API key, but still needs real user/session management.
 - Core audit events are inspectable through `GET /audit-logs`; audit writes mirror to SQLAlchemy when available and can still be mirrored to JSONL.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
