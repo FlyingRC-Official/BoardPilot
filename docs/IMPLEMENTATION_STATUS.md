@@ -34,6 +34,7 @@ Updated: 2026-05-21
 - Added source-type parser routing for Markdown, CSV/FAQ, ticket exports, text logs, image descriptions, approved FAQs, and text-extracted PDFs.
 - CSV/FAQ parsing now normalizes common support-export headers, BOM-prefixed files, whitespace, optional context fields, and headerless two-column rows.
 - Added `pypdf`-backed PDF text extraction with a decoded-text fallback.
+- Uploaded PDF files that look like real PDFs now fail ingestion with a saved error and source-issue ReviewItem when text extraction fails or yields no text, instead of chunking replacement-decoded binary content.
 - Added a repeatable 20-case hardware-support Eval seed corpus and Eval page seed action.
 - Added reviewer-edited answer controls before ApprovedFAQ conversion.
 - Added product alias detection during Ask with normalized query expansion and soft product boosts.
@@ -147,7 +148,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 89 passed.
+- API tests: 90 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

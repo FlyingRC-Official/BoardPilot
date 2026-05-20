@@ -150,7 +150,6 @@ def create_uploaded_source_version(
         raise KeyError("source not found")
     source = store.sources[source_id]
     checksum = hashlib.sha256(content).hexdigest()
-    parsed_text = parse_artifact_text(source, content)
     storage = LocalStorageProvider(settings.storage_root)
     storage_uri = storage.save_bytes(f"originals/{source_id}/{checksum}-{safe_filename(filename)}", content)
     version = store.add_source_version(
@@ -162,6 +161,30 @@ def create_uploaded_source_version(
             status="created",
         )
     )
+    try:
+        parsed_text = parse_artifact_text(source, content)
+    except Exception as exc:
+        version.status = "failed"
+        version.error_message = _error_reason(exc)
+        version.updated_at = now()
+        store.source_versions[version.id] = version
+        artifact = store.add_artifact(
+            SourceArtifact(
+                source_version_id=version.id,
+                artifact_type="original",
+                storage_uri=storage_uri,
+                mime_type=content_type or "application/octet-stream",
+                size_bytes=len(content),
+                checksum=checksum,
+                metadata_json={
+                    "original_filename": filename,
+                    "source_type": source.source_type.value,
+                    "parse_error": version.error_message,
+                },
+                content="",
+            )
+        )
+        return version, artifact, []
     artifact = store.add_artifact(
         SourceArtifact(
             source_version_id=version.id,

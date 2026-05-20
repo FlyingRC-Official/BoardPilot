@@ -1004,6 +1004,26 @@ def test_upload_source_version_stores_artifact_and_creates_chunks(tmp_path, monk
     assert payload["chunks"][0]["content"].startswith("Uploaded manual")
 
 
+def test_pdf_upload_without_extractable_text_fails_and_routes_review(tmp_path, monkeypatch):
+    import app.sources.service as source_service
+
+    monkeypatch.setattr(source_service.settings, "storage_root", str(tmp_path))
+    product, source, _chunks = seed_source(source_type="pdf", title="FlyingRC PDF Manual")
+    response = client.post(
+        f"/sources/{source['id']}/versions/upload",
+        data={"version_label": "broken-pdf"},
+        files={"file": ("broken.pdf", b"%PDF-1.4\nnot a readable pdf body", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"]["status"] == "failed"
+    assert "PDF text extraction failed" in payload["version"]["error_message"]
+    assert payload["chunks"] == []
+    assert payload["review_item"]["source_type"] == "source_issue"
+    assert payload["review_item"]["failure_category"] == "bad_parse"
+
+
 def test_csv_faq_source_upload_is_normalized_before_chunking(tmp_path, monkeypatch):
     import app.sources.service as source_service
 
