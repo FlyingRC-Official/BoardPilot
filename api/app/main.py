@@ -9,13 +9,16 @@ from app.core.security import CurrentUser, get_current_user, require_roles
 from app.db.session import store
 from app.eval.runs import run_eval_batch
 from app.eval.seeds import seed_eval_cases
-from app.ingestion.tasks import ingest_source_version
+from app.ingestion.jobs import retry_ingestion_job as retry_ingestion_job_service
+from app.ingestion.jobs import run_ingestion_job
 from app.models.schemas import (
     AskRequest,
     AskResponse,
     EvalCase,
     EvalCaseCreate,
     FailureCategory,
+    IngestionJob,
+    IngestionJobCreate,
     Product,
     ProductAlias,
     ProductAliasCreate,
@@ -216,26 +219,33 @@ def get_chunk_embeddings(chunk_id: UUID) -> list:
 
 @app.post("/ingestion/jobs")
 def post_ingestion_job(
-    payload: Dict[str, UUID],
+    payload: IngestionJobCreate,
     _user: CurrentUser = Depends(require_roles("admin", "support")),
 ) -> dict:
-    chunks = ingest_source_version(store, payload["source_version_id"])
-    return {"status": "completed", "chunk_count": len(chunks)}
+    if payload.source_version_id not in store.source_versions:
+        raise not_found()
+    job, chunks = run_ingestion_job(payload.source_version_id)
+    return {"job": job, "chunks": chunks}
 
 
 @app.get("/ingestion/jobs")
-def get_ingestion_jobs() -> list:
-    return []
+def get_ingestion_jobs() -> list[IngestionJob]:
+    return list(store.ingestion_jobs.values())
 
 
 @app.get("/ingestion/jobs/{job_id}")
-def get_ingestion_job(job_id: UUID) -> dict:
-    return {"id": job_id, "status": "completed"}
+def get_ingestion_job(job_id: UUID) -> IngestionJob:
+    if job_id not in store.ingestion_jobs:
+        raise not_found()
+    return store.ingestion_jobs[job_id]
 
 
 @app.post("/ingestion/jobs/{job_id}/retry")
 def retry_ingestion_job(job_id: UUID, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
-    return {"id": job_id, "status": "retry_not_required_for_inline_mvp"}
+    if job_id not in store.ingestion_jobs:
+        raise not_found()
+    job, chunks = retry_ingestion_job_service(job_id)
+    return {"job": job, "chunks": chunks}
 
 
 @app.post("/ask", response_model=AskResponse)

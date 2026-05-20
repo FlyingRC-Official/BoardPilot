@@ -85,6 +85,28 @@ def test_product_source_ingestion_and_dedup():
     assert len(duplicate["chunks"]) == 1
 
 
+def test_ingestion_job_create_list_get_and_retry():
+    product, source, chunks = seed_source()
+    source_versions = client.get(f"/sources/{source['id']}/versions").json()
+    version_id = source_versions[0]["id"]
+
+    created = client.post("/ingestion/jobs", json={"source_version_id": version_id}).json()
+    job = created["job"]
+    assert job["status"] == "completed"
+    assert job["source_version_id"] == version_id
+    assert job["chunk_count"] == 0
+
+    listed = client.get("/ingestion/jobs").json()
+    assert listed[0]["id"] == job["id"]
+
+    fetched = client.get(f"/ingestion/jobs/{job['id']}").json()
+    assert fetched["status"] == "completed"
+
+    retried = client.post(f"/ingestion/jobs/{job['id']}/retry").json()
+    assert retried["job"]["id"] == job["id"]
+    assert retried["job"]["status"] == "completed"
+
+
 def test_upload_source_version_stores_artifact_and_creates_chunks(tmp_path, monkeypatch):
     import app.sources.service as source_service
 

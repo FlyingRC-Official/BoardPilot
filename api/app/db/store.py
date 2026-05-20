@@ -11,6 +11,7 @@ from app.models.schemas import (
     EvalResult,
     EvalRun,
     Evidence,
+    IngestionJob,
     Product,
     ProductAlias,
     ModelRun,
@@ -34,6 +35,7 @@ class InMemoryStore:
         self.sources: Dict[UUID, Source] = {}
         self.source_versions: Dict[UUID, SourceVersion] = {}
         self.source_artifacts: Dict[UUID, SourceArtifact] = {}
+        self.ingestion_jobs: Dict[UUID, IngestionJob] = {}
         self.chunks: Dict[UUID, Chunk] = {}
         self.chunk_embeddings: Dict[UUID, ChunkEmbedding] = {}
         self.questions: Dict[UUID, Question] = {}
@@ -75,6 +77,10 @@ class InMemoryStore:
     def add_artifact(self, artifact: SourceArtifact) -> SourceArtifact:
         self.source_artifacts[artifact.id] = artifact
         return artifact
+
+    def add_ingestion_job(self, job: IngestionJob) -> IngestionJob:
+        self.ingestion_jobs[job.id] = job
+        return job
 
     def add_chunks(self, chunks: Iterable[Chunk]) -> List[Chunk]:
         inserted: List[Chunk] = []

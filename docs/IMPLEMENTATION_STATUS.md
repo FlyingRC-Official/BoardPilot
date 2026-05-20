@@ -33,6 +33,7 @@ Updated: 2026-05-20
 - Added saved fake ChunkEmbedding records during ingestion and a chunk embedding inspection endpoint.
 - Expanded EvalRun summaries with evidence sufficiency rate, failure-category distribution, latency p50/p95, and model cost placeholder.
 - Enforced explicit failure categories before review approval or rejection.
+- Implemented in-memory IngestionJob records for create, list, get, and retry APIs.
 
 ## Verified
 
@@ -49,7 +50,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 16 passed.
+- API tests: 17 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -58,7 +59,7 @@ Results:
 ## Important MVP Gaps
 
 - API runtime persistence is still in-memory; SQLAlchemy models and Alembic migration exist but the service layer has not yet been switched to database-backed repositories.
-- Redis-backed background workers are scaffolded but ingestion currently runs inline.
+- IngestionJob APIs now persist job status in memory and support retry; execution still runs inline instead of through Redis-backed workers.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.

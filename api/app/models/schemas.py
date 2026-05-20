@@ -156,6 +156,20 @@ class ChunkEmbedding(BaseModel):
     created_at: datetime = Field(default_factory=now)
 
 
+class IngestionJobCreate(BaseModel):
+    source_version_id: UUID
+
+
+class IngestionJob(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    source_version_id: UUID
+    status: str = "queued"
+    error_message: str = ""
+    chunk_count: int = 0
+    created_at: datetime = Field(default_factory=now)
+    updated_at: datetime = Field(default_factory=now)
+
+
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     product_id: Optional[UUID] = None
