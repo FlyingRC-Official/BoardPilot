@@ -23,6 +23,7 @@ Updated: 2026-05-20
 - Added Sources page upload control for storing and ingesting source artifacts.
 - Implemented ReviewItem to ApprovedFAQ conversion with FAQ source re-ingestion.
 - Added source-type parser routing for Markdown, CSV/FAQ, ticket exports, text logs, image descriptions, approved FAQs, and text-extracted PDFs.
+- CSV/FAQ parsing now normalizes common support-export headers, BOM-prefixed files, whitespace, optional context fields, and headerless two-column rows.
 - Added `pypdf`-backed PDF text extraction with a decoded-text fallback.
 - Added a repeatable 20-case hardware-support Eval seed corpus and Eval page seed action.
 - Added reviewer-edited answer controls before ApprovedFAQ conversion.
@@ -96,7 +97,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 50 passed.
+- API tests: 51 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

@@ -400,6 +400,38 @@ def test_csv_faq_source_upload_is_normalized_before_chunking(tmp_path, monkeypat
     assert "question,answer" not in chunk_text
 
 
+def test_csv_faq_upload_handles_common_export_headers_and_headerless_rows(tmp_path, monkeypatch):
+    import app.sources.service as source_service
+
+    monkeypatch.setattr(source_service.settings, "storage_root", str(tmp_path))
+    _product, source, _chunks = seed_source(source_type="csv_faq", title="FlyingRC FAQ")
+    response = client.post(
+        f"/sources/{source['id']}/versions/upload",
+        data={"version_label": "faq-export"},
+        files={
+            "file": (
+                "faq-export.csv",
+                "\ufeffQuestion Text,Resolution,Tags\n Can USB run servos? , No. Use USB for configuration only. , power\n".encode(),
+                "text/csv",
+            )
+        },
+    )
+    payload = response.json()
+    chunk_text = payload["chunks"][0]["content"]
+    assert "Question: Can USB run servos?" in chunk_text
+    assert "Answer: No. Use USB for configuration only." in chunk_text
+    assert "Tags: power" in chunk_text
+
+    headerless = client.post(
+        f"/sources/{source['id']}/versions/upload",
+        data={"version_label": "faq-headerless"},
+        files={"file": ("faq-headerless.csv", b"Can USB power motors?,No,field note\n", "text/csv")},
+    ).json()
+    assert "Question: Can USB power motors?" in headerless["chunks"][0]["content"]
+    assert "Answer: No" in headerless["chunks"][0]["content"]
+    assert "Context: field note" in headerless["chunks"][0]["content"]
+
+
 def test_json_source_version_uses_source_type_parser():
     product, source, _chunks = seed_source(source_type="csv_faq", title="FlyingRC FAQ")
     response = client.post(
