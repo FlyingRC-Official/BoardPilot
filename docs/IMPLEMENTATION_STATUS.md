@@ -63,6 +63,7 @@ Updated: 2026-05-20
 - Review detail now displays linked question attachments for reviewer context.
 - Sources page can queue the latest source version for the Redis ingestion worker.
 - Added a SQLAlchemy catalog repository round-trip for product, source, artifact content, and chunks.
+- Added SQLAlchemy runtime repository coverage for ingestion jobs and audit logs.
 
 ## Verified
 
@@ -79,7 +80,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 35 passed.
+- API tests: 36 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -88,7 +89,7 @@ Results:
 ## Important MVP Gaps
 
 - API runtime persistence is still in-memory; SQLAlchemy models, Alembic migrations, and a core catalog repository exist, but the service layer has not yet been switched to database-backed repositories.
-- IngestionJob APIs now persist job status in memory, support retry, and can enqueue Redis worker messages; database-backed cross-process job execution remains pending.
+- IngestionJob APIs now persist job status in memory, support retry, and can enqueue Redis worker messages; SQLAlchemy repository coverage exists, but database-backed cross-process job execution remains pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.

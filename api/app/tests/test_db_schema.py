@@ -3,8 +3,8 @@ from sqlalchemy.orm import sessionmaker
 
 import app.models.orm  # noqa: F401
 from app.db.base import Base
-from app.db.repositories import CatalogRepository
-from app.models.schemas import Chunk, Product, ProductAlias, Source, SourceArtifact, SourceType, SourceVersion
+from app.db.repositories import CatalogRepository, RuntimeRepository
+from app.models.schemas import AuditLog, Chunk, IngestionJob, Product, ProductAlias, Source, SourceArtifact, SourceType, SourceVersion
 
 
 def test_sqlalchemy_metadata_covers_required_tables():
@@ -118,3 +118,42 @@ def test_catalog_repository_round_trips_source_records_in_sqlite():
     assert repo.versions_for_source(source.id)[0].id == version.id
     assert repo.artifacts_for_version(version.id)[0].content == artifact.content
     assert repo.chunks_for_version(version.id)[0].id == chunk.id
+
+
+def test_runtime_repository_round_trips_worker_and_audit_records_in_sqlite():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["ingestion_jobs"],
+        Base.metadata.tables["audit_logs"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    runtime_repo = RuntimeRepository(session)
+
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(Source(product_id=product.id, title="Manual", source_type=SourceType.markdown))
+    version = catalog_repo.add_source_version(SourceVersion(source_id=source.id, version_label="v1", content_hash="c" * 64))
+    job = runtime_repo.add_ingestion_job(IngestionJob(source_version_id=version.id))
+    job.status = "completed"
+    job.chunk_count = 2
+    runtime_repo.add_ingestion_job(job)
+    audit = runtime_repo.add_audit_log(
+        AuditLog(
+            user_id="worker",
+            action="ingestion_completed",
+            entity_type="IngestionJob",
+            entity_id=str(job.id),
+            after_json={"chunk_count": 2},
+        )
+    )
+    session.commit()
+    session.expire_all()
+
+    assert runtime_repo.get_ingestion_job(job.id).status == "completed"
+    assert runtime_repo.list_ingestion_jobs()[0].chunk_count == 2
+    assert runtime_repo.list_audit_logs()[0].id == audit.id
+    assert runtime_repo.list_audit_logs()[0].after_json == {"chunk_count": 2}

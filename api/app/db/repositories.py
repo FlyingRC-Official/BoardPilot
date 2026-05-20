@@ -8,8 +8,17 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.orm import ChunkOrm, ProductAliasOrm, ProductOrm, SourceArtifactOrm, SourceOrm, SourceVersionOrm
-from app.models.schemas import Chunk, Product, ProductAlias, Source, SourceArtifact, SourceVersion
+from app.models.orm import (
+    AuditLogOrm,
+    ChunkOrm,
+    IngestionJobOrm,
+    ProductAliasOrm,
+    ProductOrm,
+    SourceArtifactOrm,
+    SourceOrm,
+    SourceVersionOrm,
+)
+from app.models.schemas import AuditLog, Chunk, IngestionJob, Product, ProductAlias, Source, SourceArtifact, SourceVersion
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -90,3 +99,33 @@ class CatalogRepository:
     def _list(self, orm_cls: type, model_cls: type[ModelT]) -> list[ModelT]:
         rows = self.session.scalars(select(orm_cls)).all()
         return [_orm_to_model(row, model_cls) for row in rows]
+
+
+class RuntimeRepository:
+    """SQLAlchemy repository for job and audit records shared by API and workers."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add_ingestion_job(self, job: IngestionJob) -> IngestionJob:
+        return self._merge(job, IngestionJobOrm, IngestionJob)
+
+    def get_ingestion_job(self, job_id: UUID) -> IngestionJob | None:
+        row = self.session.get(IngestionJobOrm, str(job_id))
+        return _orm_to_model(row, IngestionJob) if row else None
+
+    def list_ingestion_jobs(self) -> list[IngestionJob]:
+        rows = self.session.scalars(select(IngestionJobOrm)).all()
+        return [_orm_to_model(row, IngestionJob) for row in rows]
+
+    def add_audit_log(self, audit_log: AuditLog) -> AuditLog:
+        return self._merge(audit_log, AuditLogOrm, AuditLog)
+
+    def list_audit_logs(self) -> list[AuditLog]:
+        rows = self.session.scalars(select(AuditLogOrm)).all()
+        return [_orm_to_model(row, AuditLog) for row in rows]
+
+    def _merge(self, model: ModelT, orm_cls: type, model_cls: type[ModelT]) -> ModelT:
+        row = self.session.merge(orm_cls(**_model_to_orm_kwargs(model, orm_cls)))
+        self.session.flush()
+        return _orm_to_model(row, model_cls)
