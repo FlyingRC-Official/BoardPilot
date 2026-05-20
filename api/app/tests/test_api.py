@@ -789,6 +789,41 @@ def test_ask_detects_product_alias_without_hard_filtering():
     assert top_reranked["metadata_json"]["soft_boost_score"] > 0
 
 
+def test_high_confidence_product_alias_uses_hard_filter():
+    product, _source, chunks = seed_source()
+    client.post(
+        f"/products/{product['id']}/aliases",
+        json={"alias": "F4 FC", "alias_type": "user_facing", "confidence": 0.99},
+    )
+    other_product = client.post(
+        "/products",
+        json={"name": "Other Board", "slug": "other-board", "description": "Different board"},
+    ).json()
+    other_source = client.post(
+        "/sources",
+        json={
+            "product_id": other_product["id"],
+            "title": "Other Board Manual",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+    ).json()
+    other_version = client.post(
+        f"/sources/{other_source['id']}/versions",
+        json={"version_label": "v1", "content": "USB power on this board has unrelated constraints."},
+    ).json()
+
+    payload = client.post("/ask", json={"question": "For the F4 FC, can USB power servos?"}).json()
+    filters = payload["retrieval_run"]["filter_plan_json"]["filters"]
+    candidate_chunk_ids = {candidate["chunk_id"] for candidate in payload["candidates"]}
+
+    assert filters[0]["type"] == "hard_filter"
+    assert filters[0]["value"] == product["id"]
+    assert filters[0]["source"] == "detected_entity"
+    assert candidate_chunk_ids <= {chunk["id"] for chunk in chunks}
+    assert candidate_chunk_ids.isdisjoint({chunk["id"] for chunk in other_version["chunks"]})
+
+
 def test_ask_detects_hardware_entities():
     product, _source, _chunks = seed_source()
     client.post(

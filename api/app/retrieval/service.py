@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from app.db.store import InMemoryStore
 from app.models.schemas import Chunk, Question, RetrievalCandidate, RetrievalRun
 from app.retrieval.evidence import create_evidence_pack
-from app.retrieval.filter_plan import build_filter_plan
+from app.retrieval.filter_plan import build_filter_plan, high_confidence_product_id
 from app.retrieval.keyword import keyword_recall
 from app.retrieval.merge import merge_candidates
 from app.retrieval.query_normalization import normalize_query
@@ -51,9 +52,12 @@ def _chunk_matches_metadata_filters(store: InMemoryStore, chunk: Chunk, filters:
 
 def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRun, list[RetrievalCandidate], list]:
     started = datetime.utcnow()
+    detected_product_id = high_confidence_product_id(question.detected_entities_json)
+    detected_product_uuid = UUID(detected_product_id) if detected_product_id else None
+    product_filter_id = question.product_id or detected_product_uuid
     chunks = [
         chunk
-        for chunk in store.enabled_chunks(question.product_id)
+        for chunk in store.enabled_chunks(product_filter_id)
         if _chunk_matches_metadata_filters(store, chunk, question.metadata_filters_json)
     ]
     keyword_hits = keyword_recall(question.normalized_text, chunks)
@@ -64,7 +68,7 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
     }
     for item in merged:
         product_id = str(item["chunk"].product_id)
-        boost = soft_boost_products.get(product_id, 0.0) * 0.15 if question.product_id is None else 0.0
+        boost = soft_boost_products.get(product_id, 0.0) * 0.15 if product_filter_id is None else 0.0
         item["soft_boost_score"] = boost
         item["merged_score"] += boost
     reranker_config = store.active_provider_config("reranker")

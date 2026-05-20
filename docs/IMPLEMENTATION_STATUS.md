@@ -111,7 +111,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 64 passed.
+- API tests: 65 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -125,6 +125,7 @@ Results:
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus, categorize failed results, inspect per-case traces, send failed cases to Review, and compare numeric metric deltas between two runs.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
+- High-confidence detected product aliases now become hard product filters while lower-confidence aliases remain soft boosts.
 - RetrievalCandidate records now preserve raw keyword/vector recall stages in addition to merged and reranked stages, while Eval Recall@20 remains scoped to the merged recall set.
 - Hybrid merge now deduplicates candidates by chunk id, content hash, and near-duplicate source position while preserving deduped chunk ids in candidate metadata.
 - Minimal role-aware access control is present; it is header-based for MVP and can require a configured API key, but still needs real user/session management.
