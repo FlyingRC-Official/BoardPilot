@@ -767,6 +767,27 @@ def test_ask_detects_product_alias_without_hard_filtering():
     assert top_reranked["metadata_json"]["soft_boost_score"] > 0
 
 
+def test_ask_detects_hardware_entities():
+    product, _source, _chunks = seed_source()
+    client.post(
+        f"/products/{product['id']}/aliases",
+        json={"alias": "F4 FC", "alias_type": "user_facing", "confidence": 0.82},
+    )
+
+    payload = client.post(
+        "/ask",
+        json={"question": "F4 FC on PX4 v1.14.3 shows ERR-42 on M1 with USB-C and CAN-FD connected."},
+    ).json()
+    entities = payload["question"]["detected_entities_json"]
+
+    assert entities["products"][0]["product_id"] == product["id"]
+    assert "PX4 v1.14.3" in entities["firmware_versions"]
+    assert "ERR-42" in entities["error_codes"]
+    assert "M1" in entities["connectors"]
+    assert "USB-C" in entities["connectors"]
+    assert "CAN-FD" in entities["interfaces"]
+
+
 def test_explicit_product_selection_still_uses_hard_filter():
     product, _source, _chunks = seed_source()
     client.post(
