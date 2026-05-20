@@ -2,10 +2,14 @@ from typing import Any, Dict, Optional
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.answers.service import generate_answer
 from app.core.config import settings
 from app.core.security import CurrentUser, get_current_user, require_roles
+from app.db.repositories import RuntimeRepository
+from app.db.session import get_session
 from app.db.session import store
 from app.eval.runs import run_eval_batch
 from app.eval.seeds import seed_eval_cases
@@ -60,6 +64,30 @@ app = FastAPI(title=settings.app_name, version="0.1.0")
 
 def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="not found")
+
+
+def save_runtime_job(session: Session, job: IngestionJob) -> None:
+    try:
+        RuntimeRepository(session).add_ingestion_job(job)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_runtime_jobs(session: Session) -> list[IngestionJob]:
+    try:
+        return RuntimeRepository(session).list_ingestion_jobs()
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def get_runtime_job(session: Session, job_id: UUID) -> Optional[IngestionJob]:
+    try:
+        return RuntimeRepository(session).get_ingestion_job(job_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
 
 
 @app.get("/health")
@@ -363,10 +391,12 @@ def get_chunk_embeddings(chunk_id: UUID) -> list:
 def post_ingestion_job(
     payload: IngestionJobCreate,
     _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> dict:
     if payload.source_version_id not in store.source_versions:
         raise not_found()
     job, chunks = run_ingestion_job(payload.source_version_id)
+    save_runtime_job(session, job)
     return {"job": job, "chunks": chunks}
 
 
@@ -374,37 +404,49 @@ def post_ingestion_job(
 def enqueue_ingestion_job_endpoint(
     payload: IngestionJobCreate,
     _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
 ) -> dict:
     if payload.source_version_id not in store.source_versions:
         raise not_found()
     job = store.add_ingestion_job(IngestionJob(source_version_id=payload.source_version_id))
+    save_runtime_job(session, job)
     try:
         enqueue_ingestion_job(job)
     except Exception as exc:
         job.status = "failed"
         job.error_message = f"queue enqueue failed: {exc}"
         job.updated_at = now()
+        save_runtime_job(session, job)
         raise HTTPException(status_code=503, detail="failed to enqueue ingestion job")
     return {"job": job, "queue": QUEUE_NAME}
 
 
 @app.get("/ingestion/jobs")
-def get_ingestion_jobs() -> list[IngestionJob]:
-    return list(store.ingestion_jobs.values())
+def get_ingestion_jobs(session: Session = Depends(get_session)) -> list[IngestionJob]:
+    database_jobs = list_runtime_jobs(session)
+    return database_jobs or list(store.ingestion_jobs.values())
 
 
 @app.get("/ingestion/jobs/{job_id}")
-def get_ingestion_job(job_id: UUID) -> IngestionJob:
+def get_ingestion_job(job_id: UUID, session: Session = Depends(get_session)) -> IngestionJob:
+    database_job = get_runtime_job(session, job_id)
+    if database_job:
+        return database_job
     if job_id not in store.ingestion_jobs:
         raise not_found()
     return store.ingestion_jobs[job_id]
 
 
 @app.post("/ingestion/jobs/{job_id}/retry")
-def retry_ingestion_job(job_id: UUID, _user: CurrentUser = Depends(require_roles("admin", "support"))) -> dict:
+def retry_ingestion_job(
+    job_id: UUID,
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
+) -> dict:
     if job_id not in store.ingestion_jobs:
         raise not_found()
     job, chunks = retry_ingestion_job_service(job_id)
+    save_runtime_job(session, job)
     return {"job": job, "chunks": chunks}
 
 

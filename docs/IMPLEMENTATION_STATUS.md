@@ -66,6 +66,7 @@ Updated: 2026-05-20
 - Added SQLAlchemy runtime repository coverage for ingestion jobs and audit logs.
 - Added SQLAlchemy retrieval repository coverage for questions, attachments, retrieval runs, candidates, evidence, model runs, and answers.
 - Added SQLAlchemy review/eval/support repository coverage and persisted imported log source content.
+- Ingestion job endpoints now mirror job state into the SQLAlchemy runtime repository when the database schema is available.
 
 ## Verified
 
@@ -82,7 +83,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 38 passed.
+- API tests: 39 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -91,7 +92,7 @@ Results:
 ## Important MVP Gaps
 
 - API runtime persistence is still in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, but the service layer has not yet been switched to database-backed repositories.
-- IngestionJob APIs now persist job status in memory, support retry, and can enqueue Redis worker messages; SQLAlchemy repository coverage exists, but database-backed cross-process job execution remains pending.
+- IngestionJob APIs now persist job status in memory, support retry, can enqueue Redis worker messages, and mirror job state to SQLAlchemy when available; full database-backed cross-process job execution remains pending.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; OCR provider remains fake.
 - EvalRun can run the required 20-case seed corpus and compare numeric metric deltas between two runs.

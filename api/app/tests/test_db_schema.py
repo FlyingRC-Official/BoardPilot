@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 import app.models.orm  # noqa: F401
 from app.db.base import Base
 from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
+from app.main import get_runtime_job, list_runtime_jobs, save_runtime_job
 from app.models.schemas import (
     Answer,
     ApprovedFAQ,
@@ -186,6 +187,29 @@ def test_runtime_repository_round_trips_worker_and_audit_records_in_sqlite():
     assert runtime_repo.list_ingestion_jobs()[0].chunk_count == 2
     assert runtime_repo.list_audit_logs()[0].id == audit.id
     assert runtime_repo.list_audit_logs()[0].after_json == {"chunk_count": 2}
+
+
+def test_runtime_job_api_helpers_use_database_when_available():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["ingestion_jobs"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(Source(product_id=product.id, title="Manual", source_type=SourceType.markdown))
+    version = catalog_repo.add_source_version(SourceVersion(source_id=source.id, version_label="v1", content_hash="9" * 64))
+    job = IngestionJob(source_version_id=version.id)
+    save_runtime_job(session, job)
+    session.expire_all()
+
+    assert list_runtime_jobs(session)[0].id == job.id
+    assert get_runtime_job(session, job.id).source_version_id == version.id
 
 
 def test_retrieval_repository_round_trips_ask_records_in_sqlite():
