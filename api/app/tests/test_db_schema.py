@@ -1,3 +1,5 @@
+import pytest
+from pydantic import ValidationError
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 
@@ -135,6 +137,22 @@ def test_sqlalchemy_metadata_covers_required_tables():
         "ingestion_jobs",
     }
     assert required_tables <= set(Base.metadata.tables)
+
+
+def test_review_item_source_type_is_limited_to_documented_buckets():
+    accepted = {
+        "low_confidence_answer",
+        "insufficient_evidence",
+        "user_feedback",
+        "eval_failure",
+        "source_issue",
+    }
+
+    for source_type in accepted:
+        assert ReviewItem(source_type=source_type).source_type == source_type
+
+    with pytest.raises(ValidationError):
+        ReviewItem(source_type="generation_error")
 
 
 def test_sqlalchemy_schema_can_create_core_tables_in_sqlite():

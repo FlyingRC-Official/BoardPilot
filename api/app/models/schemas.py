@@ -38,6 +38,14 @@ class ReviewStatus(str, Enum):
     converted_to_eval_case = "converted_to_eval_case"
 
 
+class ReviewSourceType(str, Enum):
+    low_confidence_answer = "low_confidence_answer"
+    insufficient_evidence = "insufficient_evidence"
+    user_feedback = "user_feedback"
+    eval_failure = "eval_failure"
+    source_issue = "source_issue"
+
+
 class FailureCategory(str, Enum):
     missing_source = "missing_source"
     stale_source = "stale_source"
@@ -268,7 +276,7 @@ class AnswerFeedbackCreate(BaseModel):
 
 class ReviewItem(BaseModel):
     id: UUID = Field(default_factory=uuid4)
-    source_type: str
+    source_type: ReviewSourceType
     question_id: Optional[UUID] = None
     answer_id: Optional[UUID] = None
     eval_result_id: Optional[UUID] = None

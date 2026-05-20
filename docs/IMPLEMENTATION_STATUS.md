@@ -52,6 +52,7 @@ Updated: 2026-05-21
 - Expanded EvalRun summaries with evidence sufficiency rate, failure-category distribution, latency p50/p95, and model cost placeholder.
 - Enforced explicit failure categories before review approval or rejection.
 - Review approval, rejection, source-update-needed, and review-item edit paths now validate failure categories consistently before mutating review state.
+- ReviewItem source types are now schema-limited to the documented review buckets: low-confidence answer, insufficient evidence, user feedback, eval failure, and source issue.
 - Review decision and conversion audit events now include before/after review-item state for stronger traceability.
 - Implemented in-memory IngestionJob records for create, list, get, and retry APIs.
 - Added typed in-memory AuditLog records and an admin audit log endpoint.
@@ -159,7 +160,7 @@ headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 
 Results:
 
-- API tests: 98 passed.
+- API tests: 99 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
