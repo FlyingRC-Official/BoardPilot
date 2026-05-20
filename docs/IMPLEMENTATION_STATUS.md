@@ -106,7 +106,7 @@ Results:
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI remains minimal.
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
 - Authentication and role enforcement are not implemented.
-- Audit logging exists as an in-memory event list and can also be mirrored to JSONL for durable retention; full database-backed audit storage remains pending.
+- Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors writes to SQLAlchemy when the schema is available; the read path still needs a full database-first switch.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics; review still needs durable database persistence.
 - The web workbench is functional but has not been visually verified in the in-app browser because the browser execution tool was unavailable in this session.
 
