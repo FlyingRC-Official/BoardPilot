@@ -22,6 +22,7 @@ from app.main import (
     get_runtime_job,
     get_source_from_database,
     get_source_version_from_database,
+    hydrate_review_item_for_service,
     list_aliases_from_database,
     list_artifacts_from_database,
     list_audit_logs_from_database,
@@ -84,6 +85,7 @@ from app.models.schemas import (
     RetrievalCandidate,
     RetrievalRun,
     ReviewItem,
+    ReviewStatus,
     Source,
     SourceArtifact,
     SourceType,
@@ -342,6 +344,26 @@ def test_support_import_api_helpers_use_database_when_available():
     assert list_image_assets_from_database(session)[0].id == image_asset.id
     assert get_image_asset_from_database(session, image_asset.id).storage_uri == "local://image.png"
     assert list_ocr_results_from_database(session, image_asset.id)[0].id == ocr.id
+
+
+def test_review_item_helper_hydrates_database_item_for_service():
+    import app.main as main_app
+    from app.review.service import approve_review_item
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    review_item = ReviewItem(source_type="needs_review")
+
+    save_review_item_to_database(session, review_item)
+    main_app.store.review_items.pop(review_item.id, None)
+
+    hydrated = hydrate_review_item_for_service(session, review_item.id)
+    approved = approve_review_item(main_app.store, review_item.id, FailureCategory.insufficient_evidence, reviewer_id="reviewer-3")
+
+    assert hydrated.id == review_item.id
+    assert approved.status == ReviewStatus.approved
+    assert approved.reviewer_id == "reviewer-3"
 
 
 def test_catalog_api_helpers_use_database_when_available():

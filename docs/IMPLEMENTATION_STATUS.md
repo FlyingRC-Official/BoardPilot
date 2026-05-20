@@ -72,7 +72,7 @@ Updated: 2026-05-20
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Ask questions, retrieval runs, candidates, evidence, model runs, answers, answer feedback, and question attachments now read and mirror through SQLAlchemy when available.
-- Review item queue, detail, update, and decision endpoints now read and mirror through SQLAlchemy when available.
+- Review item queue, detail, update, and decision endpoints now read, hydrate, and mirror through SQLAlchemy when available.
 - Eval case, run, comparison, result, and result-to-review endpoints now read and mirror through SQLAlchemy when available.
 - Ticket, log source, image asset, and OCR import endpoints now read and mirror through SQLAlchemy when available.
 
@@ -91,7 +91,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 45 passed.
+- API tests: 46 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

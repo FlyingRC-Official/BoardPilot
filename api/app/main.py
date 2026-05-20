@@ -470,6 +470,13 @@ def list_review_items_from_database(session: Session) -> list[ReviewItem]:
         return []
 
 
+def hydrate_review_item_for_service(session: Session, item_id: UUID) -> Optional[ReviewItem]:
+    item = store.review_items.get(item_id) or get_review_item_from_database(session, item_id)
+    if item:
+        store.review_items[item.id] = item
+    return item
+
+
 def save_ticket_to_database(session: Session, ticket: Ticket) -> None:
     try:
         ReviewEvalRepository(session).add_ticket(ticket)
@@ -1307,7 +1314,7 @@ def patch_review_item(
     user: CurrentUser = Depends(require_roles("admin", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
-    item = store.review_items.get(item_id) or get_review_item_from_database(session, item_id)
+    item = hydrate_review_item_for_service(session, item_id)
     if not item:
         raise not_found()
     before_json = item.model_dump(mode="json")
@@ -1344,6 +1351,8 @@ def post_review_approve(
 ) -> ReviewItem:
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
+    if not hydrate_review_item_for_service(session, item_id):
+        raise not_found()
     item = approve_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
@@ -1358,6 +1367,8 @@ def post_review_reject(
 ) -> ReviewItem:
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
+    if not hydrate_review_item_for_service(session, item_id):
+        raise not_found()
     item = reject_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
@@ -1372,6 +1383,8 @@ def post_review_source_update_needed(
 ) -> ReviewItem:
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
+    if not hydrate_review_item_for_service(session, item_id):
+        raise not_found()
     item = mark_source_update_needed(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
     save_review_item_to_database(session, item)
     return item
