@@ -1,9 +1,12 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "BoardPilot"
-    environment: str = "local"
+    environment: str = Field("local", validation_alias=AliasChoices("BOARDPILOT_ENV", "BOARDPILOT_ENVIRONMENT"))
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
     storage_root: str = "storage"
     audit_log_path: str = ""
     api_key: str = ""

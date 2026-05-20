@@ -10,6 +10,7 @@ build/
 .env
 storage/originals/*
 storage/derived/*
+storage/audit/*
 !storage/originals/.gitkeep
 !storage/derived/.gitkeep
-
+!storage/audit/.gitkeep

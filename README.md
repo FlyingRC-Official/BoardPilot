@@ -53,3 +53,5 @@ docker compose up --build
 ```
 
 The API container runs Alembic migrations before serving, then the web and worker wait for API health. The current API request path still uses some in-memory service hydration for fast local development, while SQLAlchemy repositories persist the MVP record groups and the Redis worker handles queued ingestion jobs.
+
+Use `.env.example` as the documented deployment template. For private deployments, set `BOARDPILOT_API_KEY` and mirror the same value to `NEXT_PUBLIC_BOARDPILOT_API_KEY`; `BOARDPILOT_API_HOST` and `BOARDPILOT_API_PORT` control the API bind address inside the container.

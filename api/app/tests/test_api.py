@@ -1,9 +1,10 @@
 import json
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.db.session import store
 from app.ingestion.queue import QUEUE_NAME
 from app.main import app
@@ -63,6 +64,27 @@ def test_version_and_provider_metadata_endpoints():
     assert providers.json()["reranker"] == settings.reranker_provider
     assert providers.json()["ocr"] == settings.ocr_provider
     assert providers.json()["configs"] == []
+
+
+def test_env_example_documents_known_backend_settings():
+    project_root = Path(__file__).resolve().parents[3]
+    env_text = (project_root / ".env.example").read_text(encoding="utf-8")
+    env_vars = {
+        line.split("=", 1)[0]
+        for line in env_text.splitlines()
+        if line and not line.startswith("#") and "=" in line
+    }
+    backend_vars = {name for name in env_vars if name.startswith("BOARDPILOT_")}
+    known_backend_vars = {f"BOARDPILOT_{name.upper()}" for name in Settings.model_fields}
+    known_backend_vars.add("BOARDPILOT_ENV")
+
+    assert backend_vars <= known_backend_vars
+    assert "BOARDPILOT_API_KEY" in env_vars
+    assert "NEXT_PUBLIC_BOARDPILOT_API_KEY" in env_vars
+    assert "Required for private deployments" in env_text
+    dockerfile = (project_root / "api" / "Dockerfile").read_text(encoding="utf-8")
+    assert "${BOARDPILOT_API_HOST:-0.0.0.0}" in dockerfile
+    assert "${BOARDPILOT_API_PORT:-8000}" in dockerfile
 
 
 def test_local_web_origin_cors_preflight():
