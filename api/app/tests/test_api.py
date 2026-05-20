@@ -1630,12 +1630,17 @@ def test_review_can_be_marked_as_needing_source_update():
 
 
 def test_source_and_eval_case_changes_are_audit_logged():
-    product, source, _chunks = seed_source()
+    product, source, chunks = seed_source()
     client.patch(
         f"/sources/{source['id']}",
         json={"status": "disabled"},
         headers={"X-BoardPilot-User": "maintainer-1", "X-BoardPilot-Role": "support"},
     )
+    after_disable = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+    ).json()
+    assert after_disable["evidence"] == []
     case = client.post(
         "/eval-cases",
         json={"product_id": product["id"], "question_text": "Initial eval question"},
@@ -1648,9 +1653,12 @@ def test_source_and_eval_case_changes_are_audit_logged():
 
     audit_logs = client.get("/audit-logs").json()
     source_audit = [log for log in audit_logs if log["action"] == "source_updated"]
+    source_disable_audit = [log for log in audit_logs if log["action"] == "source_disabled"]
     eval_audit = [log for log in audit_logs if log["action"] == "eval_case_modified"]
     assert source_audit[-1]["before_json"]["status"] == "active"
     assert source_audit[-1]["after_json"]["status"] == "disabled"
     assert source_audit[-1]["user_id"] == "maintainer-1"
+    assert source_disable_audit[-1]["after_json"]["disabled_chunk_count"] == len(chunks)
+    assert source_disable_audit[-1]["user_id"] == "maintainer-1"
     assert eval_audit[-1]["before_json"]["difficulty"] == "normal"
     assert eval_audit[-1]["after_json"]["difficulty"] == "hard"

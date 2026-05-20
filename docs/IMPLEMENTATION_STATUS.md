@@ -110,7 +110,7 @@ Updated: 2026-05-20
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Product and source patch endpoints now refresh `updated_at` so mutable catalog records reflect edit time.
 - SourceVersion ingestion success, ingestion failure, and disable transitions now refresh `updated_at` so source-version lifecycle state reflects mutation time.
-- Source disable now refreshes `updated_at`, disables all chunks under the source's versions, and records the disabled chunk count in the audit event.
+- Source disable now refreshes `updated_at`, disables all chunks under the source's versions, and records the disabled chunk count in the audit event; patching a source to disabled follows the same disable semantics.
 - ReviewItem approval, rejection, source-update-needed, FAQ conversion, and EvalCase conversion now refresh `updated_at`.
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Ask questions, retrieval runs, candidates, evidence, model runs, answers, answer feedback, and question attachments now read and mirror through SQLAlchemy when available.

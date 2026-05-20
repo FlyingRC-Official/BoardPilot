@@ -942,6 +942,23 @@ def get_source(source_id: UUID, session: Session = Depends(get_session)) -> Sour
     return store.sources[source_id]
 
 
+def disable_chunks_for_source(source_id: UUID, session: Session) -> list[Chunk]:
+    source_versions = [version for version in store.source_versions.values() if version.source_id == source_id]
+    if not source_versions:
+        source_versions = list_source_versions_from_database(session, source_id)
+    disabled_chunks = []
+    for version in source_versions:
+        candidate_chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version.id]
+        if not candidate_chunks:
+            candidate_chunks = list_chunks_from_database(session, version.id)
+        for chunk in candidate_chunks:
+            chunk.enabled = False
+            store.chunks[chunk.id] = chunk
+            disabled_chunks.append(chunk)
+    save_chunks_to_database(session, disabled_chunks)
+    return disabled_chunks
+
+
 @app.patch("/sources/{source_id}", response_model=Source)
 def patch_source(
     source_id: UUID,
@@ -957,6 +974,10 @@ def patch_source(
         if hasattr(source, key):
             setattr(source, key, value)
     source.updated_at = now()
+    became_disabled = before.get("status") != "disabled" and source.status == "disabled"
+    disabled_chunks = []
+    if became_disabled:
+        disabled_chunks = disable_chunks_for_source(source_id, session)
     store.sources[source_id] = source
     save_source_to_database(session, source)
     store.add_audit_log(
@@ -967,6 +988,15 @@ def patch_source(
         before_json=before,
         after_json=source.model_dump(mode="json"),
     )
+    if became_disabled:
+        store.add_audit_log(
+            "source_disabled",
+            "Source",
+            str(source.id),
+            user_id=user.user_id,
+            before_json=before,
+            after_json={**source.model_dump(mode="json"), "reason": payload.get("reason", ""), "disabled_chunk_count": len(disabled_chunks)},
+        )
     return source
 
 
@@ -983,21 +1013,9 @@ def disable_source(
     before = source.model_dump(mode="json")
     source.status = "disabled"
     source.updated_at = now()
-    source_versions = [version for version in store.source_versions.values() if version.source_id == source_id]
-    if not source_versions:
-        source_versions = list_source_versions_from_database(session, source_id)
-    disabled_chunks = []
-    for version in source_versions:
-        candidate_chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version.id]
-        if not candidate_chunks:
-            candidate_chunks = list_chunks_from_database(session, version.id)
-        for chunk in candidate_chunks:
-            chunk.enabled = False
-            store.chunks[chunk.id] = chunk
-            disabled_chunks.append(chunk)
+    disabled_chunks = disable_chunks_for_source(source_id, session)
     store.sources[source_id] = source
     save_source_to_database(session, source)
-    save_chunks_to_database(session, disabled_chunks)
     store.add_audit_log(
         "source_disabled",
         "Source",
