@@ -24,6 +24,8 @@ from app.models.schemas import (
     ProductAlias,
     ProductAliasCreate,
     ProductCreate,
+    ProviderConfig,
+    ProviderConfigCreate,
     Question,
     ReviewItem,
     Source,
@@ -62,12 +64,26 @@ def providers() -> dict:
         "embedding": settings.embedding_provider,
         "reranker": settings.reranker_provider,
         "ocr": settings.ocr_provider,
+        "configs": list(store.provider_configs.values()),
     }
 
 
 @app.get("/me", response_model=CurrentUser)
 def me(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
     return user
+
+
+@app.post("/provider-configs", response_model=ProviderConfig)
+def post_provider_config(
+    payload: ProviderConfigCreate,
+    user: CurrentUser = Depends(require_roles("admin")),
+) -> ProviderConfig:
+    return store.add_provider_config(ProviderConfig(**payload.model_dump()), user_id=user.user_id)
+
+
+@app.get("/provider-configs", response_model=list[ProviderConfig])
+def get_provider_configs(_user: CurrentUser = Depends(require_roles("admin"))) -> list[ProviderConfig]:
+    return list(store.provider_configs.values())
 
 
 @app.post("/products", response_model=Product)

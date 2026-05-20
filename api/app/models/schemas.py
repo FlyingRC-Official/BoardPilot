@@ -278,6 +278,19 @@ class ModelRun(BaseModel):
     created_at: datetime = Field(default_factory=now)
 
 
+class ProviderConfigCreate(BaseModel):
+    provider_type: str
+    provider_name: str
+    model_name: str
+    config_json: Dict[str, Any] = Field(default_factory=dict)
+    enabled: bool = True
+
+
+class ProviderConfig(ProviderConfigCreate):
+    id: UUID = Field(default_factory=uuid4)
+    created_at: datetime = Field(default_factory=now)
+
+
 class AuditLog(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     user_id: Optional[str] = None

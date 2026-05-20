@@ -63,6 +63,35 @@ def test_role_context_and_mutation_guards():
     assert allowed.status_code == 200
 
 
+def test_provider_config_creation_is_admin_only_and_audited():
+    forbidden = client.post(
+        "/provider-configs",
+        json={"provider_type": "llm", "provider_name": "fake", "model_name": "fake-citation-llm"},
+        headers={"X-BoardPilot-Role": "support"},
+    )
+    assert forbidden.status_code == 403
+
+    created = client.post(
+        "/provider-configs",
+        json={"provider_type": "llm", "provider_name": "fake", "model_name": "fake-citation-llm"},
+        headers={"X-BoardPilot-User": "admin-1", "X-BoardPilot-Role": "admin"},
+    )
+    assert created.status_code == 200
+    provider_config = created.json()
+    assert provider_config["enabled"] is True
+
+    configs = client.get("/provider-configs").json()
+    assert configs[0]["id"] == provider_config["id"]
+
+    providers = client.get("/providers").json()
+    assert providers["configs"][0]["id"] == provider_config["id"]
+
+    audit_logs = client.get("/audit-logs").json()
+    audit = [log for log in audit_logs if log["action"] == "provider_config_created"]
+    assert audit[-1]["user_id"] == "admin-1"
+    assert audit[-1]["entity_id"] == provider_config["id"]
+
+
 def test_product_source_ingestion_and_dedup():
     product, source, chunks = seed_source()
     assert product["name"] == "FlyingRC F4"

@@ -38,6 +38,7 @@ Updated: 2026-05-20
 - Audit logging now records source updates, review decisions, ApprovedFAQ creation, and EvalCase creation/modification with before/after context where available.
 - Added a recent audit-event table to the Review page.
 - Added Sources page controls for creating product aliases used by Ask-time alias detection.
+- Added provider configuration records, admin-only provider config APIs, and provider config audit events.
 
 ## Verified
 
@@ -54,7 +55,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 18 passed.
+- API tests: 19 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

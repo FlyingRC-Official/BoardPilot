@@ -15,6 +15,7 @@ from app.models.schemas import (
     IngestionJob,
     Product,
     ProductAlias,
+    ProviderConfig,
     ModelRun,
     Question,
     RetrievalCandidate,
@@ -45,6 +46,7 @@ class InMemoryStore:
         self.evidences: Dict[UUID, Evidence] = {}
         self.answers: Dict[UUID, Answer] = {}
         self.model_runs: Dict[UUID, ModelRun] = {}
+        self.provider_configs: Dict[UUID, ProviderConfig] = {}
         self.review_items: Dict[UUID, ReviewItem] = {}
         self.approved_faqs: Dict[UUID, ApprovedFAQ] = {}
         self.eval_cases: Dict[UUID, EvalCase] = {}
@@ -150,6 +152,17 @@ class InMemoryStore:
     def add_model_run(self, model_run: ModelRun) -> ModelRun:
         self.model_runs[model_run.id] = model_run
         return model_run
+
+    def add_provider_config(self, config: ProviderConfig, user_id: Optional[str] = None) -> ProviderConfig:
+        self.provider_configs[config.id] = config
+        self.add_audit_log(
+            "provider_config_created",
+            "ProviderConfig",
+            str(config.id),
+            user_id=user_id,
+            after_json=config.model_dump(mode="json"),
+        )
+        return config
 
     def add_review_item(self, item: ReviewItem) -> ReviewItem:
         self.review_items[item.id] = item
