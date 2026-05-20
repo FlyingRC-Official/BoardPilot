@@ -931,7 +931,12 @@ def post_alias(
 
 @app.get("/products/{product_id}/aliases", response_model=list[ProductAlias])
 def get_aliases(product_id: UUID, session: Session = Depends(get_session)) -> list[ProductAlias]:
-    return list_aliases_from_database(session, product_id) or store.aliases_for_product(product_id)
+    database_product = get_product_from_database(session, product_id)
+    if database_product:
+        return list_aliases_from_database(session, product_id)
+    if product_id not in store.products:
+        raise not_found()
+    return store.aliases_for_product(product_id)
 
 
 @app.post("/sources", response_model=Source)
@@ -1130,7 +1135,12 @@ def post_webpage_snapshot_version(
 @app.get("/sources/{source_id}/versions")
 def get_source_versions(source_id: UUID, session: Session = Depends(get_session)) -> list:
     database_versions = list_source_versions_from_database(session, source_id)
-    return database_versions or [version for version in store.source_versions.values() if version.source_id == source_id]
+    database_source = get_source_from_database(session, source_id)
+    if database_source:
+        return database_versions
+    if source_id not in store.sources:
+        raise not_found()
+    return [version for version in store.source_versions.values() if version.source_id == source_id]
 
 
 @app.post("/source-versions/{version_id}/disable")
@@ -1197,13 +1207,19 @@ def post_source_artifact(
 @app.get("/source-versions/{version_id}/chunks")
 def get_chunks(version_id: UUID, session: Session = Depends(get_session)) -> list:
     database_chunks = list_chunks_from_database(session, version_id)
-    return database_chunks or [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
+    database_version = get_source_version_from_database(session, version_id)
+    if database_version:
+        return database_chunks
+    if version_id not in store.source_versions:
+        raise not_found()
+    return [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
 
 
 @app.get("/source-versions/{version_id}/artifacts")
 def get_source_version_artifacts(version_id: UUID, session: Session = Depends(get_session)) -> list:
     database_artifacts = list_artifacts_from_database(session, version_id)
-    if database_artifacts:
+    database_version = get_source_version_from_database(session, version_id)
+    if database_version:
         return database_artifacts
     if version_id not in store.source_versions:
         raise not_found()

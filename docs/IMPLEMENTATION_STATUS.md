@@ -116,6 +116,7 @@ Updated: 2026-05-21
 - Source disable now refreshes `updated_at`, disables all chunks under the source's versions, and records the disabled chunk count in the audit event; patching a source to disabled follows the same disable semantics.
 - ReviewItem approval, rejection, source-update-needed, FAQ conversion, and EvalCase conversion now refresh `updated_at`.
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
+- Child-list endpoints for aliases, source versions, chunks, and artifacts now return 404 for missing parent records while preserving empty lists for existing parents with no children.
 - Ask questions, retrieval runs, candidates, evidence, model runs, answers, answer feedback, and question attachments now read and mirror through SQLAlchemy when available.
 - Ask and Eval runs now hydrate products, aliases, sources, source versions, chunks, and chunk embeddings from SQLAlchemy before retrieval so database-backed source material remains retrievable after an API restart.
 - Review item queue, detail, update, and decision endpoints now read, hydrate, and mirror through SQLAlchemy when available.
@@ -142,7 +143,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 87 passed.
+- API tests: 88 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

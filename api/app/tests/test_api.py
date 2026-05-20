@@ -517,6 +517,31 @@ def test_product_source_ingestion_and_dedup():
     assert all(artifact["source_version_id"] == version_id for artifact in version_artifacts)
 
 
+def test_child_list_endpoints_distinguish_missing_parent_from_empty_children():
+    missing_id = str(uuid4())
+    assert client.get(f"/products/{missing_id}/aliases").status_code == 404
+    assert client.get(f"/sources/{missing_id}/versions").status_code == 404
+    assert client.get(f"/source-versions/{missing_id}/chunks").status_code == 404
+    assert client.get(f"/source-versions/{missing_id}/artifacts").status_code == 404
+
+    product = client.post(
+        "/products",
+        json={"name": "Empty Child Board", "slug": "empty-child-board", "description": ""},
+    ).json()
+    source = client.post(
+        "/sources",
+        json={
+            "product_id": product["id"],
+            "title": "Empty Child Source",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+    ).json()
+
+    assert client.get(f"/products/{product['id']}/aliases").json() == []
+    assert client.get(f"/sources/{source['id']}/versions").json() == []
+
+
 def test_unsupported_embedding_provider_config_fails_ingestion_and_routes_review():
     client.post(
         "/provider-configs",
