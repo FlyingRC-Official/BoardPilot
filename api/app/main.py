@@ -24,6 +24,7 @@ from app.models.schemas import (
     AskRequest,
     AskResponse,
     Answer,
+    AnswerFeedbackCreate,
     ApprovedFAQ,
     AuditLog,
     Chunk,
@@ -622,8 +623,8 @@ def create_source_issue_review_item_for_failed_version(session: Session, version
     return item
 
 
-def review_item_from_answer_feedback(answer: Answer, payload: Dict[str, Any]) -> ReviewItem:
-    feedback_type = payload.get("feedback_type")
+def review_item_from_answer_feedback(answer: Answer, payload: AnswerFeedbackCreate) -> ReviewItem:
+    feedback_type = payload.feedback_type
     feedback_routes = {
         "missing_source": ("source_issue", FailureCategory.missing_source, 1, ReviewStatus.open),
         "incorrect": ("user_feedback", FailureCategory.unsupported_claim, 1, ReviewStatus.open),
@@ -641,7 +642,7 @@ def review_item_from_answer_feedback(answer: Answer, payload: Dict[str, Any]) ->
         status=status,
         priority=priority,
         failure_category=failure_category,
-        reviewer_notes=payload.get("notes", ""),
+        reviewer_notes=payload.notes,
     )
 
 
@@ -1507,7 +1508,7 @@ def get_model_run(model_run_id: UUID, session: Session = Depends(get_session)):
 @app.post("/answers/{answer_id}/feedback")
 def post_feedback(
     answer_id: UUID,
-    payload: Dict[str, Any],
+    payload: AnswerFeedbackCreate,
     _user: CurrentUser = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> ReviewItem:

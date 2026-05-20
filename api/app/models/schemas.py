@@ -254,6 +254,11 @@ class Answer(BaseModel):
     created_at: datetime = Field(default_factory=now)
 
 
+class AnswerFeedbackCreate(BaseModel):
+    feedback_type: str = ""
+    notes: str = ""
+
+
 class ReviewItem(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     source_type: str
