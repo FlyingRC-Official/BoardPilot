@@ -1526,6 +1526,19 @@ def test_answer_feedback_creates_review_item():
     assert incorrect["failure_category"] == "unsupported_claim"
     assert incorrect["priority"] == 1
 
+    helpful = client.post(
+        f"/answers/{ask_payload['answer']['id']}/feedback",
+        json={"feedback_type": "helpful", "notes": "This resolved my issue."},
+    ).json()
+    assert helpful["source_type"] == "user_feedback"
+    assert helpful["failure_category"] is None
+    assert helpful["status"] == "approved"
+    assert helpful["priority"] == 4
+    active_review_ids = [item["id"] for item in client.get("/review-items").json()]
+    all_review_ids = [item["id"] for item in client.get("/review-items?status=all").json()]
+    assert helpful["id"] not in active_review_ids
+    assert helpful["id"] in all_review_ids
+
 
 def test_llm_provider_config_sets_model_run_identity_and_cost():
     product, _source, _chunks = seed_source()
