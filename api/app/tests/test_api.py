@@ -324,6 +324,40 @@ def test_review_approval_requires_failure_category():
     approved = client.post(
         f"/review-items/{review_item['id']}/approve",
         json={"failure_category": "insufficient_evidence"},
+        headers={"X-BoardPilot-User": "reviewer-1", "X-BoardPilot-Role": "reviewer"},
     )
     assert approved.status_code == 200
     assert approved.json()["failure_category"] == "insufficient_evidence"
+
+    audit_logs = client.get("/audit-logs").json()
+    review_audit = [log for log in audit_logs if log["action"] == "review_approved"]
+    assert review_audit
+    assert review_audit[-1]["user_id"] == "reviewer-1"
+    assert review_audit[-1]["entity_id"] == review_item["id"]
+
+
+def test_source_and_eval_case_changes_are_audit_logged():
+    product, source, _chunks = seed_source()
+    client.patch(
+        f"/sources/{source['id']}",
+        json={"status": "disabled"},
+        headers={"X-BoardPilot-User": "maintainer-1", "X-BoardPilot-Role": "support"},
+    )
+    case = client.post(
+        "/eval-cases",
+        json={"product_id": product["id"], "question_text": "Initial eval question"},
+    ).json()
+    client.patch(
+        f"/eval-cases/{case['id']}",
+        json={"difficulty": "hard"},
+        headers={"X-BoardPilot-User": "eval-1", "X-BoardPilot-Role": "reviewer"},
+    )
+
+    audit_logs = client.get("/audit-logs").json()
+    source_audit = [log for log in audit_logs if log["action"] == "source_updated"]
+    eval_audit = [log for log in audit_logs if log["action"] == "eval_case_modified"]
+    assert source_audit[-1]["before_json"]["status"] == "active"
+    assert source_audit[-1]["after_json"]["status"] == "disabled"
+    assert source_audit[-1]["user_id"] == "maintainer-1"
+    assert eval_audit[-1]["before_json"]["difficulty"] == "normal"
+    assert eval_audit[-1]["after_json"]["difficulty"] == "hard"

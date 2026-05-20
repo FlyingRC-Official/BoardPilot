@@ -5,6 +5,7 @@ from uuid import UUID
 from app.models.schemas import (
     Answer,
     ApprovedFAQ,
+    AuditLog,
     Chunk,
     ChunkEmbedding,
     EvalCase,
@@ -52,7 +53,7 @@ class InMemoryStore:
         self.tickets: List[dict] = []
         self.log_sources: List[dict] = []
         self.image_assets: List[dict] = []
-        self.audit_log: List[dict] = []
+        self.audit_logs: Dict[UUID, AuditLog] = {}
         self.chunk_hashes_by_version: Dict[UUID, set] = defaultdict(set)
 
     def add_product(self, product: Product) -> Product:
@@ -152,17 +153,17 @@ class InMemoryStore:
 
     def add_review_item(self, item: ReviewItem) -> ReviewItem:
         self.review_items[item.id] = item
-        self.audit_log.append({"action": "review_item_created", "entity_type": "ReviewItem", "entity_id": str(item.id)})
+        self.add_audit_log("review_item_created", "ReviewItem", str(item.id))
         return item
 
     def add_approved_faq(self, faq: ApprovedFAQ) -> ApprovedFAQ:
         self.approved_faqs[faq.id] = faq
-        self.audit_log.append({"action": "approved_faq_created", "entity_type": "ApprovedFAQ", "entity_id": str(faq.id)})
+        self.add_audit_log("approved_faq_created", "ApprovedFAQ", str(faq.id), after_json=faq.model_dump(mode="json"))
         return faq
 
     def add_eval_case(self, case: EvalCase) -> EvalCase:
         self.eval_cases[case.id] = case
-        self.audit_log.append({"action": "eval_case_created", "entity_type": "EvalCase", "entity_id": str(case.id)})
+        self.add_audit_log("eval_case_created", "EvalCase", str(case.id), after_json=case.model_dump(mode="json"))
         return case
 
     def add_eval_run(self, run: EvalRun) -> EvalRun:
@@ -172,6 +173,26 @@ class InMemoryStore:
     def add_eval_result(self, result: EvalResult) -> EvalResult:
         self.eval_results[result.id] = result
         return result
+
+    def add_audit_log(
+        self,
+        action: str,
+        entity_type: str,
+        entity_id: str,
+        user_id: Optional[str] = None,
+        before_json: Optional[dict] = None,
+        after_json: Optional[dict] = None,
+    ) -> AuditLog:
+        log = AuditLog(
+            user_id=user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            before_json=before_json or {},
+            after_json=after_json or {},
+        )
+        self.audit_logs[log.id] = log
+        return log
 
 
 store = InMemoryStore()

@@ -14,6 +14,7 @@ from app.ingestion.jobs import run_ingestion_job
 from app.models.schemas import (
     AskRequest,
     AskResponse,
+    AuditLog,
     EvalCase,
     EvalCaseCreate,
     FailureCategory,
@@ -140,15 +141,24 @@ def get_source(source_id: UUID) -> Source:
 def patch_source(
     source_id: UUID,
     payload: Dict[str, Any],
-    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    user: CurrentUser = Depends(require_roles("admin", "support")),
 ) -> Source:
     if source_id not in store.sources:
         raise not_found()
     source = store.sources[source_id]
+    before = source.model_dump(mode="json")
     for key, value in payload.items():
         if hasattr(source, key):
             setattr(source, key, value)
     store.sources[source_id] = source
+    store.add_audit_log(
+        "source_updated",
+        "Source",
+        str(source.id),
+        user_id=user.user_id,
+        before_json=before,
+        after_json=source.model_dump(mode="json"),
+    )
     return source
 
 
@@ -361,14 +371,23 @@ def get_eval_case(case_id: UUID) -> EvalCase:
 def patch_eval_case(
     case_id: UUID,
     payload: Dict[str, Any],
-    _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
 ) -> EvalCase:
     if case_id not in store.eval_cases:
         raise not_found()
     case = store.eval_cases[case_id]
+    before = case.model_dump(mode="json")
     for key, value in payload.items():
         if hasattr(case, key):
             setattr(case, key, value)
+    store.add_audit_log(
+        "eval_case_modified",
+        "EvalCase",
+        str(case.id),
+        user_id=user.user_id,
+        before_json=before,
+        after_json=case.model_dump(mode="json"),
+    )
     return case
 
 
@@ -429,6 +448,11 @@ def get_review_item(item_id: UUID) -> ReviewItem:
     return store.review_items[item_id]
 
 
+@app.get("/audit-logs", response_model=list[AuditLog])
+def get_audit_logs(_user: CurrentUser = Depends(require_roles("admin"))) -> list[AuditLog]:
+    return list(store.audit_logs.values())
+
+
 @app.patch("/review-items/{item_id}", response_model=ReviewItem)
 def patch_review_item(
     item_id: UUID,
@@ -448,22 +472,22 @@ def patch_review_item(
 def post_review_approve(
     item_id: UUID,
     payload: Dict[str, FailureCategory],
-    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    user: CurrentUser = Depends(require_roles("admin", "reviewer")),
 ) -> ReviewItem:
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
-    return approve_review_item(store, item_id, payload["failure_category"])
+    return approve_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
 
 
 @app.post("/review-items/{item_id}/reject", response_model=ReviewItem)
 def post_review_reject(
     item_id: UUID,
     payload: Dict[str, FailureCategory],
-    _user: CurrentUser = Depends(require_roles("admin", "reviewer")),
+    user: CurrentUser = Depends(require_roles("admin", "reviewer")),
 ) -> ReviewItem:
     if "failure_category" not in payload:
         raise HTTPException(status_code=422, detail="failure_category is required")
-    return reject_review_item(store, item_id, payload["failure_category"])
+    return reject_review_item(store, item_id, payload["failure_category"], reviewer_id=user.user_id)
 
 
 @app.post("/review-items/{item_id}/to-faq")

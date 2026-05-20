@@ -278,6 +278,17 @@ class ModelRun(BaseModel):
     created_at: datetime = Field(default_factory=now)
 
 
+class AuditLog(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    user_id: Optional[str] = None
+    action: str
+    entity_type: str
+    entity_id: str
+    before_json: Dict[str, Any] = Field(default_factory=dict)
+    after_json: Dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=now)
+
+
 class AskRequest(BaseModel):
     question: str
     product_id: Optional[UUID] = None

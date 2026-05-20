@@ -34,6 +34,8 @@ Updated: 2026-05-20
 - Expanded EvalRun summaries with evidence sufficiency rate, failure-category distribution, latency p50/p95, and model cost placeholder.
 - Enforced explicit failure categories before review approval or rejection.
 - Implemented in-memory IngestionJob records for create, list, get, and retry APIs.
+- Added typed in-memory AuditLog records and an admin audit log endpoint.
+- Audit logging now records source updates, review decisions, ApprovedFAQ creation, and EvalCase creation/modification with before/after context where available.
 
 ## Verified
 
@@ -50,7 +52,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 17 passed.
+- API tests: 18 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -64,6 +66,7 @@ Results:
 - EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
 - Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - Minimal role-aware access control is present; it is header-based for MVP and still needs real authentication/session management.
+- Core audit events are inspectable through `GET /audit-logs`; persistence remains in-memory until SQLAlchemy repositories are wired.
 - Answer generation now records provider, model, input hash, prompt version, latency, token estimates, status, and errors in ModelRun records.
 - Ingested chunks now store provider/model-specific embedding records for retrieval comparison and re-indexing.
 - EvalRun summaries now include the MVP-required aggregate metric families; comparison UI remains minimal.

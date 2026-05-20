@@ -10,7 +10,13 @@ def approve_review_item(store: InMemoryStore, item_id: UUID, failure_category: F
     item.failure_category = failure_category
     item.reviewer_id = reviewer_id
     item.status = ReviewStatus.approved
-    store.audit_log.append({"action": "review_approved", "entity_type": "ReviewItem", "entity_id": str(item.id)})
+    store.add_audit_log(
+        "review_approved",
+        "ReviewItem",
+        str(item.id),
+        user_id=reviewer_id,
+        after_json=item.model_dump(mode="json"),
+    )
     return item
 
 
@@ -19,7 +25,13 @@ def reject_review_item(store: InMemoryStore, item_id: UUID, failure_category: Fa
     item.failure_category = failure_category
     item.reviewer_id = reviewer_id
     item.status = ReviewStatus.rejected
-    store.audit_log.append({"action": "review_rejected", "entity_type": "ReviewItem", "entity_id": str(item.id)})
+    store.add_audit_log(
+        "review_rejected",
+        "ReviewItem",
+        str(item.id),
+        user_id=reviewer_id,
+        after_json=item.model_dump(mode="json"),
+    )
     return item
 
 
@@ -28,7 +40,12 @@ def review_to_eval_case(store: InMemoryStore, item_id: UUID) -> EvalCase:
     question = store.questions[item.question_id]
     case = store.add_eval_case(EvalCase(**EvalCaseCreate(product_id=question.product_id, question_text=question.raw_text).model_dump()))
     item.status = ReviewStatus.converted_to_eval_case
-    store.audit_log.append({"action": "review_converted_to_eval_case", "entity_type": "ReviewItem", "entity_id": str(item.id)})
+    store.add_audit_log(
+        "review_converted_to_eval_case",
+        "ReviewItem",
+        str(item.id),
+        after_json={"eval_case_id": str(case.id)},
+    )
     return case
 
 
@@ -70,12 +87,10 @@ def review_to_faq(store: InMemoryStore, item_id: UUID) -> tuple[ApprovedFAQ, Sou
         )
     )
     item.status = ReviewStatus.converted_to_faq
-    store.audit_log.append(
-        {
-            "action": "review_converted_to_faq",
-            "entity_type": "ReviewItem",
-            "entity_id": str(item.id),
-            "source_version_id": str(version.id),
-        }
+    store.add_audit_log(
+        "review_converted_to_faq",
+        "ReviewItem",
+        str(item.id),
+        after_json={"approved_faq_id": str(faq.id), "source_id": str(source.id), "source_version_id": str(version.id)},
     )
     return faq, source, chunks
