@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { SourceViewer } from "@/components/source-viewer/SourceViewer";
-import { addSourceVersion, createProduct, createSource, listProducts, listSources } from "@/lib/api-client";
+import { addSourceVersion, createProduct, createSource, listProducts, listSources, uploadSourceVersion } from "@/lib/api-client";
 import type { Product, Source } from "@/lib/types";
 
 export default function SourcesPage() {
@@ -14,6 +14,7 @@ export default function SourcesPage() {
   const [sourceType, setSourceType] = useState("markdown");
   const [sourceId, setSourceId] = useState("");
   const [content, setContent] = useState("USB power is for configuration. Do not power servos from the USB connector.");
+  const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
 
   async function refresh() {
@@ -60,6 +61,18 @@ export default function SourcesPage() {
     await addSourceVersion(targetSourceId, { version_label: "v1", content });
     await refresh();
     setMessage("Source version ingested into chunks.");
+  }
+
+  async function submitUpload(event: FormEvent) {
+    event.preventDefault();
+    const targetSourceId = sourceId || sources[0]?.id;
+    if (!targetSourceId || !file) {
+      setMessage("Choose a source and file first.");
+      return;
+    }
+    await uploadSourceVersion(targetSourceId, file, "uploaded");
+    await refresh();
+    setMessage("Uploaded artifact stored and ingested into chunks.");
   }
 
   return (
@@ -110,6 +123,16 @@ export default function SourcesPage() {
           <button className="button">Ingest Version</button>
         </form>
       </section>
+      <section className="panel" style={{ marginTop: 16 }}>
+        <form className="form" onSubmit={submitUpload}>
+          <h2>Upload Artifact</h2>
+          <label className="field">
+            <span>File</span>
+            <input className="input" type="file" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+          </label>
+          <button className="button secondary">Upload and Ingest</button>
+        </form>
+      </section>
       {message ? <p className="status" style={{ marginTop: 16 }}>{message}</p> : null}
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Current Sources</h2>
@@ -118,4 +141,3 @@ export default function SourcesPage() {
     </>
   );
 }
-

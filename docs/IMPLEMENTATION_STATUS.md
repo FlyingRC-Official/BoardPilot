@@ -19,6 +19,8 @@ Updated: 2026-05-20
 - Added deployment and eval guide documents.
 - Added SQLAlchemy ORM models for the required MVP schema.
 - Added an initial Alembic migration foundation with pgvector extension setup for Postgres.
+- Added multipart source artifact upload backed by local filesystem storage.
+- Added Sources page upload control for storing and ingesting source artifacts.
 
 ## Verified
 
@@ -35,7 +37,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 7 passed.
+- API tests: 8 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -45,7 +47,7 @@ Results:
 
 - API runtime persistence is still in-memory; SQLAlchemy models and Alembic migration exist but the service layer has not yet been switched to database-backed repositories.
 - Redis-backed background workers are scaffolded but ingestion currently runs inline.
-- File upload handling is not implemented; source versions currently accept text content through JSON.
+- File upload handling exists for text-decodable artifacts; richer parser-specific upload handling still needs implementation.
 - PDF parsing is a placeholder that accepts extracted text; real PDF extraction should be added.
 - Image OCR is a fake-provider placeholder.
 - Authentication and role enforcement are not implemented.
@@ -56,7 +58,7 @@ Results:
 ## Recommended Next Subtasks
 
 1. Replace the in-memory API store with SQLAlchemy-backed repositories.
-2. Add multipart source uploads and local filesystem storage through `StorageProvider`.
+2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
 3. Move ingestion and embedding jobs to Redis-backed workers.
 4. Implement ApprovedFAQ creation and re-ingestion.
 5. Add authentication with role-aware guards for admin, support, reviewer, and viewer.

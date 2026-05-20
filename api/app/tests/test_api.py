@@ -62,6 +62,24 @@ def test_product_source_ingestion_and_dedup():
     assert len(duplicate["chunks"]) == 1
 
 
+def test_upload_source_version_stores_artifact_and_creates_chunks(tmp_path, monkeypatch):
+    import app.sources.service as source_service
+
+    monkeypatch.setattr(source_service.settings, "storage_root", str(tmp_path))
+    product, source, _chunks = seed_source()
+    response = client.post(
+        f"/sources/{source['id']}/versions/upload",
+        data={"version_label": "upload-v1"},
+        files={"file": ("manual.md", b"Uploaded manual says USB is configuration only.", "text/markdown")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"]["version_label"] == "upload-v1"
+    assert payload["artifact"]["metadata_json"]["original_filename"] == "manual.md"
+    assert payload["artifact"]["size_bytes"] > 0
+    assert payload["chunks"][0]["content"].startswith("Uploaded manual")
+
+
 def test_ask_creates_retrieval_evidence_answer_and_citations():
     product, _source, chunks = seed_source()
     response = client.post(
@@ -109,4 +127,3 @@ def test_eval_run_records_metrics_and_can_route_failure_to_review():
 
     review = client.post(f"/eval-results/{results[0]['id']}/to-review").json()
     assert review["source_type"] == "eval_failure"
-

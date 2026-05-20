@@ -41,6 +41,20 @@ export function addSourceVersion(sourceId: string, payload: { version_label: str
   return request(`/sources/${sourceId}/versions`, { method: "POST", body: JSON.stringify(payload) });
 }
 
+export async function uploadSourceVersion(sourceId: string, file: File, versionLabel = "uploaded") {
+  const body = new FormData();
+  body.append("version_label", versionLabel);
+  body.append("file", file);
+  const response = await fetch(`${API_BASE}/sources/${sourceId}/versions/upload`, {
+    method: "POST",
+    body
+  });
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
 export function askQuestion(payload: { question: string; product_id?: string }) {
   return request<AskResponse>("/ask", { method: "POST", body: JSON.stringify(payload) });
 }
@@ -63,4 +77,3 @@ export function approveReviewItem(id: string, failure_category = "human_policy_r
     body: JSON.stringify({ failure_category })
   });
 }
-

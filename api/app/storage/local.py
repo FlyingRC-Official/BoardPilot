@@ -12,3 +12,8 @@ class LocalStorageProvider:
         target.write_text(content, encoding="utf-8")
         return str(target)
 
+    def save_bytes(self, path: str, content: bytes) -> str:
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        return str(target)

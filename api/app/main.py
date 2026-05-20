@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from app.answers.service import generate_answer
 from app.core.config import settings
@@ -29,7 +29,7 @@ from app.retrieval.query_normalization import normalize_query
 from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
 from app.review.service import approve_review_item, reject_review_item, review_to_eval_case
-from app.sources.service import create_source, create_source_version, list_sources
+from app.sources.service import create_source, create_source_version, create_uploaded_source_version, list_sources
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
 
@@ -137,6 +137,27 @@ def patch_source(source_id: UUID, payload: Dict[str, Any]) -> Source:
 def post_source_version(source_id: UUID, payload: SourceVersionCreate) -> dict:
     try:
         version, artifact, chunks = create_source_version(store, source_id, payload)
+    except KeyError:
+        raise not_found()
+    return {"version": version, "artifact": artifact, "chunks": chunks}
+
+
+@app.post("/sources/{source_id}/versions/upload")
+async def upload_source_version(
+    source_id: UUID,
+    version_label: str = Form("uploaded"),
+    file: UploadFile = File(...),
+) -> dict:
+    try:
+        content = await file.read()
+        version, artifact, chunks = create_uploaded_source_version(
+            store,
+            source_id,
+            version_label,
+            file.filename or "artifact",
+            file.content_type or "application/octet-stream",
+            content,
+        )
     except KeyError:
         raise not_found()
     return {"version": version, "artifact": artifact, "chunks": chunks}
