@@ -164,7 +164,7 @@ headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 
 Results:
 
-- API tests: 100 passed.
+- API tests: 101 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

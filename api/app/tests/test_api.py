@@ -242,6 +242,22 @@ def test_signed_session_token_can_replace_api_key_for_private_requests(monkeypat
         monkeypatch.setattr(settings, "users_json", "")
 
 
+def test_malformed_session_user_allowlist_fails_closed(monkeypatch):
+    monkeypatch.setattr(settings, "api_key", "session-secret")
+    monkeypatch.setattr(settings, "users_json", '{"broken":')
+    try:
+        response = client.post(
+            "/sessions",
+            json={"user_id": "support-session", "role": "support"},
+            headers={"X-BoardPilot-User": "admin-session", "X-BoardPilot-Role": "admin", "X-BoardPilot-API-Key": "session-secret"},
+        )
+        assert response.status_code == 500
+        assert response.json()["detail"] == "invalid users configuration"
+    finally:
+        monkeypatch.setattr(settings, "api_key", "")
+        monkeypatch.setattr(settings, "users_json", "")
+
+
 def test_configured_api_key_protects_read_endpoints_but_allows_health_and_preflight(monkeypatch):
     monkeypatch.setattr(settings, "api_key", "read-secret")
     try:
