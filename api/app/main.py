@@ -26,7 +26,8 @@ from app.models.schemas import (
     SourceVersionCreate,
 )
 from app.products.service import create_alias, create_product, get_product, list_products
-from app.retrieval.query_normalization import normalize_query
+from app.retrieval.entity_extraction import detect_product_aliases
+from app.retrieval.query_normalization import normalize_query, product_alias_expansions
 from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
 from app.review.service import approve_review_item, reject_review_item, review_to_eval_case, review_to_faq
@@ -205,11 +206,14 @@ def retry_ingestion_job(job_id: UUID) -> dict:
 
 @app.post("/ask", response_model=AskResponse)
 def ask(payload: AskRequest) -> AskResponse:
+    detected_entities = detect_product_aliases(store, payload.question)
+    normalized_query = normalize_query(payload.question, product_alias_expansions(detected_entities))
     question = store.add_question(
         Question(
             product_id=payload.product_id,
             raw_text=payload.question,
-            normalized_text=normalize_query(payload.question),
+            normalized_text=normalized_query,
+            detected_entities_json=detected_entities,
             metadata_filters_json=payload.metadata_filters_json,
         )
     )

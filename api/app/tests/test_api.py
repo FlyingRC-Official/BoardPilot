@@ -136,6 +136,58 @@ def test_ask_creates_retrieval_evidence_answer_and_citations():
     assert cited_ids <= evidence_ids
 
 
+def test_ask_detects_product_alias_without_hard_filtering():
+    product, source, _chunks = seed_source()
+    client.post(
+        f"/products/{product['id']}/aliases",
+        json={"alias": "F4 FC", "alias_type": "user_facing", "confidence": 0.82},
+    )
+    other_product = client.post(
+        "/products",
+        json={"name": "Other Board", "slug": "other-board", "description": "Different board"},
+    ).json()
+    other_source = client.post(
+        "/sources",
+        json={
+            "product_id": other_product["id"],
+            "title": "Other Board Manual",
+            "source_type": "markdown",
+            "trust_level": "official",
+        },
+    ).json()
+    client.post(
+        f"/sources/{other_source['id']}/versions",
+        json={"version_label": "v1", "content": "USB power on this board has unrelated constraints."},
+    )
+
+    payload = client.post("/ask", json={"question": "For the F4 FC, can USB power servos?"}).json()
+    detected = payload["question"]["detected_entities_json"]["products"][0]
+    assert detected["product_id"] == product["id"]
+    assert detected["alias"] == "F4 FC"
+    assert "flyingrc f4" in payload["question"]["normalized_text"]
+
+    filters = payload["retrieval_run"]["filter_plan_json"]["filters"]
+    assert filters[0]["type"] == "soft_boost"
+    assert filters[0]["value"] == product["id"]
+    assert not any(item["type"] == "hard_filter" for item in filters)
+    top_reranked = [candidate for candidate in payload["candidates"] if candidate["stage"] == "reranked"][0]
+    assert top_reranked["metadata_json"]["soft_boost_score"] > 0
+
+
+def test_explicit_product_selection_still_uses_hard_filter():
+    product, _source, _chunks = seed_source()
+    client.post(
+        f"/products/{product['id']}/aliases",
+        json={"alias": "F4 FC", "alias_type": "user_facing", "confidence": 0.82},
+    )
+    payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "For the F4 FC, can USB power servos?"},
+    ).json()
+    filters = payload["retrieval_run"]["filter_plan_json"]["filters"]
+    assert filters == [{"type": "hard_filter", "field": "product_id", "value": product["id"]}]
+
+
 def test_insufficient_evidence_routes_to_review():
     response = client.post("/ask", json={"question": "What is the secret factory calibration code?"})
     payload = response.json()

@@ -17,12 +17,20 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
     keyword_hits = keyword_recall(question.normalized_text, chunks)
     vector_hits = vector_recall(question.normalized_text, chunks)
     merged = merge_candidates(keyword_hits, vector_hits)
+    soft_boost_products = {
+        item["product_id"]: item["confidence"] for item in question.detected_entities_json.get("products", [])
+    }
+    for item in merged:
+        product_id = str(item["chunk"].product_id)
+        boost = soft_boost_products.get(product_id, 0.0) * 0.15 if question.product_id is None else 0.0
+        item["soft_boost_score"] = boost
+        item["merged_score"] += boost
     reranked = rerank(question.normalized_text, merged)
 
     run = RetrievalRun(
         question_id=question.id,
         normalized_query=question.normalized_text,
-        filter_plan_json=build_filter_plan(question.product_id),
+        filter_plan_json=build_filter_plan(question.product_id, question.detected_entities_json),
         retrieval_config_json={"keyword_limit": 50, "vector_limit": 50, "evidence_limit": 5},
     )
     run.completed_at = datetime.utcnow()
@@ -55,9 +63,9 @@ def run_retrieval(store: InMemoryStore, question: Question) -> tuple[RetrievalRu
                 merged_score=item["merged_score"],
                 rerank_score=item["rerank_score"],
                 rank=rank,
+                metadata_json={"soft_boost_score": item.get("soft_boost_score", 0.0)},
             )
         )
     store.add_candidates(candidates)
     evidence = store.add_evidence(create_evidence_pack(run.id, reranked))
     return run, candidates, evidence
-

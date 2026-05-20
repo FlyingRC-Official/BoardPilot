@@ -26,6 +26,7 @@ Updated: 2026-05-20
 - Added `pypdf`-backed PDF text extraction with a decoded-text fallback.
 - Added a repeatable 20-case hardware-support Eval seed corpus and Eval page seed action.
 - Added reviewer-edited answer controls before ApprovedFAQ conversion.
+- Added product alias detection during Ask with normalized query expansion and soft product boosts.
 
 ## Verified
 
@@ -42,7 +43,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 12 passed.
+- API tests: 14 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
@@ -54,6 +55,7 @@ Results:
 - Redis-backed background workers are scaffolded but ingestion currently runs inline.
 - File upload handling exists for parser-aware text sources and PDFs; image OCR is still a fake-provider/manual-description placeholder.
 - EvalRun can run the required 20-case seed corpus, but eval comparison UI is still minimal.
+- Product aliases are detected and saved on Questions; auto-detected products soft-boost retrieval while explicit product selection remains a hard filter.
 - Authentication and role enforcement are not implemented.
 - Audit logging exists as an in-memory event list and needs durable storage.
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval; it still needs durable database persistence and richer review detail UX.
