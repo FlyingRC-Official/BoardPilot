@@ -19,6 +19,8 @@ Updated: 2026-05-21
 - Added Docker Compose definitions for API, web, Postgres/pgvector, and Redis.
 - Docker Compose now health-gates Postgres, Redis, API, web, and worker startup, and the API container runs Alembic migrations before serving.
 - `.env.example` now documents private-deployment variables, and the API Docker image honors the documented `BOARDPILOT_API_HOST` and `BOARDPILOT_API_PORT` settings.
+- Docker Compose now passes the documented `BOARDPILOT_API_HOST` and `BOARDPILOT_API_PORT` settings into the API container.
+- Added static deployment contract tests for the Compose service set, private-deployment environment variables, API migration startup, pgvector, Redis, and local storage mount.
 - Added deployment and eval guide documents.
 - Health, version, and provider metadata endpoints are covered by API regression tests.
 - Added SQLAlchemy ORM models for the required MVP schema.
@@ -153,16 +155,18 @@ headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 
 Results:
 
-- API tests: 90 passed.
+- API tests: 93 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.
 - Web routes `/ask`, `/sources`, `/eval`, and `/review`: HTTP 200.
 - Headless Chrome visual pass: screenshots captured for `/ask`, `/sources`, `/eval`, and `/review`; each page rendered expected route content with no application-error text detected in the captured HTML.
+- Static Docker Compose deployment contract tests: covered by the API test suite.
 
 ## Important MVP Gaps
 
 - API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, Docker startup applies migrations automatically, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
+- Docker Compose has static contract coverage, but live `docker compose up --build` verification could not be run on this machine because the Docker CLI is not installed.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
 - File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; OCR can now use manual text, fake provider behavior, or the optional local Tesseract adapter when installed.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline; cloud OCR provider adapters are still not implemented.

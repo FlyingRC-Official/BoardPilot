@@ -4,6 +4,8 @@ services:
       context: ./api
     environment:
       BOARDPILOT_ENV: ${BOARDPILOT_ENV:-local}
+      BOARDPILOT_API_HOST: ${BOARDPILOT_API_HOST:-0.0.0.0}
+      BOARDPILOT_API_PORT: ${BOARDPILOT_API_PORT:-8000}
       BOARDPILOT_STORAGE_ROOT: /app/storage
       BOARDPILOT_AUDIT_LOG_PATH: ${BOARDPILOT_AUDIT_LOG_PATH:-/app/storage/audit/audit.jsonl}
       BOARDPILOT_API_KEY: ${BOARDPILOT_API_KEY:-}
