@@ -7,23 +7,33 @@ from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEv
 from app.db.store import InMemoryStore
 from app.main import (
     delete_provider_config_from_database,
+    get_answer_from_database,
+    get_artifact_from_database,
+    get_model_run_from_database,
     get_provider_config_from_database,
     get_product_from_database,
+    get_question_from_database,
+    get_retrieval_run_from_database,
     get_runtime_job,
     get_source_from_database,
     get_source_version_from_database,
     list_aliases_from_database,
     list_artifacts_from_database,
     list_chunks_from_database,
+    list_evidence_from_database,
     list_provider_configs_from_database,
     list_products_from_database,
+    list_question_attachments_from_database,
+    list_retrieval_candidates_from_database,
     list_runtime_jobs,
     list_sources_from_database,
     list_source_versions_from_database,
     save_alias_to_database,
+    save_ask_response_to_database,
     save_chunks_to_database,
     save_provider_config_to_database,
     save_product_to_database,
+    save_question_attachment_to_database,
     save_runtime_job,
     save_source_to_database,
     save_source_version_bundle_to_database,
@@ -338,6 +348,7 @@ def test_source_version_api_helpers_use_database_when_available():
 
     assert list_source_versions_from_database(session, source.id)[0].status == "disabled"
     assert get_source_version_from_database(session, version.id).id == version.id
+    assert get_artifact_from_database(session, artifact.id).id == artifact.id
     assert list_artifacts_from_database(session, version.id)[0].content == artifact.content
     assert list_chunks_from_database(session, version.id)[0].enabled is False
 
@@ -413,6 +424,77 @@ def test_retrieval_repository_round_trips_ask_records_in_sqlite():
     assert retrieval_repo.candidates_for_run(run.id)[0].id == candidate.id
     assert retrieval_repo.evidence_for_run(run.id)[0].id == evidence.id
     assert retrieval_repo.get_answer(answer.id).citation_map_json["usb"][0] == evidence.id
+
+
+def test_ask_api_helpers_mirror_records_to_database_when_available():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+        Base.metadata.tables["questions"],
+        Base.metadata.tables["question_attachments"],
+        Base.metadata.tables["retrieval_runs"],
+        Base.metadata.tables["retrieval_candidates"],
+        Base.metadata.tables["evidences"],
+        Base.metadata.tables["model_runs"],
+        Base.metadata.tables["answers"],
+        Base.metadata.tables["review_items"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown)
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="6" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+    chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content=artifact.content,
+        content_hash="5" * 64,
+        token_count=4,
+    )
+    question = Question(product_id=product.id, raw_text="Can USB power servos?", normalized_text="usb servos")
+    retrieval_run = RetrievalRun(question_id=question.id, normalized_query=question.normalized_text)
+    candidate = RetrievalCandidate(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, stage="reranked", source="fake", rank=1)
+    evidence = Evidence(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, rank=1, score=1.0, quote=chunk.content, selection_reason="top")
+    model_run = ModelRun(provider_type="llm", provider_name="fake", model_name="fake-citation-llm", input_hash="4" * 64)
+    answer = Answer(
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_text="USB is for configuration only.",
+        citation_map_json={"usb": [evidence.id]},
+        evidence_sufficiency=EvidenceSufficiency.sufficient,
+        confidence=0.9,
+        model_run_id=model_run.id,
+    )
+    review_item = ReviewItem(source_type="needs_review", question_id=question.id, answer_id=answer.id)
+    attachment = QuestionAttachment(question_id=question.id, artifact_id=artifact.id, attachment_type="file", description="manual")
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    main_app.store.model_runs[model_run.id] = model_run
+    try:
+        save_ask_response_to_database(session, question, retrieval_run, [candidate], [evidence], answer, review_item)
+        save_question_attachment_to_database(session, attachment)
+        session.expire_all()
+
+        assert get_question_from_database(session, question.id).id == question.id
+        assert get_retrieval_run_from_database(session, retrieval_run.id).id == retrieval_run.id
+        assert list_retrieval_candidates_from_database(session, retrieval_run.id)[0].id == candidate.id
+        assert list_evidence_from_database(session, retrieval_run.id)[0].id == evidence.id
+        assert get_model_run_from_database(session, model_run.id).id == model_run.id
+        assert get_answer_from_database(session, answer.id).citation_map_json["usb"][0] == evidence.id
+        assert list_question_attachments_from_database(session, question.id)[0].id == attachment.id
+    finally:
+        main_app.store.model_runs.pop(model_run.id, None)
 
 
 def test_review_eval_repository_round_trips_remaining_mvp_records_in_sqlite():

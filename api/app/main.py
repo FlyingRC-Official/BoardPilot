@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.answers.service import generate_answer
 from app.core.config import settings
 from app.core.security import CurrentUser, get_current_user, require_roles
-from app.db.repositories import CatalogRepository, ReviewEvalRepository, RuntimeRepository
+from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
 from app.db.session import get_session
 from app.db.session import store
 from app.eval.runs import run_eval_batch
@@ -19,10 +19,12 @@ from app.ingestion.queue import QUEUE_NAME, enqueue_ingestion_job
 from app.models.schemas import (
     AskRequest,
     AskResponse,
+    Answer,
     AuditLog,
     Chunk,
     EvalCase,
     EvalCaseCreate,
+    Evidence,
     FailureCategory,
     ImageAsset,
     ImageAssetCreate,
@@ -30,6 +32,7 @@ from app.models.schemas import (
     IngestionJobCreate,
     LogSource,
     LogSourceCreate,
+    ModelRun,
     OcrResult,
     OcrResultCreate,
     Product,
@@ -41,6 +44,8 @@ from app.models.schemas import (
     Question,
     QuestionAttachment,
     QuestionAttachmentCreate,
+    RetrievalCandidate,
+    RetrievalRun,
     ReviewItem,
     ReviewItemDetail,
     Source,
@@ -247,12 +252,117 @@ def list_artifacts_from_database(session: Session, version_id: UUID) -> list[Sou
         return []
 
 
+def get_artifact_from_database(session: Session, artifact_id: UUID) -> Optional[SourceArtifact]:
+    try:
+        return CatalogRepository(session).get_artifact(artifact_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
 def list_chunks_from_database(session: Session, version_id: UUID) -> list[Chunk]:
     try:
         return CatalogRepository(session).chunks_for_version(version_id)
     except SQLAlchemyError:
         session.rollback()
         return []
+
+
+def save_ask_response_to_database(
+    session: Session,
+    question: Question,
+    retrieval_run: RetrievalRun,
+    candidates: list[RetrievalCandidate],
+    evidence: list[Evidence],
+    answer: Answer,
+    review_item: Optional[ReviewItem],
+) -> None:
+    try:
+        retrieval_repo = RetrievalRepository(session)
+        retrieval_repo.add_question(question)
+        retrieval_repo.add_retrieval_run(retrieval_run)
+        retrieval_repo.add_candidates(candidates)
+        retrieval_repo.add_evidence(evidence)
+        if answer.model_run_id and answer.model_run_id in store.model_runs:
+            retrieval_repo.add_model_run(store.model_runs[answer.model_run_id])
+        retrieval_repo.add_answer(answer)
+        if review_item:
+            ReviewEvalRepository(session).add_review_item(review_item)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def get_question_from_database(session: Session, question_id: UUID) -> Optional[Question]:
+    try:
+        return RetrievalRepository(session).get_question(question_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def get_retrieval_run_from_database(session: Session, run_id: UUID) -> Optional[RetrievalRun]:
+    try:
+        return RetrievalRepository(session).get_retrieval_run(run_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def list_retrieval_candidates_from_database(session: Session, run_id: UUID) -> list[RetrievalCandidate]:
+    try:
+        return RetrievalRepository(session).candidates_for_run(run_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def get_answer_from_database(session: Session, answer_id: UUID) -> Optional[Answer]:
+    try:
+        return RetrievalRepository(session).get_answer(answer_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def list_evidence_from_database(session: Session, run_id: UUID) -> list[Evidence]:
+    try:
+        return RetrievalRepository(session).evidence_for_run(run_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def get_model_run_from_database(session: Session, model_run_id: UUID) -> Optional[ModelRun]:
+    try:
+        return RetrievalRepository(session).get_model_run(model_run_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return None
+
+
+def save_question_attachment_to_database(session: Session, attachment: QuestionAttachment) -> None:
+    try:
+        RetrievalRepository(session).add_question_attachment(attachment)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+
+
+def list_question_attachments_from_database(session: Session, question_id: UUID) -> list[QuestionAttachment]:
+    try:
+        return RetrievalRepository(session).attachments_for_question(question_id)
+    except SQLAlchemyError:
+        session.rollback()
+        return []
+
+
+def save_review_item_to_database(session: Session, item: ReviewItem) -> None:
+    try:
+        ReviewEvalRepository(session).add_review_item(item)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
 
 
 @app.get("/health")
@@ -697,7 +807,7 @@ def retry_ingestion_job(
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(payload: AskRequest) -> AskResponse:
+def ask(payload: AskRequest, session: Session = Depends(get_session)) -> AskResponse:
     detected_entities = detect_product_aliases(store, payload.question)
     normalized_query = normalize_query(payload.question, product_alias_expansions(detected_entities))
     question = store.add_question(
@@ -714,6 +824,7 @@ def ask(payload: AskRequest) -> AskResponse:
     review_item = route_answer_for_review(answer)
     if review_item:
         review_item = store.add_review_item(review_item)
+    save_ask_response_to_database(session, question, retrieval_run, candidates, evidence, answer, review_item)
     return AskResponse(
         question=question,
         retrieval_run=retrieval_run,
@@ -725,7 +836,10 @@ def ask(payload: AskRequest) -> AskResponse:
 
 
 @app.get("/questions/{question_id}")
-def get_question(question_id: UUID) -> Question:
+def get_question(question_id: UUID, session: Session = Depends(get_session)) -> Question:
+    database_question = get_question_from_database(session, question_id)
+    if database_question:
+        return database_question
     if question_id not in store.questions:
         raise not_found()
     return store.questions[question_id]
@@ -736,65 +850,91 @@ def post_question_attachment(
     question_id: UUID,
     payload: QuestionAttachmentCreate,
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    session: Session = Depends(get_session),
 ) -> QuestionAttachment:
-    if question_id not in store.questions or payload.artifact_id not in store.source_artifacts:
+    database_question = get_question_from_database(session, question_id)
+    database_artifact = get_artifact_from_database(session, payload.artifact_id)
+    if database_question and question_id not in store.questions:
+        store.questions[question_id] = database_question
+    if question_id not in store.questions or (payload.artifact_id not in store.source_artifacts and not database_artifact):
         raise not_found()
-    return store.add_question_attachment(QuestionAttachment(**payload.model_dump(), question_id=question_id))
+    attachment = store.add_question_attachment(QuestionAttachment(**payload.model_dump(), question_id=question_id))
+    save_question_attachment_to_database(session, attachment)
+    return attachment
 
 
 @app.get("/questions/{question_id}/attachments", response_model=list[QuestionAttachment])
-def get_question_attachments(question_id: UUID) -> list[QuestionAttachment]:
+def get_question_attachments(question_id: UUID, session: Session = Depends(get_session)) -> list[QuestionAttachment]:
+    database_attachments = list_question_attachments_from_database(session, question_id)
+    if database_attachments:
+        return database_attachments
     if question_id not in store.questions:
         raise not_found()
     return store.attachments_for_question(question_id)
 
 
 @app.get("/retrieval-runs/{run_id}")
-def get_retrieval_run(run_id: UUID):
+def get_retrieval_run(run_id: UUID, session: Session = Depends(get_session)):
+    database_run = get_retrieval_run_from_database(session, run_id)
+    if database_run:
+        return database_run
     if run_id not in store.retrieval_runs:
         raise not_found()
     return store.retrieval_runs[run_id]
 
 
 @app.get("/retrieval-runs/{run_id}/candidates")
-def get_retrieval_candidates(run_id: UUID) -> list:
-    return store.candidates_for_run(run_id)
+def get_retrieval_candidates(run_id: UUID, session: Session = Depends(get_session)) -> list:
+    return list_retrieval_candidates_from_database(session, run_id) or store.candidates_for_run(run_id)
 
 
 @app.get("/answers/{answer_id}")
-def get_answer(answer_id: UUID):
+def get_answer(answer_id: UUID, session: Session = Depends(get_session)):
+    database_answer = get_answer_from_database(session, answer_id)
+    if database_answer:
+        return database_answer
     if answer_id not in store.answers:
         raise not_found()
     return store.answers[answer_id]
 
 
 @app.get("/answers/{answer_id}/evidence")
-def get_answer_evidence(answer_id: UUID) -> list:
-    if answer_id not in store.answers:
+def get_answer_evidence(answer_id: UUID, session: Session = Depends(get_session)) -> list:
+    answer = store.answers.get(answer_id) or get_answer_from_database(session, answer_id)
+    if not answer:
         raise not_found()
-    answer = store.answers[answer_id]
-    return store.evidence_for_run(answer.retrieval_run_id)
+    return list_evidence_from_database(session, answer.retrieval_run_id) or store.evidence_for_run(answer.retrieval_run_id)
 
 
 @app.get("/model-runs/{model_run_id}")
-def get_model_run(model_run_id: UUID):
+def get_model_run(model_run_id: UUID, session: Session = Depends(get_session)):
+    database_model_run = get_model_run_from_database(session, model_run_id)
+    if database_model_run:
+        return database_model_run
     if model_run_id not in store.model_runs:
         raise not_found()
     return store.model_runs[model_run_id]
 
 
 @app.post("/answers/{answer_id}/feedback")
-def post_feedback(answer_id: UUID, payload: Dict[str, Any], _user: CurrentUser = Depends(get_current_user)) -> ReviewItem:
-    if answer_id not in store.answers:
+def post_feedback(
+    answer_id: UUID,
+    payload: Dict[str, Any],
+    _user: CurrentUser = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> ReviewItem:
+    answer = store.answers.get(answer_id) or get_answer_from_database(session, answer_id)
+    if not answer:
         raise not_found()
-    answer = store.answers[answer_id]
     item = ReviewItem(
         source_type=payload.get("feedback_type", "user_feedback"),
         question_id=answer.question_id,
         answer_id=answer.id,
         reviewer_notes=payload.get("notes", ""),
     )
-    return store.add_review_item(item)
+    item = store.add_review_item(item)
+    save_review_item_to_database(session, item)
+    return item
 
 
 @app.post("/eval-cases", response_model=EvalCase)

@@ -135,6 +135,10 @@ class CatalogRepository:
     def add_artifact(self, artifact: SourceArtifact) -> SourceArtifact:
         return self._merge(artifact, SourceArtifactOrm, SourceArtifact)
 
+    def get_artifact(self, artifact_id: UUID) -> SourceArtifact | None:
+        row = self.session.get(SourceArtifactOrm, str(artifact_id))
+        return _orm_to_model(row, SourceArtifact) if row else None
+
     def artifacts_for_version(self, source_version_id: UUID) -> list[SourceArtifact]:
         rows = self.session.scalars(select(SourceArtifactOrm).where(SourceArtifactOrm.source_version_id == str(source_version_id))).all()
         return [_orm_to_model(row, SourceArtifact) for row in rows]
@@ -195,6 +199,10 @@ class RetrievalRepository:
     def add_question(self, question: Question) -> Question:
         return self._merge(question, QuestionOrm, Question)
 
+    def get_question(self, question_id: UUID) -> Question | None:
+        row = self.session.get(QuestionOrm, str(question_id))
+        return _orm_to_model(row, Question) if row else None
+
     def add_question_attachment(self, attachment: QuestionAttachment) -> QuestionAttachment:
         return self._merge(attachment, QuestionAttachmentOrm, QuestionAttachment)
 
@@ -204,6 +212,10 @@ class RetrievalRepository:
 
     def add_retrieval_run(self, run: RetrievalRun) -> RetrievalRun:
         return self._merge(run, RetrievalRunOrm, RetrievalRun)
+
+    def get_retrieval_run(self, run_id: UUID) -> RetrievalRun | None:
+        row = self.session.get(RetrievalRunOrm, str(run_id))
+        return _orm_to_model(row, RetrievalRun) if row else None
 
     def add_candidates(self, candidates: Iterable[RetrievalCandidate]) -> list[RetrievalCandidate]:
         return [self._merge(candidate, RetrievalCandidateOrm, RetrievalCandidate) for candidate in candidates]
@@ -222,6 +234,10 @@ class RetrievalRepository:
 
     def add_model_run(self, model_run: ModelRun) -> ModelRun:
         return self._merge(model_run, ModelRunOrm, ModelRun)
+
+    def get_model_run(self, model_run_id: UUID) -> ModelRun | None:
+        row = self.session.get(ModelRunOrm, str(model_run_id))
+        return _orm_to_model(row, ModelRun) if row else None
 
     def add_answer(self, answer: Answer) -> Answer:
         return self._merge(answer, AnswerOrm, Answer)
