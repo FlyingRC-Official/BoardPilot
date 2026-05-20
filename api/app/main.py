@@ -1218,7 +1218,11 @@ def retry_ingestion_job(
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(payload: AskRequest, session: Session = Depends(get_session)) -> AskResponse:
+def ask(
+    payload: AskRequest,
+    user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
+    session: Session = Depends(get_session),
+) -> AskResponse:
     validated_attachments: list[tuple[QuestionAttachmentCreate, SourceArtifact]] = []
     attachment_contexts: list[str] = []
     for attachment_payload in payload.attachments:
@@ -1242,6 +1246,7 @@ def ask(payload: AskRequest, session: Session = Depends(get_session)) -> AskResp
             normalized_text=normalized_query,
             detected_entities_json=detected_entities,
             metadata_filters_json=payload.metadata_filters_json,
+            user_id=user.user_id,
         )
     )
     attachments: list[QuestionAttachment] = []

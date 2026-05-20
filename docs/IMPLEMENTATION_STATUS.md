@@ -39,6 +39,7 @@ Updated: 2026-05-20
 - Added minimal role-aware request context through `X-BoardPilot-User` and `X-BoardPilot-Role` headers.
 - Added optional `BOARDPILOT_API_KEY` enforcement for private deployments, with web workbench support through `NEXT_PUBLIC_BOARDPILOT_API_KEY`.
 - Guarded protected mutating endpoints for admin, support, and reviewer roles while keeping local development defaulted to admin.
+- Ask requests now use the role/API-key request context and persist the submitting user id on Question records.
 - Added saved LLM ModelRun records for answer generation and linked Answers to `model_run_id`.
 - Added saved fake ChunkEmbedding records during ingestion and a chunk embedding inspection endpoint.
 - Expanded EvalRun summaries with evidence sufficiency rate, failure-category distribution, latency p50/p95, and model cost placeholder.
@@ -122,7 +123,7 @@ curl -sS -I http://127.0.0.1:3000/review
 
 Results:
 
-- API tests: 74 passed.
+- API tests: 75 passed.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed.
 - API health: HTTP 200.

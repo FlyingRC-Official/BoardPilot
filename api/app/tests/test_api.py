@@ -129,6 +129,48 @@ def test_configured_api_key_is_required_for_role_context(monkeypatch):
         monkeypatch.setattr(settings, "api_key", "")
 
 
+def test_ask_uses_role_context_api_key_and_question_user(monkeypatch):
+    product, _source, _chunks = seed_source()
+
+    forbidden = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+        headers={"X-BoardPilot-User": "viewer-ask", "X-BoardPilot-Role": "viewer"},
+    )
+    assert forbidden.status_code == 403
+
+    allowed = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "Can USB power servos?"},
+        headers={"X-BoardPilot-User": "support-ask", "X-BoardPilot-Role": "support"},
+    )
+    assert allowed.status_code == 200
+    assert allowed.json()["question"]["user_id"] == "support-ask"
+
+    monkeypatch.setattr(settings, "api_key", "ask-secret")
+    try:
+        missing_key = client.post(
+            "/ask",
+            json={"product_id": product["id"], "question": "Can USB power servos?"},
+            headers={"X-BoardPilot-User": "support-ask", "X-BoardPilot-Role": "support"},
+        )
+        assert missing_key.status_code == 401
+
+        with_key = client.post(
+            "/ask",
+            json={"product_id": product["id"], "question": "Can USB power servos?"},
+            headers={
+                "X-BoardPilot-User": "support-keyed",
+                "X-BoardPilot-Role": "support",
+                "X-BoardPilot-API-Key": "ask-secret",
+            },
+        )
+        assert with_key.status_code == 200
+        assert with_key.json()["question"]["user_id"] == "support-keyed"
+    finally:
+        monkeypatch.setattr(settings, "api_key", "")
+
+
 def test_provider_config_creation_is_admin_only_and_audited():
     forbidden = client.post(
         "/provider-configs",
