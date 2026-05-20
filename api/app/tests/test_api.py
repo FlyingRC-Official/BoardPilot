@@ -240,6 +240,40 @@ def test_ticket_log_and_image_text_enter_source_pipeline():
     assert "USB_SERVO_POWER_BLOCKED" in evidence_text
 
 
+def test_uploaded_image_asset_is_stored_and_manual_description_is_ingested(tmp_path, monkeypatch):
+    import app.main as main_module
+
+    monkeypatch.setattr(main_module.settings, "storage_root", str(tmp_path))
+    product = client.post(
+        "/products",
+        json={"name": "FlyingRC F4", "slug": "flyingrc-f4", "description": "Flight controller"},
+    ).json()
+    response = client.post(
+        "/image-assets/upload",
+        data={
+            "product_id": product["id"],
+            "image_type": "wiring_photo",
+            "manual_description": "IMAGE_UPLOAD_USB_ONLY: USB is for configuration, not servo power.",
+        },
+        files={"file": ("wiring photo.png", b"\x89PNG\r\nfake-image", "image/png")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["upload"]["filename"] == "wiring photo.png"
+    assert payload["upload"]["mime_type"] == "image/png"
+    assert payload["upload"]["size_bytes"] > 0
+    assert payload["image_asset"]["storage_uri"].endswith("-wiring_photo.png")
+    assert payload["source"]["source_type"] == "image"
+    assert "IMAGE_UPLOAD_USB_ONLY" in payload["chunks"][0]["content"]
+    assert (tmp_path / payload["image_asset"]["storage_uri"].replace(str(tmp_path) + "/", "")).exists()
+
+    ask_payload = client.post(
+        "/ask",
+        json={"product_id": product["id"], "question": "What does IMAGE_UPLOAD_USB_ONLY say?"},
+    ).json()
+    assert any("IMAGE_UPLOAD_USB_ONLY" in item["quote"] for item in ask_payload["evidence"])
+
+
 def test_product_source_ingestion_and_dedup():
     client.post(
         "/provider-configs",

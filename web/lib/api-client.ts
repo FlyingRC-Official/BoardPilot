@@ -135,7 +135,34 @@ export async function uploadSourceVersion(sourceId: string, file: File, versionL
   body.append("file", file);
   const response = await fetch(`${API_BASE}/sources/${sourceId}/versions/upload`, {
     method: "POST",
-    body
+    body,
+    headers: {
+      ...(API_KEY ? { "X-BoardPilot-API-Key": API_KEY } : {})
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
+
+export async function uploadImageAsset(payload: {
+  product_id: string;
+  image_type: string;
+  manual_description: string;
+  file: File;
+}) {
+  const body = new FormData();
+  body.append("product_id", payload.product_id);
+  body.append("image_type", payload.image_type);
+  body.append("manual_description", payload.manual_description);
+  body.append("file", payload.file);
+  const response = await fetch(`${API_BASE}/image-assets/upload`, {
+    method: "POST",
+    body,
+    headers: {
+      ...(API_KEY ? { "X-BoardPilot-API-Key": API_KEY } : {})
+    }
   });
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);

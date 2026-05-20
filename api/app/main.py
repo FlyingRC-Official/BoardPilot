@@ -1,3 +1,4 @@
+import hashlib
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -70,8 +71,16 @@ from app.retrieval.query_normalization import normalize_query, product_alias_exp
 from app.retrieval.service import run_retrieval
 from app.review.routing import route_answer_for_review
 from app.review.service import approve_review_item, mark_source_update_needed, reject_review_item, review_to_eval_case, review_to_faq
-from app.sources.service import create_source, create_source_version, create_uploaded_source_version, create_webpage_snapshot_version, list_sources
+from app.sources.service import (
+    create_source,
+    create_source_version,
+    create_uploaded_source_version,
+    create_webpage_snapshot_version,
+    list_sources,
+    safe_filename,
+)
 from app.providers.ocr import ocr_provider
+from app.storage.local import LocalStorageProvider
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
 app.add_middleware(
@@ -1721,6 +1730,74 @@ def post_image_asset(
         save_source_version_bundle_to_database(session, version, artifact, chunks)
     save_image_asset_to_database(session, image_asset)
     return {"image_asset": image_asset, "source": source, "version": version, "chunks": chunks}
+
+
+@app.post("/image-assets/upload")
+async def upload_image_asset(
+    product_id: UUID = Form(...),
+    image_type: str = Form(""),
+    manual_description: str = Form(""),
+    file: UploadFile = File(...),
+    _user: CurrentUser = Depends(require_roles("admin", "support")),
+    session: Session = Depends(get_session),
+) -> dict:
+    database_product = get_product_from_database(session, product_id)
+    if database_product and product_id not in store.products:
+        store.products[product_id] = database_product
+    if product_id not in store.products:
+        raise HTTPException(status_code=422, detail="valid product_id is required")
+
+    content = await file.read()
+    checksum = hashlib.sha256(content).hexdigest()
+    filename = file.filename or "image"
+    storage = LocalStorageProvider(settings.storage_root)
+    storage_uri = storage.save_bytes(f"images/{product_id}/{checksum}-{safe_filename(filename)}", content)
+    image_payload = ImageAssetCreate(
+        product_id=product_id,
+        storage_uri=storage_uri,
+        image_type=image_type or "image",
+        manual_description=manual_description,
+    )
+    source = create_source(
+        store,
+        SourceCreate(
+            product_id=product_id,
+            title=f"{image_payload.image_type or 'Image'} asset",
+            source_type=SourceType.image,
+            canonical_uri=storage_uri,
+            trust_level="image",
+        ),
+    )
+    chunks = []
+    version = None
+    artifact = None
+    if manual_description.strip():
+        version, artifact, chunks = create_source_version(
+            store,
+            source.id,
+            SourceVersionCreate(
+                version_label="manual-description",
+                content=manual_description,
+                parser_version="image-description-v1",
+            ),
+        )
+    image_asset = store.add_image_asset(ImageAsset(**image_payload.model_dump(), source_id=source.id))
+    save_source_to_database(session, source)
+    if version and artifact:
+        save_source_version_bundle_to_database(session, version, artifact, chunks)
+    save_image_asset_to_database(session, image_asset)
+    return {
+        "image_asset": image_asset,
+        "source": source,
+        "version": version,
+        "chunks": chunks,
+        "upload": {
+            "filename": filename,
+            "mime_type": file.content_type or "application/octet-stream",
+            "size_bytes": len(content),
+            "checksum": checksum,
+        },
+    }
 
 
 @app.get("/image-assets")

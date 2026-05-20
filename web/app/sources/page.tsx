@@ -17,6 +17,7 @@ import {
   listSources,
   queueIngestionJob,
   runIngestionJob,
+  uploadImageAsset,
   uploadSourceVersion
 } from "@/lib/api-client";
 import type { Chunk, Product, ProductAlias, Source, SourceArtifact, SourceVersion } from "@/lib/types";
@@ -39,6 +40,9 @@ export default function SourcesPage() {
   const [webpageUrl, setWebpageUrl] = useState("https://example.com/flyingrc-f4");
   const [webpageHtml, setWebpageHtml] = useState("<h1>FlyingRC F4</h1><p>USB power is for configuration only.</p>");
   const [file, setFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageType, setImageType] = useState("wiring_photo");
+  const [imageDescription, setImageDescription] = useState("Photo shows USB connector is for configuration only.");
   const [disableReason, setDisableReason] = useState("bad import");
   const [message, setMessage] = useState("");
 
@@ -184,6 +188,23 @@ export default function SourcesPage() {
     setMessage("Webpage snapshot stored and ingested into chunks.");
   }
 
+  async function submitImage(event: FormEvent) {
+    event.preventDefault();
+    const product = products[0];
+    if (!product || !imageFile) {
+      setMessage("Create a product and choose an image first.");
+      return;
+    }
+    await uploadImageAsset({
+      product_id: product.id,
+      image_type: imageType,
+      manual_description: imageDescription,
+      file: imageFile
+    });
+    await refresh();
+    setMessage("Image asset uploaded and manual description ingested into chunks.");
+  }
+
   return (
     <>
       <header className="page-header">
@@ -264,6 +285,24 @@ export default function SourcesPage() {
             <textarea className="textarea" value={webpageHtml} onChange={(event) => setWebpageHtml(event.target.value)} />
           </label>
           <button className="button secondary">Import Snapshot</button>
+        </form>
+      </section>
+      <section className="grid two" style={{ marginTop: 16 }}>
+        <form className="panel form" onSubmit={submitImage}>
+          <h2>Image Asset</h2>
+          <label className="field">
+            <span>File</span>
+            <input className="input" type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] || null)} />
+          </label>
+          <label className="field">
+            <span>Type</span>
+            <input className="input" value={imageType} onChange={(event) => setImageType(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Manual description</span>
+            <textarea className="textarea" value={imageDescription} onChange={(event) => setImageDescription(event.target.value)} />
+          </label>
+          <button className="button secondary">Upload Image</button>
         </form>
       </section>
       {message ? <p className="status" style={{ marginTop: 16 }}>{message}</p> : null}
