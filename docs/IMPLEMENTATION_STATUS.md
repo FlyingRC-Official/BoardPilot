@@ -105,6 +105,7 @@ Updated: 2026-05-21
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
 - EvalCase patch, EvalRun creation, and ReviewItem patch endpoints now use typed request schemas instead of raw JSON dictionaries.
 - Eval page now shows latest-run per-case results, supports trace inspection with answer/evidence/reranked candidates, and can send failed EvalResults to Review.
+- EvalResult to Review conversion now prefers persisted EvalResult records over stale in-memory EvalResult rows before creating review work.
 - EvalRun now assigns failure categories for recall, rerank, insufficient-evidence, and unsupported-claim failures so ReviewItems inherit actionable failure reasons.
 - EvalRun records now persist the retrieval configuration snapshot and eval duration in the summary metrics for reproducibility.
 - Ask-time entity extraction now captures product aliases, firmware versions, error codes, connector names, and hardware interfaces.

@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import create_engine, inspect
@@ -20,6 +22,7 @@ from app.main import (
     get_eval_case_from_database,
     get_eval_result_from_database,
     get_eval_run_from_database,
+    eval_result_to_review,
     get_image_asset_from_database,
     get_model_run_from_database,
     get_provider_config_from_database,
@@ -507,6 +510,55 @@ def test_answer_feedback_prefers_database_answer_over_stale_memory():
         assert item.question_id == question.id
         assert list_review_items_from_database(session)[0].question_id == question.id
         assert main_app.store.answers[answer.id].question_id == question.id
+    finally:
+        main_app.store.reset()
+
+
+def test_eval_result_to_review_prefers_database_result_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    review_repo = ReviewEvalRepository(session)
+    eval_run = review_repo.add_eval_run(EvalRun(name="MVP eval"))
+    eval_case = review_repo.add_eval_case(EvalCase(question_text="Can USB power servos?"))
+    database_result = review_repo.add_eval_result(
+        EvalResult(
+            eval_run_id=eval_run.id,
+            eval_case_id=eval_case.id,
+            question_id=uuid4(),
+            retrieval_run_id=uuid4(),
+            answer_id=uuid4(),
+            recall_at_20=0.0,
+            rerank_at_5=0.0,
+            citation_support_rate=0.0,
+            unsupported_claim_rate=1.0,
+            need_review=True,
+            failure_category=FailureCategory.unsupported_claim,
+        )
+    )
+    session.commit()
+    stale_result = database_result.model_copy(
+        update={
+            "question_id": uuid4(),
+            "answer_id": uuid4(),
+            "failure_category": FailureCategory.insufficient_evidence,
+        }
+    )
+
+    main_app.store.reset()
+    try:
+        main_app.store.eval_results[database_result.id] = stale_result
+
+        item = eval_result_to_review(database_result.id, None, session)
+
+        assert item.eval_result_id == database_result.id
+        assert item.question_id == database_result.question_id
+        assert item.answer_id == database_result.answer_id
+        assert item.failure_category == FailureCategory.unsupported_claim
+        assert list_review_items_from_database(session)[0].question_id == database_result.question_id
+        assert main_app.store.eval_results[database_result.id].question_id == database_result.question_id
     finally:
         main_app.store.reset()
 

@@ -1716,9 +1716,10 @@ def eval_result_to_review(
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
-    result = store.eval_results.get(result_id) or get_eval_result_from_database(session, result_id)
+    result = get_eval_result_from_database(session, result_id) or store.eval_results.get(result_id)
     if not result:
         raise not_found()
+    store.eval_results[result.id] = result
     item = store.add_review_item(
         ReviewItem(
             source_type="eval_failure",
