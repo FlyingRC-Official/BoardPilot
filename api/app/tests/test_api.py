@@ -197,6 +197,7 @@ def test_configured_api_key_is_required_for_role_context(monkeypatch):
 def test_signed_session_token_can_replace_api_key_for_private_requests(monkeypatch):
     monkeypatch.setattr(settings, "api_key", "session-secret")
     monkeypatch.setattr(settings, "users_json", '{"support-session":"support"}')
+    monkeypatch.setattr(settings, "session_max_ttl_seconds", 604800)
     try:
         session_response = client.post(
             "/sessions",
@@ -244,6 +245,47 @@ def test_signed_session_token_can_replace_api_key_for_private_requests(monkeypat
     finally:
         monkeypatch.setattr(settings, "api_key", "")
         monkeypatch.setattr(settings, "users_json", "")
+        monkeypatch.setattr(settings, "session_max_ttl_seconds", 604800)
+
+
+def test_session_token_ttl_is_bounded(monkeypatch):
+    monkeypatch.setattr(settings, "api_key", "session-secret")
+    monkeypatch.setattr(settings, "users_json", '{"support-session":"support"}')
+    monkeypatch.setattr(settings, "session_ttl_seconds", 60)
+    monkeypatch.setattr(settings, "session_max_ttl_seconds", 120)
+    headers = {
+        "X-BoardPilot-User": "admin-session",
+        "X-BoardPilot-Role": "admin",
+        "X-BoardPilot-API-Key": "session-secret",
+    }
+    try:
+        at_max = client.post(
+            "/sessions",
+            json={"user_id": "support-session", "role": "support", "ttl_seconds": 120},
+            headers=headers,
+        )
+        assert at_max.status_code == 200
+
+        too_large = client.post(
+            "/sessions",
+            json={"user_id": "support-session", "role": "support", "ttl_seconds": 121},
+            headers=headers,
+        )
+        assert too_large.status_code == 422
+        assert too_large.json()["detail"] == "session ttl exceeds maximum"
+
+        zero = client.post(
+            "/sessions",
+            json={"user_id": "support-session", "role": "support", "ttl_seconds": 0},
+            headers=headers,
+        )
+        assert zero.status_code == 422
+        assert "ttl_seconds" in json.dumps(zero.json())
+    finally:
+        monkeypatch.setattr(settings, "api_key", "")
+        monkeypatch.setattr(settings, "users_json", "")
+        monkeypatch.setattr(settings, "session_ttl_seconds", 86400)
+        monkeypatch.setattr(settings, "session_max_ttl_seconds", 604800)
 
 
 def test_malformed_session_user_allowlist_fails_closed(monkeypatch):

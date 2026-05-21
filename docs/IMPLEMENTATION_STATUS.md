@@ -45,7 +45,7 @@ Updated: 2026-05-21
 - Added minimal role-aware request context through `X-BoardPilot-User` and `X-BoardPilot-Role` headers.
 - Added first-class `maintainer` and `evaluator` request roles mapped to the required source-maintenance and eval workflows.
 - Added optional `BOARDPILOT_API_KEY` enforcement for private deployments, with web workbench support through `NEXT_PUBLIC_BOARDPILOT_API_KEY`.
-- Added signed session tokens through `POST /sessions`, `X-BoardPilot-Session` and `Authorization: Bearer` request support, configurable token TTL, and bundled workbench support through `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN`.
+- Added signed session tokens through `POST /sessions`, `X-BoardPilot-Session` and `Authorization: Bearer` request support, configurable default/max token TTLs, and bundled workbench support through `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN`.
 - Session token issuance is audit logged without persisting the token secret itself.
 - Session issuance can now enforce an operator-managed `BOARDPILOT_USERS_JSON` user/role allowlist.
 - Configured `BOARDPILOT_API_KEY` now protects read endpoints as well as role-aware write endpoints, while leaving health checks and CORS preflight available.
@@ -202,7 +202,7 @@ Results:
 - EvalRun summaries now include the MVP-required aggregate metric families, provider config snapshots, and estimated model cost; comparison UI shows numeric deltas between two runs.
 - Review approval/rejection/source-update-needed actions now fail without an explicit failure category.
 - Review approval, rejection, and source-update-needed actions now use a typed request schema with `FailureCategory` validation at the API boundary.
-- Session tokens and an operator-managed user/role allowlist are implemented for private deployments, but they are not yet connected to a full identity provider.
+- Session tokens, bounded token lifetimes, and an operator-managed user/role allowlist are implemented for private deployments, but they are not yet connected to a full identity provider.
 - Signed session tokens can now be supplied through either `X-BoardPilot-Session` or standard `Authorization: Bearer` headers.
 - Audit logging exists as an in-memory event list, can mirror to JSONL, and now mirrors reads/writes through SQLAlchemy when the schema is available.
 - Top-level database-backed list endpoints now treat an existing empty SQL table as authoritative instead of falling back to stale in-memory rows.

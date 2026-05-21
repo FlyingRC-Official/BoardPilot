@@ -10,7 +10,7 @@ import time
 from typing import Literal, Optional
 
 from fastapi import Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 
@@ -26,7 +26,7 @@ class CurrentUser(BaseModel):
 class SessionCreate(BaseModel):
     user_id: str
     role: Role
-    ttl_seconds: Optional[int] = None
+    ttl_seconds: Optional[int] = Field(default=None, gt=0)
 
 
 class SessionToken(BaseModel):
@@ -48,9 +48,23 @@ def _b64decode(data: str) -> bytes:
     return base64.urlsafe_b64decode((data + padding).encode("ascii"))
 
 
-def issue_session_token(user_id: str, role: Role, ttl_seconds: Optional[int] = None) -> SessionToken:
+def _bounded_session_ttl(ttl_seconds: Optional[int]) -> int:
     ttl = ttl_seconds if ttl_seconds is not None else settings.session_ttl_seconds
-    expires_at = int(time.time()) + max(int(ttl), 1)
+    try:
+        ttl_value = int(ttl)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="invalid session ttl")
+    if ttl_value <= 0:
+        raise HTTPException(status_code=422, detail="session ttl must be positive")
+
+    max_ttl = max(int(settings.session_max_ttl_seconds), 1)
+    if ttl_value > max_ttl:
+        raise HTTPException(status_code=422, detail="session ttl exceeds maximum")
+    return ttl_value
+
+
+def issue_session_token(user_id: str, role: Role, ttl_seconds: Optional[int] = None) -> SessionToken:
+    expires_at = int(time.time()) + _bounded_session_ttl(ttl_seconds)
     payload = {"user_id": user_id, "role": role, "exp": expires_at}
     payload_part = _b64encode(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
     signature = hmac.new(_session_signing_key(), payload_part.encode("ascii"), hashlib.sha256).hexdigest()
