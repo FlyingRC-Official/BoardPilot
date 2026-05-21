@@ -110,6 +110,7 @@ Updated: 2026-05-21
 - EvalResult to Review conversion now prefers persisted EvalResult records over stale in-memory EvalResult rows before creating review work.
 - EvalRun now assigns failure categories for recall, rerank, insufficient-evidence, and unsupported-claim failures so ReviewItems inherit actionable failure reasons.
 - EvalRun records now persist the retrieval configuration snapshot and eval duration in the summary metrics for reproducibility.
+- EvalRun comparison now prefers persisted EvalRun metric summaries over stale in-memory EvalRun rows before computing deltas.
 - Ask-time entity extraction now captures product aliases, firmware versions, error codes, connector names, and hardware interfaces.
 - Retrieval tokenization now preserves hardware compound tokens such as error codes and connector/interface names while retaining split subterms.
 - Ask page now exposes answer feedback actions for helpful, incorrect, missing-source, and needs-review review routing.

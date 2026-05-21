@@ -13,6 +13,7 @@ from app.providers.config_store import hydrate_provider_configs
 from app.retrieval.catalog import hydrate_retrieval_catalog
 from app.retrieval.service import run_retrieval
 from app.main import (
+    compare_eval_runs,
     delete_provider_config_from_database,
     get_answer_from_database,
     get_answer_evidence,
@@ -603,6 +604,32 @@ def test_eval_result_to_review_prefers_database_result_over_stale_memory():
         assert item.failure_category == FailureCategory.unsupported_claim
         assert list_review_items_from_database(session)[0].question_id == database_result.question_id
         assert main_app.store.eval_results[database_result.id].question_id == database_result.question_id
+    finally:
+        main_app.store.reset()
+
+
+def test_eval_run_compare_prefers_database_runs_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["eval_runs"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    review_repo = ReviewEvalRepository(session)
+    baseline = review_repo.add_eval_run(EvalRun(name="baseline", summary_metrics_json={"recall_at_20": 0.2, "case_count": 10}))
+    candidate = review_repo.add_eval_run(EvalRun(name="candidate", summary_metrics_json={"recall_at_20": 0.7, "case_count": 10}))
+    session.commit()
+
+    main_app.store.reset()
+    try:
+        main_app.store.eval_runs[baseline.id] = baseline.model_copy(update={"summary_metrics_json": {"recall_at_20": 0.9, "case_count": 10}})
+        main_app.store.eval_runs[candidate.id] = candidate.model_copy(update={"summary_metrics_json": {"recall_at_20": 0.1, "case_count": 10}})
+
+        comparison = compare_eval_runs(baseline.id, candidate.id, session)
+
+        assert comparison["baseline"].summary_metrics_json["recall_at_20"] == 0.2
+        assert comparison["candidate"].summary_metrics_json["recall_at_20"] == 0.7
+        assert comparison["deltas"]["recall_at_20"] == pytest.approx(0.5)
+        assert main_app.store.eval_runs[baseline.id].summary_metrics_json["recall_at_20"] == 0.2
     finally:
         main_app.store.reset()
 

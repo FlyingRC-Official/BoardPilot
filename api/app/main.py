@@ -1677,10 +1677,12 @@ def get_eval_runs(session: Session = Depends(get_session)) -> list:
 
 @app.get("/eval-runs/compare")
 def compare_eval_runs(run_a: UUID, run_b: UUID, session: Session = Depends(get_session)) -> dict:
-    baseline = store.eval_runs.get(run_a) or get_eval_run_from_database(session, run_a)
-    candidate = store.eval_runs.get(run_b) or get_eval_run_from_database(session, run_b)
+    baseline = get_eval_run_from_database(session, run_a) or store.eval_runs.get(run_a)
+    candidate = get_eval_run_from_database(session, run_b) or store.eval_runs.get(run_b)
     if not baseline or not candidate:
         raise not_found()
+    store.eval_runs[baseline.id] = baseline
+    store.eval_runs[candidate.id] = candidate
     deltas = {}
     for key, candidate_value in candidate.summary_metrics_json.items():
         baseline_value = baseline.summary_metrics_json.get(key)
