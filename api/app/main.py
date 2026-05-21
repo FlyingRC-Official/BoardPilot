@@ -1395,7 +1395,7 @@ def retry_ingestion_job(
     _user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
-    job = store.ingestion_jobs.get(job_id) or get_runtime_job(session, job_id)
+    job = get_runtime_job(session, job_id) or store.ingestion_jobs.get(job_id)
     if not job:
         raise not_found()
     store.ingestion_jobs[job.id] = job

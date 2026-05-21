@@ -157,6 +157,7 @@ Updated: 2026-05-21
 - Ticket, log source, image asset, and OCR import endpoints now read and mirror through SQLAlchemy when available.
 - ReviewItem to ApprovedFAQ and ReviewItem to EvalCase conversions now hydrate linked database context and persist generated FAQ/source/eval outputs through SQLAlchemy when available.
 - Ingestion job run/enqueue/retry paths now hydrate SourceVersion, Source, Product, Artifact, and existing Chunk context from SQLAlchemy and mirror completed re-ingestion outputs back to SQLAlchemy when available.
+- Ingestion job retry now prefers persisted IngestionJob records over stale in-memory job rows before choosing the SourceVersion to reprocess.
 - Redis ingestion worker failures now persist source-issue ReviewItems for failed SourceVersions, matching synchronous ingestion failure routing.
 - ChunkEmbedding records now read and mirror through SQLAlchemy when available, and embedding persistence is isolated so chunk persistence is not rolled back if embedding storage is unavailable.
 - Redis ingestion worker message processing now hydrates job/source context from SQLAlchemy and persists completed job, chunk, and embedding outputs back to SQLAlchemy.

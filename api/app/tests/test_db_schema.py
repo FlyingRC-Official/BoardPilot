@@ -59,6 +59,7 @@ from app.main import (
     list_source_versions_from_database,
     list_tickets_from_database,
     post_feedback,
+    retry_ingestion_job,
     save_alias_to_database,
     save_ask_response_to_database,
     save_approved_faq_to_database,
@@ -282,6 +283,45 @@ def test_runtime_repository_round_trips_worker_and_audit_records_in_sqlite():
     assert runtime_repo.list_audit_logs()[0].id == audit.id
     assert runtime_repo.list_audit_logs()[0].after_json == {"chunk_count": 2}
     assert list_audit_logs_from_database(session)[0].id == audit.id
+
+
+def test_retry_ingestion_job_prefers_database_job_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    runtime_repo = RuntimeRepository(session)
+
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(Source(product_id=product.id, title="Manual", source_type=SourceType.markdown))
+    database_version = catalog_repo.add_source_version(SourceVersion(source_id=source.id, version_label="db", content_hash="d" * 64))
+    stale_version = catalog_repo.add_source_version(SourceVersion(source_id=source.id, version_label="stale", content_hash="e" * 64))
+    catalog_repo.add_artifact(
+        SourceArtifact(source_version_id=database_version.id, storage_uri="memory://db", content="Database retry content.")
+    )
+    catalog_repo.add_artifact(
+        SourceArtifact(source_version_id=stale_version.id, storage_uri="memory://stale", content="Stale retry content.")
+    )
+    database_job = runtime_repo.add_ingestion_job(IngestionJob(source_version_id=database_version.id, status="failed"))
+    session.commit()
+    stale_job = database_job.model_copy(update={"source_version_id": stale_version.id, "status": "failed"})
+
+    main_app.store.reset()
+    try:
+        main_app.store.ingestion_jobs[database_job.id] = stale_job
+
+        result = retry_ingestion_job(database_job.id, None, session)
+
+        assert result["job"].source_version_id == database_version.id
+        assert result["job"].status == "completed"
+        assert result["chunks"][0].source_version_id == database_version.id
+        assert result["chunks"][0].content == "Database retry content."
+        assert main_app.store.ingestion_jobs[database_job.id].source_version_id == database_version.id
+        assert RuntimeRepository(session).get_ingestion_job(database_job.id).source_version_id == database_version.id
+    finally:
+        main_app.store.reset()
 
 
 def test_store_audit_log_mirrors_to_database_when_available(monkeypatch):
