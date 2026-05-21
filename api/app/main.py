@@ -697,7 +697,7 @@ def list_review_items_from_database(session: Session) -> list[ReviewItem]:
 
 
 def hydrate_review_item_for_service(session: Session, item_id: UUID) -> Optional[ReviewItem]:
-    item = store.review_items.get(item_id) or get_review_item_from_database(session, item_id)
+    item = get_review_item_from_database(session, item_id) or store.review_items.get(item_id)
     if item:
         store.review_items[item.id] = item
     return item
@@ -713,12 +713,12 @@ def hydrate_review_context_for_service(session: Session, item_id: UUID) -> Optio
         store.eval_results[eval_result.id] = eval_result
 
     answer_id = item.answer_id or (eval_result.answer_id if eval_result else None)
-    answer = (store.answers.get(answer_id) or get_answer_from_database(session, answer_id)) if answer_id else None
+    answer = (get_answer_from_database(session, answer_id) or store.answers.get(answer_id)) if answer_id else None
     if answer:
         store.answers[answer.id] = answer
 
     question_id = item.question_id or (answer.question_id if answer else None) or (eval_result.question_id if eval_result else None)
-    question = (store.questions.get(question_id) or get_question_from_database(session, question_id)) if question_id else None
+    question = (get_question_from_database(session, question_id) or store.questions.get(question_id)) if question_id else None
     if question:
         store.questions[question.id] = question
         if question.product_id and question.product_id not in store.products:
@@ -727,7 +727,7 @@ def hydrate_review_context_for_service(session: Session, item_id: UUID) -> Optio
                 store.products[product.id] = product
 
     retrieval_run_id = (answer.retrieval_run_id if answer else None) or (eval_result.retrieval_run_id if eval_result else None)
-    retrieval_run = (store.retrieval_runs.get(retrieval_run_id) or get_retrieval_run_from_database(session, retrieval_run_id)) if retrieval_run_id else None
+    retrieval_run = (get_retrieval_run_from_database(session, retrieval_run_id) or store.retrieval_runs.get(retrieval_run_id)) if retrieval_run_id else None
     if retrieval_run:
         store.retrieval_runs[retrieval_run.id] = retrieval_run
         for candidate in list_retrieval_candidates_from_database(session, retrieval_run.id):

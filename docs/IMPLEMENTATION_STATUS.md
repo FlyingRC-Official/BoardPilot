@@ -143,6 +143,7 @@ Updated: 2026-05-21
 - Source disable now refreshes `updated_at`, disables all chunks under the source's versions, and records the disabled chunk count in the audit event; patching a source to disabled follows the same disable semantics.
 - Source patch, source disable, and source-version disable now use typed request schemas while preserving immutable-field filtering and audit reasons.
 - ReviewItem approval, rejection, source-update-needed, FAQ conversion, and EvalCase conversion now refresh `updated_at`.
+- Review context hydration now prefers SQLAlchemy records over stale in-memory review, answer, question, and retrieval-run rows before mutating or converting review work.
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Child-list endpoints for aliases, source versions, chunks, artifacts, question attachments, retrieval candidates, and eval results now return 404 for missing parent records while preserving empty lists for existing parents with no children.
 - Answer evidence listing now treats database-backed Answers as authoritative, so empty persisted evidence sets do not fall back to stale in-memory Evidence rows.

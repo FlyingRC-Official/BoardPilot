@@ -431,6 +431,39 @@ def test_review_item_helper_hydrates_database_item_for_service():
     assert approved.reviewer_id == "reviewer-3"
 
 
+def test_review_item_helper_prefers_database_state_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    database_item = ReviewItem(
+        source_type="user_feedback",
+        status=ReviewStatus.needs_source_update,
+        reviewer_notes="database state",
+        failure_category=FailureCategory.bad_parse,
+    )
+    stale_item = database_item.model_copy(
+        update={
+            "status": ReviewStatus.open,
+            "reviewer_notes": "stale memory",
+            "failure_category": None,
+        }
+    )
+
+    save_review_item_to_database(session, database_item)
+    main_app.store.review_items[database_item.id] = stale_item
+    try:
+        hydrated = hydrate_review_item_for_service(session, database_item.id)
+
+        assert hydrated.status == ReviewStatus.needs_source_update
+        assert hydrated.reviewer_notes == "database state"
+        assert hydrated.failure_category == FailureCategory.bad_parse
+        assert main_app.store.review_items[database_item.id].reviewer_notes == "database state"
+    finally:
+        main_app.store.reset()
+
+
 def test_review_conversion_helpers_use_database_context_and_persist_outputs():
     import app.main as main_app
     from app.review.service import review_to_eval_case, review_to_faq
