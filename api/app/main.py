@@ -1632,7 +1632,7 @@ def patch_eval_case(
     user: CurrentUser = Depends(require_roles("admin", "support", "reviewer", "evaluator")),
     session: Session = Depends(get_session),
 ) -> EvalCase:
-    case = store.eval_cases.get(case_id) or get_eval_case_from_database(session, case_id)
+    case = get_eval_case_from_database(session, case_id) or store.eval_cases.get(case_id)
     if not case:
         raise not_found()
     before = case.model_dump(mode="json")

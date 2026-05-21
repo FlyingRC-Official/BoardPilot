@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 
 import app.models.orm  # noqa: F401
+from app.core.security import CurrentUser
 from app.db.base import Base
 from app.db.repositories import CatalogRepository, RetrievalRepository, ReviewEvalRepository, RuntimeRepository
 from app.db.store import InMemoryStore
@@ -62,6 +63,7 @@ from app.main import (
     list_tickets_from_database,
     post_feedback,
     post_image_ocr,
+    patch_eval_case,
     retry_ingestion_job,
     save_alias_to_database,
     save_ask_response_to_database,
@@ -91,6 +93,7 @@ from app.models.schemas import (
     Chunk,
     ChunkEmbedding,
     EvalCase,
+    EvalCasePatch,
     EvalResult,
     EvalRun,
     Evidence,
@@ -630,6 +633,34 @@ def test_eval_run_compare_prefers_database_runs_over_stale_memory():
         assert comparison["candidate"].summary_metrics_json["recall_at_20"] == 0.7
         assert comparison["deltas"]["recall_at_20"] == pytest.approx(0.5)
         assert main_app.store.eval_runs[baseline.id].summary_metrics_json["recall_at_20"] == 0.2
+    finally:
+        main_app.store.reset()
+
+
+def test_eval_case_patch_prefers_database_case_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["eval_cases"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    review_repo = ReviewEvalRepository(session)
+    database_case = review_repo.add_eval_case(
+        EvalCase(question_text="Database question", tags_json=["db"], difficulty="normal")
+    )
+    session.commit()
+    stale_case = database_case.model_copy(update={"question_text": "Stale question", "tags_json": ["stale"], "difficulty": "easy"})
+
+    main_app.store.reset()
+    try:
+        main_app.store.eval_cases[database_case.id] = stale_case
+
+        patched = patch_eval_case(database_case.id, EvalCasePatch(difficulty="hard"), CurrentUser(user_id="eval-admin", role="admin"), session)
+
+        assert patched.question_text == "Database question"
+        assert patched.tags_json == ["db"]
+        assert patched.difficulty == "hard"
+        assert get_eval_case_from_database(session, database_case.id).question_text == "Database question"
+        assert main_app.store.eval_cases[database_case.id].question_text == "Database question"
     finally:
         main_app.store.reset()
 

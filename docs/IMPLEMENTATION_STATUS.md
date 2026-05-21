@@ -105,6 +105,7 @@ Updated: 2026-05-21
 - Sources page can upload image assets to local storage and ingest a manual image description into retrieval chunks.
 - Sources page now lists recent ticket, log, image, and OCR import records so support-import source material is inspectable from the workbench.
 - Eval page now lists EvalCases and supports editing expected sources/chunks, answer points, tags, difficulty, and active status.
+- EvalCase patching now prefers persisted EvalCase rows over stale in-memory EvalCase state before applying edits.
 - EvalCase patch, EvalRun creation, and ReviewItem patch endpoints now use typed request schemas instead of raw JSON dictionaries.
 - Eval page now shows latest-run per-case results, supports trace inspection with answer/evidence/reranked candidates, and can send failed EvalResults to Review.
 - EvalResult to Review conversion now prefers persisted EvalResult records over stale in-memory EvalResult rows before creating review work.
