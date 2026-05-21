@@ -65,6 +65,7 @@ from app.main import (
     post_image_ocr,
     patch_product,
     patch_eval_case,
+    patch_source,
     retry_ingestion_job,
     save_alias_to_database,
     save_ask_response_to_database,
@@ -118,6 +119,7 @@ from app.models.schemas import (
     ReviewStatus,
     Source,
     SourceArtifact,
+    SourcePatch,
     SourceType,
     SourceVersion,
     Ticket,
@@ -279,6 +281,35 @@ def test_product_patch_prefers_database_product_over_stale_memory():
         assert patched.status == "disabled"
         assert get_product_from_database(session, product.id).name == "Database Product"
         assert main_app.store.products[product.id].name == "Database Product"
+    finally:
+        main_app.store.reset()
+
+
+def test_source_patch_prefers_database_source_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["products"], Base.metadata.tables["sources"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(
+        Source(product_id=product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    )
+    session.commit()
+    stale_source = source.model_copy(update={"title": "Stale Manual", "trust_level": "stale"})
+
+    main_app.store.reset()
+    try:
+        main_app.store.sources[source.id] = stale_source
+
+        patched = patch_source(source.id, SourcePatch(status="disabled"), CurrentUser(user_id="source-admin", role="admin"), session)
+
+        assert patched.title == "Database Manual"
+        assert patched.trust_level == "official"
+        assert patched.status == "disabled"
+        assert get_source_from_database(session, source.id).title == "Database Manual"
+        assert main_app.store.sources[source.id].title == "Database Manual"
     finally:
         main_app.store.reset()
 

@@ -1090,7 +1090,7 @@ def patch_source(
     user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> Source:
-    source = store.sources.get(source_id) or get_source_from_database(session, source_id)
+    source = get_source_from_database(session, source_id) or store.sources.get(source_id)
     if not source:
         raise not_found()
     before = source.model_dump(mode="json")
