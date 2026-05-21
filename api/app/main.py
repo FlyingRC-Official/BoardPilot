@@ -992,7 +992,7 @@ def patch_product(
     _user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> Product:
-    product = store.products.get(product_id) or get_product_from_database(session, product_id)
+    product = get_product_from_database(session, product_id) or store.products.get(product_id)
     if not product:
         raise not_found()
     for key in payload.model_fields_set:

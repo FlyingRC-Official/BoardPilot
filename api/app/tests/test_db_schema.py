@@ -63,6 +63,7 @@ from app.main import (
     list_tickets_from_database,
     post_feedback,
     post_image_ocr,
+    patch_product,
     patch_eval_case,
     retry_ingestion_job,
     save_alias_to_database,
@@ -107,6 +108,7 @@ from app.models.schemas import (
     OcrResultCreate,
     Product,
     ProductAlias,
+    ProductPatch,
     ProviderConfig,
     Question,
     QuestionAttachment,
@@ -251,6 +253,34 @@ def test_catalog_repository_round_trips_source_records_in_sqlite():
     assert repo.versions_for_source(source.id)[0].id == version.id
     assert repo.artifacts_for_version(version.id)[0].content == artifact.content
     assert repo.chunks_for_version(version.id)[0].id == chunk.id
+
+
+def test_product_patch_prefers_database_product_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["products"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    product = CatalogRepository(session).add_product(
+        Product(name="Database Product", slug="database-product", description="current")
+    )
+    session.commit()
+    stale_product = product.model_copy(update={"name": "Stale Product", "slug": "stale-product", "description": "stale"})
+
+    main_app.store.reset()
+    try:
+        main_app.store.products[product.id] = stale_product
+
+        patched = patch_product(product.id, ProductPatch(status="disabled"), None, session)
+
+        assert patched.name == "Database Product"
+        assert patched.slug == "database-product"
+        assert patched.description == "current"
+        assert patched.status == "disabled"
+        assert get_product_from_database(session, product.id).name == "Database Product"
+        assert main_app.store.products[product.id].name == "Database Product"
+    finally:
+        main_app.store.reset()
 
 
 def test_runtime_repository_round_trips_worker_and_audit_records_in_sqlite():

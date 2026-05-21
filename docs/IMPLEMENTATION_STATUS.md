@@ -143,6 +143,7 @@ Updated: 2026-05-21
 - Provider-dependent ingestion, Ask, Eval, OCR, review-to-FAQ, and worker paths now hydrate saved provider configs from SQLAlchemy before choosing active providers.
 - Audit log writes and reads now mirror through SQLAlchemy when the database schema is available, while keeping JSONL mirroring support.
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
+- Product patching now prefers persisted Product rows over stale in-memory Product state before applying edits.
 - Product and source patch endpoints now refresh `updated_at` so mutable catalog records reflect edit time.
 - Product, source, and EvalCase patch endpoints now ignore immutable fields such as ids, ownership links, and creation timestamps while still updating approved mutable fields.
 - SourceVersion ingestion success, ingestion failure, and disable transitions now refresh `updated_at` so source-version lifecycle state reflects mutation time.
