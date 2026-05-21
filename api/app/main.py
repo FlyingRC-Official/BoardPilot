@@ -1752,15 +1752,26 @@ def get_review_item_detail(item_id: UUID, session: Session = Depends(get_session
     item = hydrate_review_context_for_service(session, item_id)
     if not item:
         raise not_found()
-    eval_result = (store.eval_results.get(item.eval_result_id) or get_eval_result_from_database(session, item.eval_result_id)) if item.eval_result_id else None
+    eval_result = (get_eval_result_from_database(session, item.eval_result_id) or store.eval_results.get(item.eval_result_id)) if item.eval_result_id else None
     answer_id = item.answer_id or (eval_result.answer_id if eval_result else None)
-    answer = (store.answers.get(answer_id) or get_answer_from_database(session, answer_id)) if answer_id else None
+    answer = (get_answer_from_database(session, answer_id) or store.answers.get(answer_id)) if answer_id else None
     question_id = item.question_id or (answer.question_id if answer else None) or (eval_result.question_id if eval_result else None)
-    question = (store.questions.get(question_id) or get_question_from_database(session, question_id)) if question_id else None
+    database_question = get_question_from_database(session, question_id) if question_id else None
+    question = (database_question or store.questions.get(question_id)) if question_id else None
     retrieval_run_id = (answer.retrieval_run_id if answer else None) or (eval_result.retrieval_run_id if eval_result else None)
-    evidence = (list_evidence_from_database(session, retrieval_run_id) or store.evidence_for_run(retrieval_run_id)) if retrieval_run_id else []
-    candidates = (list_retrieval_candidates_from_database(session, retrieval_run_id) or store.candidates_for_run(retrieval_run_id)) if retrieval_run_id else []
-    attachments = (list_question_attachments_from_database(session, question_id) or store.attachments_for_question(question_id)) if question_id else []
+    database_retrieval_run = get_retrieval_run_from_database(session, retrieval_run_id) if retrieval_run_id else None
+    if database_retrieval_run:
+        evidence = list_evidence_from_database(session, database_retrieval_run.id)
+        candidates = list_retrieval_candidates_from_database(session, database_retrieval_run.id)
+    elif retrieval_run_id:
+        evidence = store.evidence_for_run(retrieval_run_id)
+        candidates = store.candidates_for_run(retrieval_run_id)
+    else:
+        evidence = []
+        candidates = []
+    attachments = list_question_attachments_from_database(session, question_id) if database_question else (
+        store.attachments_for_question(question_id) if question_id else []
+    )
     return ReviewItemDetail(
         item=item,
         question=question,

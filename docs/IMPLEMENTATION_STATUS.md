@@ -146,6 +146,7 @@ Updated: 2026-05-21
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
 - Child-list endpoints for aliases, source versions, chunks, artifacts, question attachments, retrieval candidates, and eval results now return 404 for missing parent records while preserving empty lists for existing parents with no children.
 - Answer evidence listing now treats database-backed Answers as authoritative, so empty persisted evidence sets do not fall back to stale in-memory Evidence rows.
+- Review detail now treats database-backed Questions and RetrievalRuns as authoritative for attachments, evidence, and candidates, so empty persisted child lists do not leak stale in-memory trace rows.
 - Ask questions, retrieval runs, candidates, evidence, model runs, answers, answer feedback, and question attachments now read and mirror through SQLAlchemy when available.
 - Ask and Eval runs now hydrate products, aliases, sources, source versions, chunks, and chunk embeddings from SQLAlchemy before retrieval so database-backed source material remains retrievable after an API restart.
 - Review item queue, detail, update, and decision endpoints now read, hydrate, and mirror through SQLAlchemy when available.

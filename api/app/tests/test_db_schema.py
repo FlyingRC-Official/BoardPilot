@@ -27,6 +27,7 @@ from app.main import (
     get_question_from_database,
     get_retrieval_run_from_database,
     get_review_item_from_database,
+    get_review_item_detail,
     get_runtime_job,
     get_source_from_database,
     get_source_version_from_database,
@@ -908,6 +909,64 @@ def test_database_answer_evidence_endpoint_does_not_fall_back_to_stale_memory():
         )
 
         assert get_answer_evidence(answer.id, session) == []
+    finally:
+        main_app.store.reset()
+
+
+def test_database_review_detail_does_not_fall_back_to_stale_memory_children():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            Base.metadata.tables["products"],
+            Base.metadata.tables["sources"],
+            Base.metadata.tables["source_versions"],
+            Base.metadata.tables["source_artifacts"],
+            Base.metadata.tables["chunks"],
+            Base.metadata.tables["questions"],
+            Base.metadata.tables["question_attachments"],
+            Base.metadata.tables["retrieval_runs"],
+            Base.metadata.tables["retrieval_candidates"],
+            Base.metadata.tables["evidences"],
+            Base.metadata.tables["answers"],
+            Base.metadata.tables["review_items"],
+        ],
+    )
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    retrieval_repo = RetrievalRepository(session)
+    review_repo = ReviewEvalRepository(session)
+    question = retrieval_repo.add_question(Question(raw_text="Can USB power servos?", normalized_text="usb servos"))
+    run = retrieval_repo.add_retrieval_run(RetrievalRun(question_id=question.id, normalized_query=question.normalized_text))
+    answer = retrieval_repo.add_answer(
+        Answer(
+            question_id=question.id,
+            retrieval_run_id=run.id,
+            answer_text="No evidence was selected.",
+            evidence_sufficiency=EvidenceSufficiency.insufficient,
+            confidence=0.0,
+        )
+    )
+    item = review_repo.add_review_item(ReviewItem(source_type="low_confidence_answer", question_id=question.id, answer_id=answer.id))
+    session.commit()
+
+    main_app.store.reset()
+    try:
+        main_app.store.add_evidence(
+            [Evidence(retrieval_run_id=run.id, chunk_id=question.id, rank=1, score=1.0, quote="stale", selection_reason="stale")]
+        )
+        main_app.store.add_candidates(
+            [RetrievalCandidate(retrieval_run_id=run.id, chunk_id=question.id, stage="reranked", source="stale", rank=1)]
+        )
+        main_app.store.add_question_attachment(
+            QuestionAttachment(question_id=question.id, artifact_id=question.id, attachment_type="file", description="stale")
+        )
+
+        detail = get_review_item_detail(item.id, session)
+        assert detail.evidence == []
+        assert detail.candidates == []
+        assert detail.attachments == []
     finally:
         main_app.store.reset()
 
