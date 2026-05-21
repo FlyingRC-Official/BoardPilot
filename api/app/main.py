@@ -2143,7 +2143,7 @@ def post_image_ocr(
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
-    image_asset = store.image_assets.get(image_id) or get_image_asset_from_database(session, image_id)
+    image_asset = get_image_asset_from_database(session, image_id) or store.image_assets.get(image_id)
     if not image_asset:
         raise not_found()
     store.image_assets[image_id] = image_asset

@@ -60,6 +60,7 @@ from app.main import (
     list_source_versions_from_database,
     list_tickets_from_database,
     post_feedback,
+    post_image_ocr,
     retry_ingestion_job,
     save_alias_to_database,
     save_ask_response_to_database,
@@ -99,6 +100,7 @@ from app.models.schemas import (
     LogSource,
     ModelRun,
     OcrResult,
+    OcrResultCreate,
     Product,
     ProductAlias,
     ProviderConfig,
@@ -114,6 +116,7 @@ from app.models.schemas import (
     SourceVersion,
     Ticket,
 )
+from app.providers.base import OCRResult
 
 
 def test_sqlalchemy_metadata_covers_required_tables():
@@ -1167,6 +1170,37 @@ def test_database_image_ocr_results_do_not_fall_back_to_stale_memory():
         )
 
         assert get_image_ocr_results(image_asset.id, session) == []
+    finally:
+        main_app.store.reset()
+
+
+def test_image_ocr_prefers_database_image_asset_over_stale_memory(monkeypatch):
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["image_assets"], Base.metadata.tables["ocr_results"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    image_asset = ReviewEvalRepository(session).add_image_asset(
+        ImageAsset(storage_uri="local://database-image.png", image_type="screenshot")
+    )
+    session.commit()
+    seen_uris = []
+
+    def fake_ocr(_provider_config, image_uri):
+        seen_uris.append(image_uri)
+        return OCRResult("fake", "fake-ocr", 1, text="OCR from database image", confidence=0.8)
+
+    main_app.store.reset()
+    try:
+        main_app.store.image_assets[image_asset.id] = image_asset.model_copy(update={"storage_uri": "local://stale-image.png"})
+        monkeypatch.setattr(main_app, "run_configured_ocr", fake_ocr)
+
+        result = post_image_ocr(image_asset.id, OcrResultCreate(), None, session)
+
+        assert seen_uris == ["local://database-image.png"]
+        assert result["ocr_result"].ocr_text == "OCR from database image"
+        assert list_ocr_results_from_database(session, image_asset.id)[0].ocr_text == "OCR from database image"
+        assert main_app.store.image_assets[image_asset.id].storage_uri == "local://database-image.png"
     finally:
         main_app.store.reset()
 

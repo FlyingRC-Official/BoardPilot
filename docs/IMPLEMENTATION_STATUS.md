@@ -93,6 +93,7 @@ Updated: 2026-05-21
 - Added an optional local Tesseract OCR adapter path for private deployments where the `tesseract` executable is installed.
 - Image asset OCR result history is now inspectable through an API, including completed and failed provider status.
 - Image asset OCR history now treats database-backed ImageAsset rows as authoritative, so empty persisted OCR histories do not leak stale in-memory OCR results.
+- Image OCR execution now prefers persisted ImageAsset rows over stale in-memory image metadata before selecting the storage URI to send to the OCR provider.
 - Extended enabled provider config identity to saved chunk embeddings, reranked candidate metadata, and OCR results.
 - Added explicit source-disable audit logging and a Review action for marking source updates needed.
 - Review detail now surfaces Eval failure metrics when a ReviewItem originates from an EvalResult.
