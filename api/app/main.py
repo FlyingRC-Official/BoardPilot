@@ -1546,10 +1546,15 @@ def get_answer(answer_id: UUID, session: Session = Depends(get_session)):
 
 @app.get("/answers/{answer_id}/evidence")
 def get_answer_evidence(answer_id: UUID, session: Session = Depends(get_session)) -> list:
-    answer = store.answers.get(answer_id) or get_answer_from_database(session, answer_id)
+    database_answer = get_answer_from_database(session, answer_id)
+    if database_answer:
+        return list_evidence_from_database(session, database_answer.retrieval_run_id)
+
+    answer = store.answers.get(answer_id)
     if not answer:
         raise not_found()
-    return list_evidence_from_database(session, answer.retrieval_run_id) or store.evidence_for_run(answer.retrieval_run_id)
+    database_evidence = list_evidence_from_database(session, answer.retrieval_run_id)
+    return database_evidence or store.evidence_for_run(answer.retrieval_run_id)
 
 
 @app.get("/model-runs/{model_run_id}")

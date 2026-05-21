@@ -13,6 +13,7 @@ from app.retrieval.service import run_retrieval
 from app.main import (
     delete_provider_config_from_database,
     get_answer_from_database,
+    get_answer_evidence,
     get_artifact_from_database,
     get_approved_faq_from_database,
     get_chunk_from_database,
@@ -870,6 +871,45 @@ def test_retrieval_repository_round_trips_ask_records_in_sqlite():
     assert retrieval_repo.candidates_for_run(run.id)[0].id == candidate.id
     assert retrieval_repo.evidence_for_run(run.id)[0].id == evidence.id
     assert retrieval_repo.get_answer(answer.id).citation_map_json["usb"][0] == evidence.id
+
+
+def test_database_answer_evidence_endpoint_does_not_fall_back_to_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            Base.metadata.tables["questions"],
+            Base.metadata.tables["retrieval_runs"],
+            Base.metadata.tables["evidences"],
+            Base.metadata.tables["answers"],
+        ],
+    )
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    retrieval_repo = RetrievalRepository(session)
+    question = retrieval_repo.add_question(Question(raw_text="Can USB power servos?", normalized_text="usb servos"))
+    run = retrieval_repo.add_retrieval_run(RetrievalRun(question_id=question.id, normalized_query=question.normalized_text))
+    answer = retrieval_repo.add_answer(
+        Answer(
+            question_id=question.id,
+            retrieval_run_id=run.id,
+            answer_text="No evidence was selected.",
+            evidence_sufficiency=EvidenceSufficiency.insufficient,
+            confidence=0.0,
+        )
+    )
+    session.commit()
+
+    main_app.store.reset()
+    try:
+        main_app.store.add_evidence(
+            [Evidence(retrieval_run_id=run.id, chunk_id=question.id, rank=1, score=1.0, quote="stale", selection_reason="stale")]
+        )
+
+        assert get_answer_evidence(answer.id, session) == []
+    finally:
+        main_app.store.reset()
 
 
 def test_ask_api_helpers_mirror_records_to_database_when_available():
