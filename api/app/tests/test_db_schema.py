@@ -24,6 +24,7 @@ from app.main import (
     get_eval_run_from_database,
     eval_result_to_review,
     get_image_asset_from_database,
+    get_image_ocr_results,
     get_model_run_from_database,
     get_provider_config_from_database,
     get_product_from_database,
@@ -1139,6 +1140,33 @@ def test_database_review_detail_does_not_fall_back_to_stale_memory_children():
         assert detail.evidence == []
         assert detail.candidates == []
         assert detail.attachments == []
+    finally:
+        main_app.store.reset()
+
+
+def test_database_image_ocr_results_do_not_fall_back_to_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["image_assets"], Base.metadata.tables["ocr_results"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    image_asset = ReviewEvalRepository(session).add_image_asset(
+        ImageAsset(storage_uri="local://image.png", image_type="screenshot")
+    )
+    session.commit()
+
+    main_app.store.reset()
+    try:
+        main_app.store.add_ocr_result(
+            OcrResult(
+                image_asset_id=image_asset.id,
+                provider_name="fake",
+                model_name="fake-ocr",
+                ocr_text="stale text",
+            )
+        )
+
+        assert get_image_ocr_results(image_asset.id, session) == []
     finally:
         main_app.store.reset()
 

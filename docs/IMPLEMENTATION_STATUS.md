@@ -92,6 +92,7 @@ Updated: 2026-05-21
 - OCR providers can now return extracted text directly; provider-returned OCR text is saved as an OcrResult and ingested into a source version/chunks without requiring manual OCR text in the request.
 - Added an optional local Tesseract OCR adapter path for private deployments where the `tesseract` executable is installed.
 - Image asset OCR result history is now inspectable through an API, including completed and failed provider status.
+- Image asset OCR history now treats database-backed ImageAsset rows as authoritative, so empty persisted OCR histories do not leak stale in-memory OCR results.
 - Extended enabled provider config identity to saved chunk embeddings, reranked candidate metadata, and OCR results.
 - Added explicit source-disable audit logging and a Review action for marking source updates needed.
 - Review detail now surfaces Eval failure metrics when a ReviewItem originates from an EvalResult.
