@@ -1574,9 +1574,10 @@ def post_feedback(
     _user: CurrentUser = Depends(require_roles("admin", "support", "reviewer")),
     session: Session = Depends(get_session),
 ) -> ReviewItem:
-    answer = store.answers.get(answer_id) or get_answer_from_database(session, answer_id)
+    answer = get_answer_from_database(session, answer_id) or store.answers.get(answer_id)
     if not answer:
         raise not_found()
+    store.answers[answer.id] = answer
     item = review_item_from_answer_feedback(answer, payload)
     item = store.add_review_item(item)
     save_review_item_to_database(session, item)

@@ -55,6 +55,7 @@ from app.main import (
     list_sources_from_database,
     list_source_versions_from_database,
     list_tickets_from_database,
+    post_feedback,
     save_alias_to_database,
     save_ask_response_to_database,
     save_approved_faq_to_database,
@@ -77,6 +78,7 @@ from app.main import (
 )
 from app.models.schemas import (
     Answer,
+    AnswerFeedbackCreate,
     ApprovedFAQ,
     AuditLog,
     Chunk,
@@ -460,6 +462,51 @@ def test_review_item_helper_prefers_database_state_over_stale_memory():
         assert hydrated.reviewer_notes == "database state"
         assert hydrated.failure_category == FailureCategory.bad_parse
         assert main_app.store.review_items[database_item.id].reviewer_notes == "database state"
+    finally:
+        main_app.store.reset()
+
+
+def test_answer_feedback_prefers_database_answer_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            Base.metadata.tables["questions"],
+            Base.metadata.tables["retrieval_runs"],
+            Base.metadata.tables["answers"],
+            Base.metadata.tables["review_items"],
+        ],
+    )
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    retrieval_repo = RetrievalRepository(session)
+    question = retrieval_repo.add_question(Question(raw_text="Can USB power servos?", normalized_text="usb servos"))
+    run = retrieval_repo.add_retrieval_run(RetrievalRun(question_id=question.id, normalized_query=question.normalized_text))
+    answer = retrieval_repo.add_answer(
+        Answer(
+            question_id=question.id,
+            retrieval_run_id=run.id,
+            answer_text="Use external BEC power for servos.",
+            evidence_sufficiency=EvidenceSufficiency.sufficient,
+            confidence=0.9,
+        )
+    )
+    session.commit()
+
+    stale_question = Question(raw_text="Stale question", normalized_text="stale")
+    stale_run = RetrievalRun(question_id=stale_question.id, normalized_query=stale_question.normalized_text)
+    stale_answer = answer.model_copy(update={"question_id": stale_question.id, "retrieval_run_id": stale_run.id})
+    main_app.store.reset()
+    try:
+        main_app.store.answers[answer.id] = stale_answer
+
+        item = post_feedback(answer.id, AnswerFeedbackCreate(feedback_type="incorrect", notes="wrong"), None, session)
+
+        assert item.answer_id == answer.id
+        assert item.question_id == question.id
+        assert list_review_items_from_database(session)[0].question_id == question.id
+        assert main_app.store.answers[answer.id].question_id == question.id
     finally:
         main_app.store.reset()
 

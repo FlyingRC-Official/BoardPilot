@@ -115,6 +115,7 @@ Updated: 2026-05-21
 - Ask answer feedback now rejects missing or unknown feedback types instead of creating ambiguous review work.
 - Ask answer feedback now uses a typed request schema so the feedback contract is explicit in the API surface.
 - Ask answer feedback now enforces support/reviewer/admin role access so viewer users cannot create review work.
+- Ask answer feedback now prefers persisted Answer records over stale in-memory Answer rows before creating review work.
 - Ask page now accepts optional metadata filter JSON and sends it with the Ask request.
 - Ask metadata filters now constrain retrieval candidates and are recorded in the retrieval filter plan.
 - Ask requests now accept optional existing-artifact attachments, persist QuestionAttachment records, return them in the Ask response, and the Ask page has a source/artifact picker for attaching context without raw JSON.
