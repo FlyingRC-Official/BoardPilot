@@ -741,12 +741,20 @@ def hydrate_review_context_for_service(session: Session, item_id: UUID) -> Optio
         store.eval_results[eval_result.id] = eval_result
 
     answer_id = item.answer_id or (eval_result.answer_id if eval_result else None)
-    answer = (get_answer_from_database(session, answer_id) or store.answers.get(answer_id)) if answer_id else None
+    database_answer = get_answer_from_database(session, answer_id) if answer_id else None
+    answer = (database_answer or store.answers.get(answer_id)) if answer_id else None
     if answer:
         store.answers[answer.id] = answer
 
     question_id = item.question_id or (answer.question_id if answer else None) or (eval_result.question_id if eval_result else None)
-    question = (get_question_from_database(session, question_id) or store.questions.get(question_id)) if question_id else None
+    database_question = get_question_from_database(session, question_id) if question_id else None
+    if database_question:
+        question = database_question
+    elif question_id and (database_answer or eval_result):
+        store.questions.pop(question_id, None)
+        question = None
+    else:
+        question = store.questions.get(question_id) if question_id else None
     if question:
         store.questions[question.id] = question
         if question.product_id:

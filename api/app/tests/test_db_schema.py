@@ -2228,6 +2228,50 @@ def test_review_context_hydration_clears_stale_retrieval_children():
         main_app.store.reset()
 
 
+def test_review_context_hydration_rejects_stale_question_for_database_answer():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            Base.metadata.tables["questions"],
+            Base.metadata.tables["retrieval_runs"],
+            Base.metadata.tables["answers"],
+            Base.metadata.tables["review_items"],
+        ],
+    )
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    retrieval_repo = RetrievalRepository(session)
+    review_repo = ReviewEvalRepository(session)
+    missing_question_id = uuid4()
+    run = retrieval_repo.add_retrieval_run(RetrievalRun(question_id=missing_question_id, normalized_query="missing question"))
+    answer = retrieval_repo.add_answer(
+        Answer(
+            question_id=missing_question_id,
+            retrieval_run_id=run.id,
+            answer_text="No evidence was selected.",
+            evidence_sufficiency=EvidenceSufficiency.insufficient,
+            confidence=0.0,
+        )
+    )
+    item = review_repo.add_review_item(ReviewItem(source_type="user_feedback", question_id=missing_question_id, answer_id=answer.id))
+    session.commit()
+    stale_question = Question(id=missing_question_id, raw_text="Stale question?", normalized_text="stale question")
+
+    main_app.store.reset()
+    try:
+        main_app.store.questions[missing_question_id] = stale_question
+
+        hydrated = hydrate_review_context_for_service(session, item.id)
+
+        assert hydrated is not None
+        assert missing_question_id not in main_app.store.questions
+        assert main_app.store.answers[answer.id].question_id == missing_question_id
+    finally:
+        main_app.store.reset()
+
+
 def test_ask_api_helpers_mirror_records_to_database_when_available():
     import app.main as main_app
 
