@@ -449,9 +449,12 @@ def hydrate_source_version_for_service(session: Session, source_version_id: UUID
     version = database_version or store.source_versions.get(source_version_id)
     if not version:
         return None
+    database_source = get_source_from_database(session, version.source_id)
+    if database_version and not database_source:
+        return None
     store.source_versions[version.id] = version
 
-    source = get_source_from_database(session, version.source_id) or store.sources.get(version.source_id)
+    source = database_source or store.sources.get(version.source_id)
     if source:
         store.sources[source.id] = source
         if source.product_id:

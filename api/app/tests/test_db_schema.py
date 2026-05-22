@@ -1536,6 +1536,30 @@ def test_source_version_hydration_prefers_database_version_and_source_over_stale
         main_app.store.reset()
 
 
+def test_source_version_hydration_rejects_database_version_with_missing_database_source():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    missing_source_id = uuid4()
+    version = CatalogRepository(session).add_source_version(
+        SourceVersion(source_id=missing_source_id, version_label="Database v1", content_hash="a" * 64)
+    )
+    session.commit()
+    stale_source = Source(product_id=uuid4(), title="Stale Manual", source_type=SourceType.markdown)
+
+    main_app.store.reset()
+    try:
+        main_app.store.sources[missing_source_id] = stale_source
+
+        assert hydrate_source_version_for_service(session, version.id) is None
+        assert version.id not in main_app.store.source_versions
+        assert main_app.store.sources[missing_source_id].title == "Stale Manual"
+    finally:
+        main_app.store.reset()
+
+
 def test_source_version_hydration_tracks_existing_chunk_hashes():
     import app.main as main_app
     from app.ingestion.chunking import content_hash
