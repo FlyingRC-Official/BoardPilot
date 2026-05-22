@@ -150,7 +150,7 @@ Updated: 2026-05-21
 - Product and source patch endpoints now refresh `updated_at` so mutable catalog records reflect edit time.
 - Product, source, and EvalCase patch endpoints now ignore immutable fields such as ids, ownership links, and creation timestamps while still updating approved mutable fields.
 - SourceVersion ingestion success, ingestion failure, and disable transitions now refresh `updated_at` so source-version lifecycle state reflects mutation time.
-- SourceVersion disable now prefers persisted SourceVersion and Chunk rows over stale in-memory copies before mutating lifecycle state.
+- SourceVersion disable now prefers persisted SourceVersion and Chunk rows over stale in-memory copies before mutating lifecycle state, including empty persisted chunk sets.
 - Source disable now refreshes `updated_at`, disables all chunks under the source's versions, and records the disabled chunk count in the audit event; patching a source to disabled follows the same disable semantics.
 - Source disable now prefers persisted SourceVersion and Chunk rows over stale in-memory version/chunk state before disabling source chunks.
 - Source patch, source disable, and source-version disable now use typed request schemas while preserving immutable-field filtering and audit reasons.

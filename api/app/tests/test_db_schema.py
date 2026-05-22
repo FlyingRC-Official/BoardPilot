@@ -526,6 +526,50 @@ def test_source_version_disable_prefers_database_version_and_chunks_over_stale_m
         main_app.store.reset()
 
 
+def test_source_version_disable_preserves_empty_database_chunks_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(
+        Source(product_id=product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    )
+    version = catalog_repo.add_source_version(
+        SourceVersion(source_id=source.id, version_label="Database v1", content_hash="d" * 64)
+    )
+    session.commit()
+    stale_chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content="Stale chunk",
+        content_hash="f" * 64,
+        token_count=2,
+    )
+
+    main_app.store.reset()
+    try:
+        main_app.store.source_versions[version.id] = version.model_copy(update={"version_label": "Stale v1"})
+        main_app.store.chunks[stale_chunk.id] = stale_chunk
+
+        result = disable_source_version(
+            version.id,
+            DisableReasonCreate(reason="retired"),
+            CurrentUser(user_id="source-admin", role="admin"),
+            session,
+        )
+
+        assert result["version"].version_label == "Database v1"
+        assert result["disabled_chunk_count"] == 0
+        assert list_chunks_from_database(session, version.id) == []
+        assert main_app.store.chunks[stale_chunk.id].enabled is True
+    finally:
+        main_app.store.reset()
+
+
 def test_source_version_create_prefers_database_source_over_stale_memory():
     import app.main as main_app
 
