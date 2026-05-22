@@ -1658,6 +1658,79 @@ def test_review_context_hydration_restores_eval_result_from_database():
         main_app.store.reset()
 
 
+def test_review_context_hydration_prefers_database_catalog_evidence_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+        Base.metadata.tables["questions"],
+        Base.metadata.tables["retrieval_runs"],
+        Base.metadata.tables["retrieval_candidates"],
+        Base.metadata.tables["evidences"],
+        Base.metadata.tables["answers"],
+        Base.metadata.tables["review_items"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    version = SourceVersion(source_id=source.id, version_label="Database v1", content_hash="6" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+    chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content=artifact.content,
+        content_hash="5" * 64,
+        token_count=4,
+    )
+    question = Question(product_id=product.id, raw_text="Can USB power servos?", normalized_text="usb servos")
+    retrieval_run = RetrievalRun(question_id=question.id, normalized_query=question.normalized_text)
+    candidate = RetrievalCandidate(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, stage="reranked", source="fake", rank=1)
+    evidence = Evidence(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, rank=1, score=1.0, quote=chunk.content, selection_reason="top")
+    answer = Answer(
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_text="USB is for configuration only.",
+        citation_map_json={"usb": [evidence.id]},
+        evidence_sufficiency=EvidenceSufficiency.sufficient,
+        confidence=0.9,
+    )
+    review_item = ReviewItem(source_type="user_feedback", question_id=question.id, answer_id=answer.id)
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    save_ask_response_to_database(session, question, retrieval_run, [candidate], [evidence], answer, review_item)
+    session.expire_all()
+
+    stale_source = source.model_copy(update={"title": "Stale Manual", "trust_level": "stale"})
+    stale_version = version.model_copy(update={"version_label": "Stale v1", "content_hash": "7" * 64})
+    stale_chunk = chunk.model_copy(update={"content": "Stale chunk", "content_hash": "8" * 64})
+
+    main_app.store.reset()
+    try:
+        main_app.store.sources[source.id] = stale_source
+        main_app.store.source_versions[version.id] = stale_version
+        main_app.store.chunks[chunk.id] = stale_chunk
+
+        hydrated = hydrate_review_context_for_service(session, review_item.id)
+
+        assert hydrated is not None
+        assert main_app.store.chunks[chunk.id].content == "USB is configuration only."
+        assert main_app.store.source_versions[version.id].version_label == "Database v1"
+        assert main_app.store.sources[source.id].title == "Database Manual"
+        assert main_app.store.sources[source.id].trust_level == "official"
+    finally:
+        main_app.store.reset()
+
+
 def test_review_eval_repository_round_trips_remaining_mvp_records_in_sqlite():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     create_subset = [

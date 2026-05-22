@@ -734,15 +734,15 @@ def hydrate_review_context_for_service(session: Session, item_id: UUID) -> Optio
             store.retrieval_candidates[candidate.id] = candidate
         for evidence in list_evidence_from_database(session, retrieval_run.id):
             store.evidences[evidence.id] = evidence
-            chunk = store.chunks.get(evidence.chunk_id) or get_chunk_from_database(session, evidence.chunk_id)
+            chunk = get_chunk_from_database(session, evidence.chunk_id) or store.chunks.get(evidence.chunk_id)
             if not chunk:
                 continue
             store.chunks[chunk.id] = chunk
-            version = store.source_versions.get(chunk.source_version_id) or get_source_version_from_database(session, chunk.source_version_id)
+            version = get_source_version_from_database(session, chunk.source_version_id) or store.source_versions.get(chunk.source_version_id)
             if not version:
                 continue
             store.source_versions[version.id] = version
-            source = store.sources.get(version.source_id) or get_source_from_database(session, version.source_id)
+            source = get_source_from_database(session, version.source_id) or store.sources.get(version.source_id)
             if source:
                 store.sources[source.id] = source
     return item
