@@ -355,6 +355,66 @@ def test_source_disable_prefers_database_source_over_stale_memory():
         main_app.store.reset()
 
 
+def test_source_disable_prefers_database_versions_and_chunks_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(
+        Source(product_id=product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    )
+    database_version = catalog_repo.add_source_version(
+        SourceVersion(source_id=source.id, version_label="Database v1", content_hash="d" * 64)
+    )
+    database_chunk = catalog_repo.add_chunks(
+        [
+            Chunk(
+                source_version_id=database_version.id,
+                product_id=product.id,
+                chunk_index=0,
+                content="Database chunk",
+                content_hash="c" * 64,
+                token_count=2,
+            )
+        ]
+    )[0]
+    session.commit()
+    stale_version = SourceVersion(source_id=source.id, version_label="Stale v1", content_hash="e" * 64)
+    stale_chunk = Chunk(
+        source_version_id=stale_version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content="Stale chunk",
+        content_hash="f" * 64,
+        token_count=2,
+    )
+
+    main_app.store.reset()
+    try:
+        main_app.store.source_versions[stale_version.id] = stale_version
+        main_app.store.chunks[stale_chunk.id] = stale_chunk
+
+        disabled = disable_source(
+            source.id,
+            DisableReasonCreate(reason="retired"),
+            CurrentUser(user_id="source-admin", role="admin"),
+            session,
+        )
+
+        persisted_chunk = get_chunk_from_database(session, database_chunk.id)
+        assert disabled.status == "disabled"
+        assert persisted_chunk is not None
+        assert persisted_chunk.enabled is False
+        assert persisted_chunk.content == "Database chunk"
+        assert main_app.store.chunks[database_chunk.id].enabled is False
+        assert stale_chunk.id not in {chunk.id for chunk in list_chunks_from_database(session, stale_version.id)}
+    finally:
+        main_app.store.reset()
+
+
 def test_source_version_disable_prefers_database_version_and_chunks_over_stale_memory():
     import app.main as main_app
 

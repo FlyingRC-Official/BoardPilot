@@ -1078,14 +1078,14 @@ def get_source(source_id: UUID, session: Session = Depends(get_session)) -> Sour
 
 
 def disable_chunks_for_source(source_id: UUID, session: Session) -> list[Chunk]:
-    source_versions = [version for version in store.source_versions.values() if version.source_id == source_id]
+    source_versions = list_source_versions_from_database(session, source_id)
     if not source_versions:
-        source_versions = list_source_versions_from_database(session, source_id)
+        source_versions = [version for version in store.source_versions.values() if version.source_id == source_id]
     disabled_chunks = []
     for version in source_versions:
-        candidate_chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version.id]
+        candidate_chunks = list_chunks_from_database(session, version.id)
         if not candidate_chunks:
-            candidate_chunks = list_chunks_from_database(session, version.id)
+            candidate_chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version.id]
         for chunk in candidate_chunks:
             chunk.enabled = False
             store.chunks[chunk.id] = chunk
