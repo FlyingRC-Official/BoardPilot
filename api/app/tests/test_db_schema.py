@@ -1308,6 +1308,93 @@ def test_retrieval_repository_round_trips_ask_records_in_sqlite():
     assert retrieval_repo.get_answer(answer.id).citation_map_json["usb"][0] == evidence.id
 
 
+def test_save_eval_run_results_prefers_database_ask_context_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown)
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="d" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB only.")
+    chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content="USB power is for configuration only.",
+        content_hash="e" * 64,
+        token_count=6,
+    )
+    question = Question(product_id=product.id, raw_text="Database question?", normalized_text="database question")
+    retrieval_run = RetrievalRun(question_id=question.id, normalized_query=question.normalized_text)
+    candidate = RetrievalCandidate(retrieval_run_id=retrieval_run.id, chunk_id=chunk.id, stage="reranked", source="hybrid", rank=1)
+    evidence = Evidence(
+        retrieval_run_id=retrieval_run.id,
+        chunk_id=chunk.id,
+        rank=1,
+        score=0.9,
+        quote="Database quote",
+        selection_reason="top rerank",
+    )
+    answer = Answer(
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_text="Database answer.",
+        citation_map_json={"usb": [evidence.id]},
+        evidence_sufficiency=EvidenceSufficiency.sufficient,
+        confidence=0.9,
+    )
+    eval_case = EvalCase(product_id=product.id, question_text=question.raw_text, expected_chunk_ids_json=[chunk.id])
+    eval_run = EvalRun(name="MVP eval", summary_metrics_json={"case_count": 1})
+    eval_result = EvalResult(
+        eval_run_id=eval_run.id,
+        eval_case_id=eval_case.id,
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_id=answer.id,
+        recall_at_20=1.0,
+        rerank_at_5=1.0,
+        citation_support_rate=1.0,
+        unsupported_claim_rate=0.0,
+        need_review=False,
+    )
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    save_ask_response_to_database(session, question, retrieval_run, [candidate], [evidence], answer, None)
+    save_eval_case_to_database(session, eval_case)
+    session.expire_all()
+
+    stale_question = question.model_copy(update={"raw_text": "Stale question?", "normalized_text": "stale question"})
+    stale_run = retrieval_run.model_copy(update={"normalized_query": "stale query"})
+    stale_candidate = candidate.model_copy(update={"source": "stale", "rerank_score": 0.1})
+    stale_evidence = evidence.model_copy(update={"quote": "Stale quote"})
+    stale_answer = answer.model_copy(update={"answer_text": "Stale answer."})
+
+    main_app.store.reset()
+    try:
+        main_app.store.questions[question.id] = stale_question
+        main_app.store.retrieval_runs[retrieval_run.id] = stale_run
+        main_app.store.retrieval_candidates[stale_candidate.id] = stale_candidate
+        main_app.store.evidences[stale_evidence.id] = stale_evidence
+        main_app.store.answers[answer.id] = stale_answer
+
+        save_eval_run_results_to_database(session, eval_run, [eval_result])
+        session.expire_all()
+
+        assert get_question_from_database(session, question.id).raw_text == "Database question?"
+        assert get_retrieval_run_from_database(session, retrieval_run.id).normalized_query == "database question"
+        assert list_retrieval_candidates_from_database(session, retrieval_run.id)[0].source == "hybrid"
+        assert list_evidence_from_database(session, retrieval_run.id)[0].quote == "Database quote"
+        assert get_answer_from_database(session, answer.id).answer_text == "Database answer."
+        assert get_eval_result_from_database(session, eval_result.id).id == eval_result.id
+    finally:
+        main_app.store.reset()
+
+
 def test_database_answer_evidence_endpoint_does_not_fall_back_to_stale_memory():
     import app.main as main_app
 

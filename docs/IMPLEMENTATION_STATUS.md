@@ -163,6 +163,7 @@ Updated: 2026-05-21
 - Ask and Eval runs now hydrate products, aliases, sources, source versions, chunks, and chunk embeddings from SQLAlchemy before retrieval so database-backed source material remains retrievable after an API restart.
 - Review item queue, detail, update, and decision endpoints now read, hydrate, and mirror through SQLAlchemy when available.
 - Eval case, run, comparison, result, and result-to-review endpoints now read and mirror through SQLAlchemy when available.
+- Eval run result persistence now prefers persisted linked ask context over stale in-memory question, retrieval, candidate, evidence, answer, and model-run rows.
 - Ticket, log source, image asset, and OCR import endpoints now read and mirror through SQLAlchemy when available.
 - ReviewItem to ApprovedFAQ and ReviewItem to EvalCase conversions now hydrate linked database context and persist generated FAQ/source/eval outputs through SQLAlchemy when available.
 - Ingestion job run/enqueue/retry paths now hydrate SourceVersion, Source, Product, Artifact, and existing Chunk context from SQLAlchemy and mirror completed re-ingestion outputs back to SQLAlchemy when available.

@@ -585,16 +585,27 @@ def save_eval_run_results_to_database(session: Session, eval_run: EvalRun, resul
         review_repo = ReviewEvalRepository(session)
         review_repo.add_eval_run(eval_run)
         for result in results:
-            question = store.questions.get(result.question_id)
-            retrieval_run = store.retrieval_runs.get(result.retrieval_run_id)
-            answer = store.answers.get(result.answer_id)
+            question = get_question_from_database(session, result.question_id) or store.questions.get(result.question_id)
+            retrieval_run = get_retrieval_run_from_database(session, result.retrieval_run_id) or store.retrieval_runs.get(
+                result.retrieval_run_id
+            )
+            answer = get_answer_from_database(session, result.answer_id) or store.answers.get(result.answer_id)
             if question and retrieval_run and answer:
                 retrieval_repo.add_question(question)
                 retrieval_repo.add_retrieval_run(retrieval_run)
-                retrieval_repo.add_candidates(store.candidates_for_run(retrieval_run.id))
-                retrieval_repo.add_evidence(store.evidence_for_run(retrieval_run.id))
-                if answer.model_run_id and answer.model_run_id in store.model_runs:
-                    retrieval_repo.add_model_run(store.model_runs[answer.model_run_id])
+                candidates = list_retrieval_candidates_from_database(session, retrieval_run.id) or store.candidates_for_run(
+                    retrieval_run.id
+                )
+                evidence = list_evidence_from_database(session, retrieval_run.id) or store.evidence_for_run(retrieval_run.id)
+                retrieval_repo.add_candidates(candidates)
+                retrieval_repo.add_evidence(evidence)
+                model_run = (
+                    get_model_run_from_database(session, answer.model_run_id) or store.model_runs.get(answer.model_run_id)
+                    if answer.model_run_id
+                    else None
+                )
+                if model_run:
+                    retrieval_repo.add_model_run(model_run)
                 retrieval_repo.add_answer(answer)
             review_repo.add_eval_result(result)
         session.commit()
