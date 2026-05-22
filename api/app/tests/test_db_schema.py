@@ -16,6 +16,7 @@ from app.retrieval.service import run_retrieval
 from app.main import (
     ask,
     compare_eval_runs,
+    delete_provider_config,
     delete_provider_config_from_database,
     get_answer_from_database,
     get_answer_evidence,
@@ -582,6 +583,32 @@ def test_provider_config_hydration_populates_runtime_store_from_database():
     hydrated = hydrate_provider_configs(runtime_store, session)
     assert hydrated[0].id == config.id
     assert runtime_store.active_provider_config("llm").model_name == "fake-citation-llm"
+
+
+def test_provider_config_delete_audits_database_config_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["provider_configs"]])
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    config = ProviderConfig(provider_type="llm", provider_name="fake", model_name="database-model")
+
+    save_provider_config_to_database(session, config)
+    session.expire_all()
+    main_app.store.reset()
+    try:
+        main_app.store.provider_configs[config.id] = config.model_copy(update={"model_name": "stale-model"})
+
+        result = delete_provider_config(config.id, CurrentUser(user_id="admin", role="admin"), session)
+
+        assert result == {"status": "deleted"}
+        assert get_provider_config_from_database(session, config.id) is None
+        assert config.id not in main_app.store.provider_configs
+        audit_log = list(main_app.store.audit_logs.values())[-1]
+        assert audit_log.action == "provider_config_deleted"
+        assert audit_log.before_json["model_name"] == "database-model"
+    finally:
+        main_app.store.reset()
 
 
 def test_support_import_api_helpers_use_database_when_available():

@@ -952,9 +952,9 @@ def delete_provider_config(
     user: CurrentUser = Depends(require_roles("admin")),
     session: Session = Depends(get_session),
 ) -> dict:
-    config = store.provider_configs.pop(config_id, None)
     database_config = delete_provider_config_from_database(session, config_id)
-    config = config or database_config
+    stale_config = store.provider_configs.pop(config_id, None)
+    config = database_config or stale_config
     if not config:
         raise not_found()
     store.add_audit_log(

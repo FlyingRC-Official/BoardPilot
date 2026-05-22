@@ -140,6 +140,7 @@ Updated: 2026-05-21
 - Added SQLAlchemy review/eval/support repository coverage and persisted imported log source content.
 - Ingestion job endpoints now mirror job state into the SQLAlchemy runtime repository when the database schema is available.
 - Provider configuration APIs now read and mirror provider configs through SQLAlchemy when the database schema is available.
+- Provider config deletion now audits the persisted config row instead of stale in-memory config state when both exist.
 - Provider-dependent ingestion, Ask, Eval, OCR, review-to-FAQ, and worker paths now hydrate saved provider configs from SQLAlchemy before choosing active providers.
 - Audit log writes and reads now mirror through SQLAlchemy when the database schema is available, while keeping JSONL mirroring support.
 - Product, product alias, and source catalog endpoints now read and mirror through SQLAlchemy when the database schema is available.
