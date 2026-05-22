@@ -1550,6 +1550,47 @@ def test_image_ocr_prefers_database_image_asset_over_stale_memory(monkeypatch):
         main_app.store.reset()
 
 
+def test_image_ocr_prefers_database_source_over_stale_memory_for_chunks(monkeypatch):
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    database_product = Product(name="Database Board", slug="database-board", description="Current product")
+    stale_product = Product(name="Stale Board", slug="stale-board", description="Stale product")
+    source = Source(product_id=database_product.id, title="Image source", source_type=SourceType.image, trust_level="image")
+    image_asset = ImageAsset(
+        product_id=database_product.id,
+        storage_uri="local://database-image.png",
+        image_type="screenshot",
+        source_id=source.id,
+    )
+    save_product_to_database(session, database_product)
+    save_product_to_database(session, stale_product)
+    save_source_to_database(session, source)
+    save_image_asset_to_database(session, image_asset)
+    session.expire_all()
+
+    def fake_ocr(_provider_config, _image_uri):
+        return OCRResult("fake", "fake-ocr", 1, text="OCR DATABASE TEXT", confidence=0.8)
+
+    main_app.store.reset()
+    try:
+        main_app.store.products[stale_product.id] = stale_product
+        main_app.store.sources[source.id] = source.model_copy(update={"product_id": stale_product.id, "title": "Stale image source"})
+        monkeypatch.setattr(main_app, "run_configured_ocr", fake_ocr)
+
+        result = post_image_ocr(image_asset.id, OcrResultCreate(), None, session)
+
+        assert result["chunks"]
+        assert result["chunks"][0].product_id == database_product.id
+        assert list_chunks_from_database(session, result["version"].id)[0].product_id == database_product.id
+        assert main_app.store.sources[source.id].product_id == database_product.id
+        assert main_app.store.sources[source.id].title == "Image source"
+    finally:
+        main_app.store.reset()
+
+
 def test_ask_api_helpers_mirror_records_to_database_when_available():
     import app.main as main_app
 

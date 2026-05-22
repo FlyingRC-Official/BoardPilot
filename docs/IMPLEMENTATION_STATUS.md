@@ -165,6 +165,7 @@ Updated: 2026-05-21
 - Eval case, run, comparison, result, and result-to-review endpoints now read and mirror through SQLAlchemy when available.
 - Eval run result persistence now prefers persisted linked ask context over stale in-memory question, retrieval, candidate, evidence, answer, and model-run rows.
 - Ticket, log source, image asset, and OCR import endpoints now read and mirror through SQLAlchemy when available.
+- OCR source-version creation now prefers the persisted Image Source over stale in-memory Source state before chunking OCR text.
 - ReviewItem to ApprovedFAQ and ReviewItem to EvalCase conversions now hydrate linked database context and persist generated FAQ/source/eval outputs through SQLAlchemy when available.
 - Ingestion job run/enqueue/retry paths now hydrate SourceVersion, Source, Product, Artifact, and existing Chunk context from SQLAlchemy and mirror completed re-ingestion outputs back to SQLAlchemy when available.
 - Ingestion job retry now prefers persisted IngestionJob records over stale in-memory job rows before choosing the SourceVersion to reprocess.

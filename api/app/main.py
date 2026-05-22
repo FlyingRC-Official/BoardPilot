@@ -2180,7 +2180,7 @@ def post_image_ocr(
     artifact = None
     if ocr_text.strip() and image_asset.source_id:
         database_source = get_source_from_database(session, image_asset.source_id)
-        if database_source and image_asset.source_id not in store.sources:
+        if database_source:
             store.sources[image_asset.source_id] = database_source
         if image_asset.source_id not in store.sources:
             raise not_found()
