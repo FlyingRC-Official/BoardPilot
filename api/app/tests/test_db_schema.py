@@ -67,9 +67,11 @@ from app.main import (
     disable_source_version,
     post_feedback,
     post_image_ocr,
+    post_alias,
     post_question_attachment,
     post_seed_eval_cases,
     post_eval_run,
+    post_source,
     post_source_version,
     patch_product,
     patch_eval_case,
@@ -119,6 +121,7 @@ from app.models.schemas import (
     OcrResultCreate,
     Product,
     ProductAlias,
+    ProductAliasCreate,
     ProductPatch,
     ProviderConfig,
     Question,
@@ -129,6 +132,7 @@ from app.models.schemas import (
     ReviewItem,
     ReviewStatus,
     Source,
+    SourceCreate,
     SourceArtifact,
     SourcePatch,
     SourceType,
@@ -293,6 +297,51 @@ def test_product_patch_prefers_database_product_over_stale_memory():
         assert patched.status == "disabled"
         assert get_product_from_database(session, product.id).name == "Database Product"
         assert main_app.store.products[product.id].name == "Database Product"
+    finally:
+        main_app.store.reset()
+
+
+def test_product_child_creation_prefers_database_product_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            Base.metadata.tables["products"],
+            Base.metadata.tables["product_aliases"],
+            Base.metadata.tables["sources"],
+        ],
+    )
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    product = CatalogRepository(session).add_product(
+        Product(name="Database Product", slug="database-product", description="current")
+    )
+    session.commit()
+    stale_product = product.model_copy(update={"name": "Stale Product", "slug": "stale-product", "description": "stale"})
+
+    main_app.store.reset()
+    try:
+        main_app.store.products[product.id] = stale_product
+
+        alias = post_alias(
+            product.id,
+            ProductAliasCreate(alias="F4 V2", normalized_alias="f4 v2"),
+            CurrentUser(user_id="support-agent", role="support"),
+            session,
+        )
+        source = post_source(
+            SourceCreate(product_id=product.id, title="Manual", source_type=SourceType.markdown),
+            CurrentUser(user_id="support-agent", role="support"),
+            session,
+        )
+
+        assert alias.product_id == product.id
+        assert source.product_id == product.id
+        assert list_aliases_from_database(session, product.id)[0].id == alias.id
+        assert get_source_from_database(session, source.id).id == source.id
+        assert main_app.store.products[product.id].name == "Database Product"
+        assert main_app.store.products[product.id].slug == "database-product"
     finally:
         main_app.store.reset()
 

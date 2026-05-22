@@ -1024,7 +1024,7 @@ def post_alias(
     session: Session = Depends(get_session),
 ) -> ProductAlias:
     database_product = get_product_from_database(session, product_id)
-    if database_product and product_id not in store.products:
+    if database_product:
         store.products[product_id] = database_product
     try:
         alias = create_alias(store, product_id, payload)
@@ -1051,7 +1051,7 @@ def post_source(
     session: Session = Depends(get_session),
 ) -> Source:
     database_product = get_product_from_database(session, payload.product_id)
-    if database_product and payload.product_id not in store.products:
+    if database_product:
         store.products[payload.product_id] = database_product
     try:
         source = create_source(store, payload)
@@ -1930,7 +1930,7 @@ def post_ticket(
 ) -> dict:
     hydrate_provider_configs(store, session)
     database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
-    if database_product and payload.product_id not in store.products:
+    if database_product:
         store.products[payload.product_id] = database_product
     if payload.product_id is None or payload.product_id not in store.products:
         raise HTTPException(status_code=422, detail="valid product_id is required")
@@ -1982,7 +1982,7 @@ def post_log_source(
 ) -> dict:
     hydrate_provider_configs(store, session)
     database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
-    if database_product and payload.product_id not in store.products:
+    if database_product:
         store.products[payload.product_id] = database_product
     if payload.product_id is None or payload.product_id not in store.products:
         raise HTTPException(status_code=422, detail="valid product_id is required")
@@ -2033,7 +2033,7 @@ def post_image_asset(
 ) -> dict:
     hydrate_provider_configs(store, session)
     database_product = get_product_from_database(session, payload.product_id) if payload.product_id else None
-    if database_product and payload.product_id not in store.products:
+    if database_product:
         store.products[payload.product_id] = database_product
     if payload.product_id is None or payload.product_id not in store.products:
         raise HTTPException(status_code=422, detail="valid product_id is required")
@@ -2080,7 +2080,7 @@ async def upload_image_asset(
 ) -> dict:
     hydrate_provider_configs(store, session)
     database_product = get_product_from_database(session, product_id)
-    if database_product and product_id not in store.products:
+    if database_product:
         store.products[product_id] = database_product
     if product_id not in store.products:
         raise HTTPException(status_code=422, detail="valid product_id is required")
