@@ -1580,6 +1580,73 @@ def test_save_eval_run_results_prefers_database_ask_context_over_stale_memory():
         main_app.store.reset()
 
 
+def test_save_eval_run_results_preserves_empty_database_retrieval_children():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    retrieval_repo = RetrievalRepository(session)
+    review_repo = ReviewEvalRepository(session)
+
+    question = retrieval_repo.add_question(Question(raw_text="Can USB power servos?", normalized_text="usb servos"))
+    retrieval_run = retrieval_repo.add_retrieval_run(RetrievalRun(question_id=question.id, normalized_query=question.normalized_text))
+    answer = retrieval_repo.add_answer(
+        Answer(
+            question_id=question.id,
+            retrieval_run_id=retrieval_run.id,
+            answer_text="No evidence was selected.",
+            evidence_sufficiency=EvidenceSufficiency.insufficient,
+            confidence=0.0,
+        )
+    )
+    eval_case = review_repo.add_eval_case(EvalCase(question_text=question.raw_text))
+    session.commit()
+    session.expire_all()
+
+    eval_run = EvalRun(name="MVP eval", summary_metrics_json={"case_count": 1})
+    eval_result = EvalResult(
+        eval_run_id=eval_run.id,
+        eval_case_id=eval_case.id,
+        question_id=question.id,
+        retrieval_run_id=retrieval_run.id,
+        answer_id=answer.id,
+        recall_at_20=0.0,
+        rerank_at_5=0.0,
+        citation_support_rate=0.0,
+        unsupported_claim_rate=1.0,
+        need_review=True,
+    )
+
+    main_app.store.reset()
+    try:
+        main_app.store.retrieval_candidates[uuid4()] = RetrievalCandidate(
+            retrieval_run_id=retrieval_run.id,
+            chunk_id=question.id,
+            stage="reranked",
+            source="stale",
+            rank=1,
+            rerank_score=0.1,
+        )
+        main_app.store.evidences[uuid4()] = Evidence(
+            retrieval_run_id=retrieval_run.id,
+            chunk_id=question.id,
+            rank=1,
+            score=1.0,
+            quote="stale",
+            selection_reason="stale",
+        )
+
+        save_eval_run_results_to_database(session, eval_run, [eval_result])
+        session.expire_all()
+
+        assert list_retrieval_candidates_from_database(session, retrieval_run.id) == []
+        assert list_evidence_from_database(session, retrieval_run.id) == []
+        assert get_eval_result_from_database(session, eval_result.id).id == eval_result.id
+    finally:
+        main_app.store.reset()
+
+
 def test_database_answer_evidence_endpoint_does_not_fall_back_to_stale_memory():
     import app.main as main_app
 
