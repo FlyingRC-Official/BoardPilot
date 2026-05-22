@@ -752,9 +752,17 @@ def hydrate_review_context_for_service(session: Session, item_id: UUID) -> Optio
                 store.products[product.id] = product
 
     retrieval_run_id = (answer.retrieval_run_id if answer else None) or (eval_result.retrieval_run_id if eval_result else None)
-    retrieval_run = (get_retrieval_run_from_database(session, retrieval_run_id) or store.retrieval_runs.get(retrieval_run_id)) if retrieval_run_id else None
+    database_retrieval_run = get_retrieval_run_from_database(session, retrieval_run_id) if retrieval_run_id else None
+    retrieval_run = (database_retrieval_run or store.retrieval_runs.get(retrieval_run_id)) if retrieval_run_id else None
     if retrieval_run:
         store.retrieval_runs[retrieval_run.id] = retrieval_run
+        if database_retrieval_run:
+            for candidate_id, candidate in list(store.retrieval_candidates.items()):
+                if candidate.retrieval_run_id == retrieval_run.id:
+                    store.retrieval_candidates.pop(candidate_id, None)
+            for evidence_id, evidence in list(store.evidences.items()):
+                if evidence.retrieval_run_id == retrieval_run.id:
+                    store.evidences.pop(evidence_id, None)
         for candidate in list_retrieval_candidates_from_database(session, retrieval_run.id):
             store.retrieval_candidates[candidate.id] = candidate
         for evidence in list_evidence_from_database(session, retrieval_run.id):

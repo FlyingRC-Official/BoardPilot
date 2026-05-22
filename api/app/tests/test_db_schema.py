@@ -2150,6 +2150,60 @@ def test_image_ocr_prefers_database_source_over_stale_memory_for_chunks(monkeypa
         main_app.store.reset()
 
 
+def test_review_context_hydration_clears_stale_retrieval_children():
+    import app.main as main_app
+    from app.review.service import review_to_eval_case
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            Base.metadata.tables["questions"],
+            Base.metadata.tables["retrieval_runs"],
+            Base.metadata.tables["retrieval_candidates"],
+            Base.metadata.tables["evidences"],
+            Base.metadata.tables["answers"],
+            Base.metadata.tables["eval_cases"],
+            Base.metadata.tables["review_items"],
+        ],
+    )
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    retrieval_repo = RetrievalRepository(session)
+    review_repo = ReviewEvalRepository(session)
+    question = retrieval_repo.add_question(Question(raw_text="Can USB power servos?", normalized_text="usb servos"))
+    run = retrieval_repo.add_retrieval_run(RetrievalRun(question_id=question.id, normalized_query=question.normalized_text))
+    answer = retrieval_repo.add_answer(
+        Answer(
+            question_id=question.id,
+            retrieval_run_id=run.id,
+            answer_text="No evidence was selected.",
+            evidence_sufficiency=EvidenceSufficiency.insufficient,
+            confidence=0.0,
+        )
+    )
+    item = review_repo.add_review_item(ReviewItem(source_type="user_feedback", question_id=question.id, answer_id=answer.id))
+    session.commit()
+
+    main_app.store.reset()
+    try:
+        main_app.store.add_evidence(
+            [Evidence(retrieval_run_id=run.id, chunk_id=question.id, rank=1, score=1.0, quote="stale", selection_reason="stale")]
+        )
+        main_app.store.add_candidates(
+            [RetrievalCandidate(retrieval_run_id=run.id, chunk_id=question.id, stage="reranked", source="stale", rank=1)]
+        )
+
+        hydrated = hydrate_review_context_for_service(session, item.id)
+        case = review_to_eval_case(main_app.store, item.id)
+
+        assert hydrated is not None
+        assert main_app.store.evidence_for_run(run.id) == []
+        assert main_app.store.candidates_for_run(run.id) == []
+        assert case.expected_chunk_ids_json == []
+    finally:
+        main_app.store.reset()
+
+
 def test_ask_api_helpers_mirror_records_to_database_when_available():
     import app.main as main_app
 
