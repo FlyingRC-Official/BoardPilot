@@ -1621,6 +1621,11 @@ def post_seed_eval_cases(
     product, source, cases = seed_eval_cases(store)
     save_product_to_database(session, product)
     save_source_to_database(session, source)
+    for version in [version for version in store.source_versions.values() if version.source_id == source.id]:
+        artifacts = [artifact for artifact in store.source_artifacts.values() if artifact.source_version_id == version.id]
+        chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version.id]
+        for artifact in artifacts:
+            save_source_version_bundle_to_database(session, version, artifact, chunks)
     for case in cases:
         save_eval_case_to_database(session, case)
     return {"product": product, "source": source, "cases": cases, "case_count": len(cases)}

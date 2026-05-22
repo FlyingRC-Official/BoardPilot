@@ -67,6 +67,7 @@ from app.main import (
     disable_source_version,
     post_feedback,
     post_image_ocr,
+    post_seed_eval_cases,
     patch_product,
     patch_eval_case,
     patch_source,
@@ -802,6 +803,34 @@ def test_answer_feedback_prefers_database_answer_over_stale_memory():
         assert item.question_id == question.id
         assert list_review_items_from_database(session)[0].question_id == question.id
         assert main_app.store.answers[answer.id].question_id == question.id
+    finally:
+        main_app.store.reset()
+
+
+def test_seed_eval_cases_persists_seed_source_material_to_database():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    main_app.store.reset()
+    try:
+        result = post_seed_eval_cases(CurrentUser(user_id="evaluator", role="evaluator"), session)
+        source_id = result["source"].id
+        versions = list_source_versions_from_database(session, source_id)
+
+        assert result["case_count"] >= 20
+        assert versions
+        artifacts = list_artifacts_from_database(session, versions[0].id)
+        chunks = list_chunks_from_database(session, versions[0].id)
+        cases = list_eval_cases_from_database(session)
+        expected_chunk_ids = {chunk_id for case in cases for chunk_id in case.expected_chunk_ids_json}
+        persisted_chunk_ids = {chunk.id for chunk in chunks}
+        assert artifacts
+        assert chunks
+        assert expected_chunk_ids
+        assert expected_chunk_ids.issubset(persisted_chunk_ids)
     finally:
         main_app.store.reset()
 
