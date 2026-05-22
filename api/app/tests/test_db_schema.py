@@ -766,6 +766,42 @@ def test_retry_ingestion_job_prefers_database_job_over_stale_memory():
         main_app.store.reset()
 
 
+def test_retry_ingestion_job_preserves_empty_database_artifacts_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    runtime_repo = RuntimeRepository(session)
+
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(Source(product_id=product.id, title="Manual", source_type=SourceType.markdown))
+    database_version = catalog_repo.add_source_version(SourceVersion(source_id=source.id, version_label="db", content_hash="d" * 64))
+    database_job = runtime_repo.add_ingestion_job(IngestionJob(source_version_id=database_version.id, status="failed"))
+    session.commit()
+    stale_artifact = SourceArtifact(
+        source_version_id=database_version.id,
+        storage_uri="memory://stale",
+        content="Stale retry content.",
+    )
+
+    main_app.store.reset()
+    try:
+        main_app.store.source_artifacts[stale_artifact.id] = stale_artifact
+
+        result = retry_ingestion_job(database_job.id, None, session)
+
+        assert result["job"].source_version_id == database_version.id
+        assert result["job"].status == "completed"
+        assert result["chunks"] == []
+        assert list_artifacts_from_database(session, database_version.id) == []
+        assert list_chunks_from_database(session, database_version.id) == []
+        assert stale_artifact.id not in main_app.store.source_artifacts
+    finally:
+        main_app.store.reset()
+
+
 def test_store_audit_log_mirrors_to_database_when_available(monkeypatch):
     import app.db.session as db_session
 

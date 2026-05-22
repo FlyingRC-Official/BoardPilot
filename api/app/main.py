@@ -445,7 +445,8 @@ def list_chunk_embeddings_from_database(session: Session, chunk_id: UUID) -> lis
 
 
 def hydrate_source_version_for_service(session: Session, source_version_id: UUID) -> Optional[SourceVersion]:
-    version = get_source_version_from_database(session, source_version_id) or store.source_versions.get(source_version_id)
+    database_version = get_source_version_from_database(session, source_version_id)
+    version = database_version or store.source_versions.get(source_version_id)
     if not version:
         return None
     store.source_versions[version.id] = version
@@ -457,6 +458,18 @@ def hydrate_source_version_for_service(session: Session, source_version_id: UUID
             product = get_product_from_database(session, source.product_id)
             if product:
                 store.products[product.id] = product
+
+    if database_version:
+        stale_chunk_ids = {chunk.id for chunk in store.chunks.values() if chunk.source_version_id == version.id}
+        for artifact_id, artifact in list(store.source_artifacts.items()):
+            if artifact.source_version_id == version.id:
+                store.source_artifacts.pop(artifact_id, None)
+        for chunk_id in stale_chunk_ids:
+            store.chunks.pop(chunk_id, None)
+        for embedding_id, embedding in list(store.chunk_embeddings.items()):
+            if embedding.chunk_id in stale_chunk_ids:
+                store.chunk_embeddings.pop(embedding_id, None)
+        store.chunk_hashes_by_version[version.id].clear()
 
     for artifact in list_artifacts_from_database(session, version.id):
         store.source_artifacts[artifact.id] = artifact
