@@ -1678,7 +1678,7 @@ def post_eval_run(
     hydrate_provider_configs(store, session)
     hydrate_retrieval_catalog(store, session)
     for case in list_eval_cases_from_database(session):
-        store.eval_cases.setdefault(case.id, case)
+        store.eval_cases[case.id] = case
     run, results = run_eval_batch(store, (payload or EvalRunCreate()).name)
     save_eval_run_results_to_database(session, run, results)
     return {"eval_run": run, "results": results}

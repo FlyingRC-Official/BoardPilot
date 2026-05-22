@@ -68,6 +68,7 @@ from app.main import (
     post_feedback,
     post_image_ocr,
     post_seed_eval_cases,
+    post_eval_run,
     patch_product,
     patch_eval_case,
     patch_source,
@@ -831,6 +832,36 @@ def test_seed_eval_cases_persists_seed_source_material_to_database():
         assert chunks
         assert expected_chunk_ids
         assert expected_chunk_ids.issubset(persisted_chunk_ids)
+    finally:
+        main_app.store.reset()
+
+
+def test_eval_run_hydration_prefers_database_eval_cases_over_stale_memory(monkeypatch):
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    database_case = EvalCase(question_text="Database eval question", active=True)
+    stale_case = database_case.model_copy(update={"question_text": "Stale eval question", "active": False})
+    save_eval_case_to_database(session, database_case)
+    session.expire_all()
+    seen_cases: list[EvalCase] = []
+
+    def fake_run_eval_batch(runtime_store, name="MVP eval"):
+        seen_cases.extend([case for case in runtime_store.eval_cases.values() if case.active])
+        return EvalRun(name=name), []
+
+    main_app.store.reset()
+    try:
+        main_app.store.eval_cases[database_case.id] = stale_case
+        monkeypatch.setattr(main_app, "run_eval_batch", fake_run_eval_batch)
+
+        post_eval_run(None, CurrentUser(user_id="evaluator", role="evaluator"), session)
+
+        assert [case.id for case in seen_cases] == [database_case.id]
+        assert seen_cases[0].question_text == "Database eval question"
+        assert main_app.store.eval_cases[database_case.id].active is True
     finally:
         main_app.store.reset()
 
