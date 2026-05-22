@@ -1036,6 +1036,49 @@ def test_ingestion_job_can_hydrate_source_version_from_database_and_persist_outp
         main_app.store.reset()
 
 
+def test_source_version_hydration_prefers_database_version_and_source_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    create_subset = [
+        Base.metadata.tables["products"],
+        Base.metadata.tables["sources"],
+        Base.metadata.tables["source_versions"],
+        Base.metadata.tables["source_artifacts"],
+        Base.metadata.tables["chunks"],
+    ]
+    Base.metadata.create_all(bind=engine, tables=create_subset)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    version = SourceVersion(source_id=source.id, version_label="Database v1", content_hash="a" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [])
+    stale_source = source.model_copy(update={"title": "Stale Manual", "trust_level": "stale"})
+    stale_version = version.model_copy(update={"version_label": "Stale v1", "content_hash": "b" * 64})
+
+    main_app.store.reset()
+    try:
+        main_app.store.sources[source.id] = stale_source
+        main_app.store.source_versions[version.id] = stale_version
+
+        hydrated = hydrate_source_version_for_service(session, version.id)
+
+        assert hydrated is not None
+        assert hydrated.version_label == "Database v1"
+        assert hydrated.content_hash == "a" * 64
+        assert main_app.store.source_versions[version.id].version_label == "Database v1"
+        assert main_app.store.sources[source.id].title == "Database Manual"
+        assert main_app.store.sources[source.id].trust_level == "official"
+        assert artifact.id in main_app.store.source_artifacts
+    finally:
+        main_app.store.reset()
+
+
 def test_source_version_hydration_tracks_existing_chunk_hashes():
     import app.main as main_app
     from app.ingestion.chunking import content_hash

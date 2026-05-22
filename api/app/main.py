@@ -445,12 +445,12 @@ def list_chunk_embeddings_from_database(session: Session, chunk_id: UUID) -> lis
 
 
 def hydrate_source_version_for_service(session: Session, source_version_id: UUID) -> Optional[SourceVersion]:
-    version = store.source_versions.get(source_version_id) or get_source_version_from_database(session, source_version_id)
+    version = get_source_version_from_database(session, source_version_id) or store.source_versions.get(source_version_id)
     if not version:
         return None
     store.source_versions[version.id] = version
 
-    source = store.sources.get(version.source_id) or get_source_from_database(session, version.source_id)
+    source = get_source_from_database(session, version.source_id) or store.sources.get(version.source_id)
     if source:
         store.sources[source.id] = source
         if source.product_id and source.product_id not in store.products:
