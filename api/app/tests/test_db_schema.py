@@ -61,6 +61,7 @@ from app.main import (
     list_sources_from_database,
     list_source_versions_from_database,
     list_tickets_from_database,
+    disable_source,
     post_feedback,
     post_image_ocr,
     patch_product,
@@ -94,6 +95,7 @@ from app.models.schemas import (
     AuditLog,
     Chunk,
     ChunkEmbedding,
+    DisableReasonCreate,
     EvalCase,
     EvalCasePatch,
     EvalResult,
@@ -308,6 +310,40 @@ def test_source_patch_prefers_database_source_over_stale_memory():
         assert patched.title == "Database Manual"
         assert patched.trust_level == "official"
         assert patched.status == "disabled"
+        assert get_source_from_database(session, source.id).title == "Database Manual"
+        assert main_app.store.sources[source.id].title == "Database Manual"
+    finally:
+        main_app.store.reset()
+
+
+def test_source_disable_prefers_database_source_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(
+        Source(product_id=product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    )
+    session.commit()
+    stale_source = source.model_copy(update={"title": "Stale Manual", "trust_level": "stale"})
+
+    main_app.store.reset()
+    try:
+        main_app.store.sources[source.id] = stale_source
+
+        disabled = disable_source(
+            source.id,
+            DisableReasonCreate(reason="retired"),
+            CurrentUser(user_id="source-admin", role="admin"),
+            session,
+        )
+
+        assert disabled.title == "Database Manual"
+        assert disabled.trust_level == "official"
+        assert disabled.status == "disabled"
         assert get_source_from_database(session, source.id).title == "Database Manual"
         assert main_app.store.sources[source.id].title == "Database Manual"
     finally:
