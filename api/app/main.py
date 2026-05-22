@@ -1171,7 +1171,7 @@ def post_source_version(
 ) -> dict:
     hydrate_provider_configs(store, session)
     database_source = get_source_from_database(session, source_id)
-    if database_source and source_id not in store.sources:
+    if database_source:
         store.sources[source_id] = database_source
     try:
         version, artifact, chunks = create_source_version(store, source_id, payload)
@@ -1192,7 +1192,7 @@ async def upload_source_version(
 ) -> dict:
     hydrate_provider_configs(store, session)
     database_source = get_source_from_database(session, source_id)
-    if database_source and source_id not in store.sources:
+    if database_source:
         store.sources[source_id] = database_source
     try:
         content = await file.read()
@@ -1220,7 +1220,7 @@ def post_webpage_snapshot_version(
 ) -> dict:
     hydrate_provider_configs(store, session)
     database_source = get_source_from_database(session, source_id)
-    if database_source and source_id not in store.sources:
+    if database_source:
         store.sources[source_id] = database_source
     try:
         version, artifact, chunks = create_webpage_snapshot_version(store, source_id, payload)
@@ -1295,10 +1295,9 @@ def post_source_artifact(
     hydrate_provider_configs(store, session)
     if version_id not in store.source_versions:
         hydrate_source_version_for_service(session, version_id)
-    elif source_id not in store.sources:
-        database_source = get_source_from_database(session, source_id)
-        if database_source:
-            store.sources[source_id] = database_source
+    database_source = get_source_from_database(session, source_id)
+    if database_source:
+        store.sources[source_id] = database_source
     if source_id not in store.sources or version_id not in store.source_versions:
         raise not_found()
     try:

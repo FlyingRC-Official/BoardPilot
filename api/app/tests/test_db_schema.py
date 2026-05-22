@@ -69,6 +69,7 @@ from app.main import (
     post_image_ocr,
     post_seed_eval_cases,
     post_eval_run,
+    post_source_version,
     patch_product,
     patch_eval_case,
     patch_source,
@@ -131,6 +132,7 @@ from app.models.schemas import (
     SourcePatch,
     SourceType,
     SourceVersion,
+    SourceVersionCreate,
     Ticket,
 )
 from app.providers.base import OCRResult
@@ -469,6 +471,41 @@ def test_source_version_disable_prefers_database_version_and_chunks_over_stale_m
         assert persisted_chunk.enabled is False
         assert main_app.store.source_versions[version.id].version_label == "Database v1"
         assert main_app.store.chunks[chunk.id].content == "Database chunk"
+    finally:
+        main_app.store.reset()
+
+
+def test_source_version_create_prefers_database_source_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    database_product = catalog_repo.add_product(Product(name="Database Board", slug="database-board", description="Current product"))
+    stale_product = catalog_repo.add_product(Product(name="Stale Board", slug="stale-board", description="Stale product"))
+    source = catalog_repo.add_source(
+        Source(product_id=database_product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    )
+    session.commit()
+
+    main_app.store.reset()
+    try:
+        main_app.store.products[stale_product.id] = stale_product
+        main_app.store.sources[source.id] = source.model_copy(update={"product_id": stale_product.id, "title": "Stale Manual"})
+
+        result = post_source_version(
+            source.id,
+            SourceVersionCreate(version_label="v1", content="Database source version content."),
+            CurrentUser(user_id="maintainer", role="maintainer"),
+            session,
+        )
+
+        assert result["chunks"]
+        assert result["chunks"][0].product_id == database_product.id
+        assert main_app.store.sources[source.id].product_id == database_product.id
+        assert main_app.store.sources[source.id].title == "Database Manual"
+        assert list_chunks_from_database(session, result["version"].id)[0].product_id == database_product.id
     finally:
         main_app.store.reset()
 

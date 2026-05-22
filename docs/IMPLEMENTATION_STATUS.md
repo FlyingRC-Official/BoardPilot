@@ -157,6 +157,7 @@ Updated: 2026-05-21
 - ReviewItem approval, rejection, source-update-needed, FAQ conversion, and EvalCase conversion now refresh `updated_at`.
 - Review context hydration now prefers SQLAlchemy records over stale in-memory review, answer, question, retrieval-run, and catalog evidence rows before mutating or converting review work.
 - Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
+- Source version creation and artifact-addition paths now prefer persisted Source rows over stale in-memory Source state before parsing and chunking.
 - SourceVersion service hydration now prefers persisted SourceVersion and Source rows over stale in-memory catalog state before seeding ingestion services.
 - Child-list endpoints for aliases, source versions, chunks, artifacts, question attachments, retrieval candidates, and eval results now return 404 for missing parent records while preserving empty lists for existing parents with no children.
 - Answer evidence listing now treats database-backed Answers as authoritative, so empty persisted evidence sets do not fall back to stale in-memory Evidence rows.
