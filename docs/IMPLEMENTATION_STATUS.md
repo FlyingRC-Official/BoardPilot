@@ -156,7 +156,7 @@ Updated: 2026-05-21
 - Source patch, source disable, and source-version disable now use typed request schemas while preserving immutable-field filtering and audit reasons.
 - ReviewItem approval, rejection, source-update-needed, FAQ conversion, and EvalCase conversion now refresh `updated_at`.
 - Review context hydration now prefers SQLAlchemy records over stale in-memory review, answer, question, retrieval-run, and catalog evidence rows before mutating or converting review work.
-- Source version, artifact, and chunk endpoints now read and mirror through SQLAlchemy when the database schema is available.
+- Source version, artifact, chunk, and chunk-embedding endpoints now read and mirror through SQLAlchemy when the database schema is available, preserving empty persisted child lists over stale memory.
 - Product child creation paths now prefer persisted Product rows over stale in-memory Product parents before adding aliases, sources, tickets, logs, or images.
 - Source version creation and artifact-addition paths now prefer persisted Source rows over stale in-memory Source state before parsing and chunking.
 - SourceVersion service hydration now prefers persisted SourceVersion and Source rows over stale in-memory catalog state before seeding ingestion services.

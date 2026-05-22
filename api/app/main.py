@@ -1340,6 +1340,7 @@ def get_chunk_embeddings(chunk_id: UUID, session: Session = Depends(get_session)
     database_chunk = get_chunk_from_database(session, chunk_id)
     if database_chunk:
         store.chunks[database_chunk.id] = database_chunk
+        return database_embeddings
     if chunk_id not in store.chunks:
         raise not_found()
     return store.embeddings_for_chunk(chunk_id)

@@ -23,6 +23,7 @@ from app.main import (
     get_artifact_from_database,
     get_approved_faq_from_database,
     get_chunk_from_database,
+    get_chunk_embeddings,
     get_eval_case_from_database,
     get_eval_result_from_database,
     get_eval_run_from_database,
@@ -1187,6 +1188,59 @@ def test_source_version_api_helpers_use_database_when_available():
     assert list_artifacts_from_database(session, version.id)[0].content == artifact.content
     assert list_chunks_from_database(session, version.id)[0].enabled is False
     assert list_chunk_embeddings_from_database(session, chunk.id)[0].id == embedding.id
+
+
+def test_chunk_embeddings_endpoint_prefers_empty_database_embeddings_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            Base.metadata.tables["products"],
+            Base.metadata.tables["sources"],
+            Base.metadata.tables["source_versions"],
+            Base.metadata.tables["source_artifacts"],
+            Base.metadata.tables["chunks"],
+            Base.metadata.tables["chunk_embeddings"],
+        ],
+    )
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Manual", source_type=SourceType.markdown, trust_level="official")
+    version = SourceVersion(source_id=source.id, version_label="v1", content_hash="8" * 64)
+    artifact = SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="USB is configuration only.")
+    chunk = Chunk(
+        source_version_id=version.id,
+        product_id=product.id,
+        chunk_index=0,
+        content=artifact.content,
+        content_hash="7" * 64,
+        token_count=4,
+    )
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [chunk])
+    session.expire_all()
+
+    main_app.store.reset()
+    try:
+        main_app.store.chunks[chunk.id] = chunk
+        main_app.store.add_chunk_embedding(
+            ChunkEmbedding(
+                chunk_id=chunk.id,
+                provider_name="stale",
+                model_name="stale-embedding",
+                embedding_dimension=3,
+                vector=[0.1, 0.2, 0.3],
+            )
+        )
+
+        assert get_chunk_embeddings(chunk.id, session) == []
+    finally:
+        main_app.store.reset()
 
 
 def test_retrieval_catalog_hydration_loads_database_chunks_for_ask_pipeline():
