@@ -1245,16 +1245,16 @@ def disable_source_version(
     user: CurrentUser = Depends(require_roles("admin", "support", "maintainer")),
     session: Session = Depends(get_session),
 ) -> dict:
-    version = store.source_versions.get(version_id) or get_source_version_from_database(session, version_id)
+    version = get_source_version_from_database(session, version_id) or store.source_versions.get(version_id)
     if not version:
         raise not_found()
     before = version.model_dump(mode="json")
     version.status = "disabled"
     version.updated_at = now()
     disabled_chunks = []
-    candidate_chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
+    candidate_chunks = list_chunks_from_database(session, version_id)
     if not candidate_chunks:
-        candidate_chunks = list_chunks_from_database(session, version_id)
+        candidate_chunks = [chunk for chunk in store.chunks.values() if chunk.source_version_id == version_id]
     for chunk in candidate_chunks:
         chunk.enabled = False
         store.chunks[chunk.id] = chunk

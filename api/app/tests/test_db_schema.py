@@ -62,6 +62,7 @@ from app.main import (
     list_source_versions_from_database,
     list_tickets_from_database,
     disable_source,
+    disable_source_version,
     post_feedback,
     post_image_ocr,
     patch_product,
@@ -346,6 +347,62 @@ def test_source_disable_prefers_database_source_over_stale_memory():
         assert disabled.status == "disabled"
         assert get_source_from_database(session, source.id).title == "Database Manual"
         assert main_app.store.sources[source.id].title == "Database Manual"
+    finally:
+        main_app.store.reset()
+
+
+def test_source_version_disable_prefers_database_version_and_chunks_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(
+        Source(product_id=product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    )
+    version = catalog_repo.add_source_version(
+        SourceVersion(source_id=source.id, version_label="Database v1", content_hash="d" * 64)
+    )
+    chunk = catalog_repo.add_chunks(
+        [
+            Chunk(
+                source_version_id=version.id,
+                product_id=product.id,
+                chunk_index=0,
+                content="Database chunk",
+                content_hash="c" * 64,
+                token_count=2,
+            )
+        ]
+    )[0]
+    session.commit()
+    stale_version = version.model_copy(update={"version_label": "Stale v1", "content_hash": "e" * 64})
+    stale_chunk = chunk.model_copy(update={"content": "Stale chunk", "content_hash": "f" * 64, "enabled": True})
+
+    main_app.store.reset()
+    try:
+        main_app.store.source_versions[version.id] = stale_version
+        main_app.store.chunks[chunk.id] = stale_chunk
+
+        result = disable_source_version(
+            version.id,
+            DisableReasonCreate(reason="retired"),
+            CurrentUser(user_id="source-admin", role="admin"),
+            session,
+        )
+
+        disabled_version = result["version"]
+        persisted_chunk = get_chunk_from_database(session, chunk.id)
+        assert disabled_version.version_label == "Database v1"
+        assert disabled_version.status == "disabled"
+        assert result["disabled_chunk_count"] == 1
+        assert persisted_chunk is not None
+        assert persisted_chunk.content == "Database chunk"
+        assert persisted_chunk.enabled is False
+        assert main_app.store.source_versions[version.id].version_label == "Database v1"
+        assert main_app.store.chunks[chunk.id].content == "Database chunk"
     finally:
         main_app.store.reset()
 
