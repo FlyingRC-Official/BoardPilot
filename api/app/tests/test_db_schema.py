@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
@@ -683,6 +684,38 @@ def test_source_artifact_addition_prefers_database_version_over_stale_memory():
         assert main_app.store.source_versions[version.id].version_label == "Database v1"
         assert main_app.store.source_versions[version.id].content_hash == "d" * 64
         assert list_artifacts_from_database(session, version.id)
+    finally:
+        main_app.store.reset()
+
+
+def test_source_artifact_addition_rejects_database_version_with_missing_database_source():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    missing_source_id = uuid4()
+    version = CatalogRepository(session).add_source_version(
+        SourceVersion(source_id=missing_source_id, version_label="Database v1", content_hash="d" * 64)
+    )
+    session.commit()
+
+    main_app.store.reset()
+    try:
+        main_app.store.sources[missing_source_id] = Source(product_id=uuid4(), title="Stale Manual", source_type=SourceType.markdown)
+        main_app.store.source_versions[version.id] = version.model_copy(update={"version_label": "Stale v1"})
+
+        with pytest.raises(HTTPException) as exc_info:
+            post_source_artifact(
+                missing_source_id,
+                version.id,
+                SourceVersionCreate(version_label="supplement", content="Supplemental stale content."),
+                CurrentUser(user_id="maintainer", role="maintainer"),
+                session,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert list_artifacts_from_database(session, version.id) == []
     finally:
         main_app.store.reset()
 
