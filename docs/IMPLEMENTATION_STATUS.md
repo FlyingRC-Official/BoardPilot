@@ -164,6 +164,7 @@ Updated: 2026-05-21
 - Review detail now treats database-backed Questions and RetrievalRuns as authoritative for attachments, evidence, and candidates, so empty persisted child lists do not leak stale in-memory trace rows.
 - Ask questions, retrieval runs, candidates, evidence, model runs, answers, answer feedback, and question attachments now read and mirror through SQLAlchemy when available.
 - Ask attachment hydration now prefers persisted SourceArtifact rows over stale in-memory artifacts before expanding the retrieval query.
+- Question attachment creation now prefers persisted Question and SourceArtifact rows over stale in-memory parents before linking the attachment.
 - Ask and Eval runs now hydrate products, aliases, sources, source versions, chunks, and chunk embeddings from SQLAlchemy before retrieval so database-backed source material remains retrievable after an API restart.
 - Review item queue, detail, update, and decision endpoints now read, hydrate, and mirror through SQLAlchemy when available.
 - Eval case, run, comparison, result, and result-to-review endpoints now read and mirror through SQLAlchemy when available.

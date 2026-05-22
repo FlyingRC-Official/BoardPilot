@@ -1503,9 +1503,11 @@ def post_question_attachment(
 ) -> QuestionAttachment:
     database_question = get_question_from_database(session, question_id)
     database_artifact = get_artifact_from_database(session, payload.artifact_id)
-    if database_question and question_id not in store.questions:
+    if database_question:
         store.questions[question_id] = database_question
-    if question_id not in store.questions or (payload.artifact_id not in store.source_artifacts and not database_artifact):
+    if database_artifact:
+        store.source_artifacts[payload.artifact_id] = database_artifact
+    if question_id not in store.questions or payload.artifact_id not in store.source_artifacts:
         raise not_found()
     attachment = store.add_question_attachment(QuestionAttachment(**payload.model_dump(), question_id=question_id))
     save_question_attachment_to_database(session, attachment)

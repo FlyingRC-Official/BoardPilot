@@ -67,6 +67,7 @@ from app.main import (
     disable_source_version,
     post_feedback,
     post_image_ocr,
+    post_question_attachment,
     post_seed_eval_cases,
     post_eval_run,
     post_source_version,
@@ -1946,6 +1947,57 @@ def test_ask_attachment_hydration_prefers_database_artifact_over_stale_memory(mo
         assert "database-alarm-773" in seen_queries[0]
         assert "stale-alarm-000" not in seen_queries[0]
         assert main_app.store.source_artifacts[artifact.id].content == "DATABASE-ALARM-773 during startup."
+    finally:
+        main_app.store.reset()
+
+
+def test_post_question_attachment_prefers_database_parents_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Customer log", source_type=SourceType.text_log, trust_level="customer")
+    version = SourceVersion(source_id=source.id, version_label="log", content_hash="7" * 64)
+    artifact = SourceArtifact(
+        source_version_id=version.id,
+        storage_uri="memory://log",
+        content="DATABASE attachment content",
+    )
+    question = Question(product_id=product.id, raw_text="Database question?", normalized_text="database question")
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [])
+    RetrievalRepository(session).add_question(question)
+    session.commit()
+    session.expire_all()
+
+    stale_question = question.model_copy(update={"raw_text": "Stale question?", "normalized_text": "stale question"})
+    stale_artifact = artifact.model_copy(update={"content": "STALE attachment content"})
+
+    main_app.store.reset()
+    try:
+        main_app.store.questions[question.id] = stale_question
+        main_app.store.source_artifacts[artifact.id] = stale_artifact
+
+        attachment = post_question_attachment(
+            question.id,
+            QuestionAttachmentCreate(
+                artifact_id=artifact.id,
+                attachment_type="log",
+                description="customer startup log",
+            ),
+            CurrentUser(user_id="support-agent", role="support"),
+            session,
+        )
+
+        assert attachment.question_id == question.id
+        assert list_question_attachments_from_database(session, question.id)[0].id == attachment.id
+        assert main_app.store.questions[question.id].raw_text == "Database question?"
+        assert main_app.store.source_artifacts[artifact.id].content == "DATABASE attachment content"
     finally:
         main_app.store.reset()
 
