@@ -73,6 +73,7 @@ from app.main import (
     post_seed_eval_cases,
     post_eval_run,
     post_source,
+    post_source_artifact,
     post_source_version,
     patch_product,
     patch_eval_case,
@@ -642,6 +643,46 @@ def test_source_version_create_prefers_database_source_over_stale_memory():
         assert main_app.store.sources[source.id].product_id == database_product.id
         assert main_app.store.sources[source.id].title == "Database Manual"
         assert list_chunks_from_database(session, result["version"].id)[0].product_id == database_product.id
+    finally:
+        main_app.store.reset()
+
+
+def test_source_artifact_addition_prefers_database_version_over_stale_memory():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    catalog_repo = CatalogRepository(session)
+    product = catalog_repo.add_product(Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller"))
+    source = catalog_repo.add_source(
+        Source(product_id=product.id, title="Database Manual", source_type=SourceType.markdown, trust_level="official")
+    )
+    version = catalog_repo.add_source_version(
+        SourceVersion(source_id=source.id, version_label="Database v1", content_hash="d" * 64, parser_version="database-parser")
+    )
+    catalog_repo.add_artifact(SourceArtifact(source_version_id=version.id, storage_uri="memory://manual", content="Original content."))
+    session.commit()
+    stale_version = version.model_copy(update={"version_label": "Stale v1", "content_hash": "e" * 64, "parser_version": "stale-parser"})
+
+    main_app.store.reset()
+    try:
+        main_app.store.sources[source.id] = source
+        main_app.store.source_versions[version.id] = stale_version
+
+        result = post_source_artifact(
+            source.id,
+            version.id,
+            SourceVersionCreate(version_label="supplement", content="Supplemental database content."),
+            CurrentUser(user_id="maintainer", role="maintainer"),
+            session,
+        )
+
+        assert result["version"].version_label == "Database v1"
+        assert result["version"].content_hash == "d" * 64
+        assert main_app.store.source_versions[version.id].version_label == "Database v1"
+        assert main_app.store.source_versions[version.id].content_hash == "d" * 64
+        assert list_artifacts_from_database(session, version.id)
     finally:
         main_app.store.reset()
 

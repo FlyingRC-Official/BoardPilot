@@ -1298,7 +1298,8 @@ def post_source_artifact(
     session: Session = Depends(get_session),
 ) -> dict:
     hydrate_provider_configs(store, session)
-    if version_id not in store.source_versions:
+    database_version = get_source_version_from_database(session, version_id)
+    if database_version or version_id not in store.source_versions:
         hydrate_source_version_for_service(session, version_id)
     database_source = get_source_from_database(session, source_id)
     if database_source:

@@ -158,7 +158,7 @@ Updated: 2026-05-21
 - Review context hydration now prefers SQLAlchemy records over stale in-memory review, answer, question, retrieval-run, and catalog evidence rows before mutating or converting review work.
 - Source version, artifact, chunk, and chunk-embedding endpoints now read and mirror through SQLAlchemy when the database schema is available, preserving empty persisted child lists over stale memory.
 - Product child creation paths now prefer persisted Product rows over stale in-memory Product parents before adding aliases, sources, tickets, logs, or images.
-- Source version creation and artifact-addition paths now prefer persisted Source rows over stale in-memory Source state before parsing and chunking.
+- Source version creation and artifact-addition paths now prefer persisted Source and SourceVersion rows over stale in-memory state before parsing and chunking.
 - SourceVersion and review-context service hydration now prefer persisted Product, SourceVersion, and Source rows over stale in-memory catalog state before seeding ingestion or review services.
 - Child-list endpoints for aliases, source versions, chunks, artifacts, question attachments, retrieval candidates, and eval results now return 404 for missing parent records while preserving empty lists for existing parents with no children.
 - Answer evidence listing now treats database-backed Answers and RetrievalRuns as authoritative, so empty persisted evidence sets do not fall back to stale in-memory Evidence rows.
