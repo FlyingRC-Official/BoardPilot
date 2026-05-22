@@ -1619,6 +1619,44 @@ def test_database_answer_evidence_endpoint_does_not_fall_back_to_stale_memory():
         main_app.store.reset()
 
 
+def test_memory_answer_evidence_endpoint_prefers_database_retrieval_run_children():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            Base.metadata.tables["questions"],
+            Base.metadata.tables["retrieval_runs"],
+            Base.metadata.tables["evidences"],
+        ],
+    )
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    retrieval_repo = RetrievalRepository(session)
+    question = retrieval_repo.add_question(Question(raw_text="Can USB power servos?", normalized_text="usb servos"))
+    run = retrieval_repo.add_retrieval_run(RetrievalRun(question_id=question.id, normalized_query=question.normalized_text))
+    session.commit()
+    session.expire_all()
+    answer = Answer(
+        question_id=question.id,
+        retrieval_run_id=run.id,
+        answer_text="No evidence was selected.",
+        evidence_sufficiency=EvidenceSufficiency.insufficient,
+        confidence=0.0,
+    )
+
+    main_app.store.reset()
+    try:
+        main_app.store.answers[answer.id] = answer
+        main_app.store.add_evidence(
+            [Evidence(retrieval_run_id=run.id, chunk_id=question.id, rank=1, score=1.0, quote="stale", selection_reason="stale")]
+        )
+
+        assert get_answer_evidence(answer.id, session) == []
+    finally:
+        main_app.store.reset()
+
+
 def test_database_review_detail_does_not_fall_back_to_stale_memory_children():
     import app.main as main_app
 

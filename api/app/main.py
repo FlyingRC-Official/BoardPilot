@@ -1566,6 +1566,8 @@ def get_answer_evidence(answer_id: UUID, session: Session = Depends(get_session)
     if not answer:
         raise not_found()
     database_evidence = list_evidence_from_database(session, answer.retrieval_run_id)
+    if get_retrieval_run_from_database(session, answer.retrieval_run_id):
+        return database_evidence
     return database_evidence or store.evidence_for_run(answer.retrieval_run_id)
 
 
