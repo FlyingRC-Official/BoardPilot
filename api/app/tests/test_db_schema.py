@@ -1349,11 +1349,13 @@ def test_source_version_hydration_prefers_database_version_and_source_over_stale
     save_product_to_database(session, product)
     save_source_to_database(session, source)
     save_source_version_bundle_to_database(session, version, artifact, [])
+    stale_product = product.model_copy(update={"name": "Stale Board", "slug": "stale-board", "description": "stale"})
     stale_source = source.model_copy(update={"title": "Stale Manual", "trust_level": "stale"})
     stale_version = version.model_copy(update={"version_label": "Stale v1", "content_hash": "b" * 64})
 
     main_app.store.reset()
     try:
+        main_app.store.products[product.id] = stale_product
         main_app.store.sources[source.id] = stale_source
         main_app.store.source_versions[version.id] = stale_version
 
@@ -1365,6 +1367,8 @@ def test_source_version_hydration_prefers_database_version_and_source_over_stale
         assert main_app.store.source_versions[version.id].version_label == "Database v1"
         assert main_app.store.sources[source.id].title == "Database Manual"
         assert main_app.store.sources[source.id].trust_level == "official"
+        assert main_app.store.products[product.id].name == "FlyingRC F4"
+        assert main_app.store.products[product.id].slug == "flyingrc-f4"
         assert artifact.id in main_app.store.source_artifacts
     finally:
         main_app.store.reset()

@@ -453,7 +453,7 @@ def hydrate_source_version_for_service(session: Session, source_version_id: UUID
     source = get_source_from_database(session, version.source_id) or store.sources.get(version.source_id)
     if source:
         store.sources[source.id] = source
-        if source.product_id and source.product_id not in store.products:
+        if source.product_id:
             product = get_product_from_database(session, source.product_id)
             if product:
                 store.products[product.id] = product
@@ -733,7 +733,7 @@ def hydrate_review_context_for_service(session: Session, item_id: UUID) -> Optio
     question = (get_question_from_database(session, question_id) or store.questions.get(question_id)) if question_id else None
     if question:
         store.questions[question.id] = question
-        if question.product_id and question.product_id not in store.products:
+        if question.product_id:
             product = get_product_from_database(session, question.product_id)
             if product:
                 store.products[product.id] = product
