@@ -14,6 +14,7 @@ from app.providers.config_store import hydrate_provider_configs
 from app.retrieval.catalog import hydrate_retrieval_catalog
 from app.retrieval.service import run_retrieval
 from app.main import (
+    ask,
     compare_eval_runs,
     delete_provider_config_from_database,
     get_answer_from_database,
@@ -93,6 +94,7 @@ from app.models.schemas import (
     Answer,
     AnswerFeedbackCreate,
     ApprovedFAQ,
+    AskRequest,
     AuditLog,
     Chunk,
     ChunkEmbedding,
@@ -116,6 +118,7 @@ from app.models.schemas import (
     ProviderConfig,
     Question,
     QuestionAttachment,
+    QuestionAttachmentCreate,
     RetrievalCandidate,
     RetrievalRun,
     ReviewItem,
@@ -1561,6 +1564,78 @@ def test_ask_api_helpers_mirror_records_to_database_when_available():
         assert get_review_item_from_database(session, review_item.id).reviewer_notes == "checked by reviewer"
     finally:
         main_app.store.model_runs.pop(model_run.id, None)
+
+
+def test_ask_attachment_hydration_prefers_database_artifact_over_stale_memory(monkeypatch):
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+
+    product = Product(name="FlyingRC F4", slug="flyingrc-f4", description="Flight controller")
+    source = Source(product_id=product.id, title="Customer log", source_type=SourceType.text_log, trust_level="customer")
+    version = SourceVersion(source_id=source.id, version_label="log", content_hash="6" * 64)
+    artifact = SourceArtifact(
+        source_version_id=version.id,
+        storage_uri="memory://log",
+        content="DATABASE-ALARM-773 during startup.",
+    )
+
+    save_product_to_database(session, product)
+    save_source_to_database(session, source)
+    save_source_version_bundle_to_database(session, version, artifact, [])
+    stale_artifact = artifact.model_copy(update={"content": "STALE-ALARM-000 during startup."})
+    seen_queries: list[str] = []
+
+    def fake_run_retrieval(_store, question):
+        seen_queries.append(question.normalized_text)
+        run = RetrievalRun(question_id=question.id, normalized_query=question.normalized_text)
+        _store.add_retrieval_run(run)
+        return run, [], []
+
+    def fake_generate_answer(_store, question, retrieval_run_id, _evidence):
+        return _store.add_answer(
+            Answer(
+                question_id=question.id,
+                retrieval_run_id=retrieval_run_id,
+                answer_text="No evidence.",
+                citation_map_json={},
+                evidence_sufficiency=EvidenceSufficiency.insufficient,
+                confidence=0.0,
+            )
+        )
+
+    main_app.store.reset()
+    try:
+        main_app.store.source_artifacts[artifact.id] = stale_artifact
+        monkeypatch.setattr(main_app, "run_retrieval", fake_run_retrieval)
+        monkeypatch.setattr(main_app, "generate_answer", fake_generate_answer)
+        monkeypatch.setattr(main_app, "route_answer_for_review", lambda _answer: None)
+
+        result = ask(
+            AskRequest(
+                product_id=product.id,
+                question="What does the attached alarm mean?",
+                attachments=[
+                    QuestionAttachmentCreate(
+                        artifact_id=artifact.id,
+                        attachment_type="log",
+                        description="customer startup log",
+                    )
+                ],
+            ),
+            CurrentUser(user_id="support-agent", role="support"),
+            session,
+        )
+
+        assert result.attachments[0].artifact_id == artifact.id
+        assert seen_queries
+        assert "database-alarm-773" in seen_queries[0]
+        assert "stale-alarm-000" not in seen_queries[0]
+        assert main_app.store.source_artifacts[artifact.id].content == "DATABASE-ALARM-773 during startup."
+    finally:
+        main_app.store.reset()
 
 
 def test_review_context_hydration_restores_eval_result_from_database():

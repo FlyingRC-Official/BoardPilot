@@ -1420,8 +1420,8 @@ def ask(
     validated_attachments: list[tuple[QuestionAttachmentCreate, SourceArtifact]] = []
     attachment_contexts: list[str] = []
     for attachment_payload in payload.attachments:
-        artifact = store.source_artifacts.get(attachment_payload.artifact_id) or get_artifact_from_database(
-            session, attachment_payload.artifact_id
+        artifact = get_artifact_from_database(session, attachment_payload.artifact_id) or store.source_artifacts.get(
+            attachment_payload.artifact_id
         )
         if not artifact:
             raise not_found()
