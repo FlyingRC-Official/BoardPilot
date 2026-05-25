@@ -1973,6 +1973,60 @@ def test_save_eval_run_results_preserves_empty_database_retrieval_children():
         main_app.store.reset()
 
 
+def test_save_eval_run_results_rejects_stale_question_for_database_answer():
+    import app.main as main_app
+
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine, expire_on_commit=False)()
+    retrieval_repo = RetrievalRepository(session)
+    review_repo = ReviewEvalRepository(session)
+
+    missing_question_id = uuid4()
+    retrieval_run = retrieval_repo.add_retrieval_run(
+        RetrievalRun(question_id=missing_question_id, normalized_query="missing database question")
+    )
+    answer = retrieval_repo.add_answer(
+        Answer(
+            question_id=missing_question_id,
+            retrieval_run_id=retrieval_run.id,
+            answer_text="No evidence was selected.",
+            evidence_sufficiency=EvidenceSufficiency.insufficient,
+            confidence=0.0,
+        )
+    )
+    eval_case = review_repo.add_eval_case(EvalCase(question_text="Missing database question?"))
+    session.commit()
+    session.expire_all()
+
+    eval_run = EvalRun(name="MVP eval", summary_metrics_json={"case_count": 1})
+    eval_result = EvalResult(
+        eval_run_id=eval_run.id,
+        eval_case_id=eval_case.id,
+        question_id=missing_question_id,
+        retrieval_run_id=retrieval_run.id,
+        answer_id=answer.id,
+        recall_at_20=0.0,
+        rerank_at_5=0.0,
+        citation_support_rate=0.0,
+        unsupported_claim_rate=1.0,
+        need_review=True,
+    )
+    stale_question = Question(id=missing_question_id, raw_text="Stale question?", normalized_text="stale question")
+
+    main_app.store.reset()
+    try:
+        main_app.store.questions[missing_question_id] = stale_question
+
+        save_eval_run_results_to_database(session, eval_run, [eval_result])
+        session.expire_all()
+
+        assert get_question_from_database(session, missing_question_id) is None
+        assert get_eval_result_from_database(session, eval_result.id).id == eval_result.id
+    finally:
+        main_app.store.reset()
+
+
 def test_database_answer_evidence_endpoint_does_not_fall_back_to_stale_memory():
     import app.main as main_app
 

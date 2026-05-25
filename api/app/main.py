@@ -601,10 +601,17 @@ def save_eval_run_results_to_database(session: Session, eval_run: EvalRun, resul
         review_repo = ReviewEvalRepository(session)
         review_repo.add_eval_run(eval_run)
         for result in results:
-            question = get_question_from_database(session, result.question_id) or store.questions.get(result.question_id)
+            database_question = get_question_from_database(session, result.question_id)
             database_retrieval_run = get_retrieval_run_from_database(session, result.retrieval_run_id)
             retrieval_run = database_retrieval_run or store.retrieval_runs.get(result.retrieval_run_id)
-            answer = get_answer_from_database(session, result.answer_id) or store.answers.get(result.answer_id)
+            database_answer = get_answer_from_database(session, result.answer_id)
+            answer = database_answer or store.answers.get(result.answer_id)
+            if database_question:
+                question = database_question
+            elif database_retrieval_run or database_answer:
+                question = None
+            else:
+                question = store.questions.get(result.question_id)
             if question and retrieval_run and answer:
                 retrieval_repo.add_question(question)
                 retrieval_repo.add_retrieval_run(retrieval_run)
