@@ -180,6 +180,9 @@ Updated: 2026-05-25
 - ChunkEmbedding records now read and mirror through SQLAlchemy when available, and embedding persistence is isolated so chunk persistence is not rolled back if embedding storage is unavailable.
 - Redis ingestion worker message processing now hydrates job/source context from SQLAlchemy and persists completed job, chunk, and embedding outputs back to SQLAlchemy.
 - Eval result persistence now rejects stale in-memory Questions when the linked database RetrievalRun or Answer exists but the persisted Question is missing, preventing eval saves from recreating inconsistent runtime context.
+- Docker builds now support optional `PIP_INDEX_URL` and `PIP_EXTRA_INDEX_URL` build args for private deployments whose network path to PyPI is slow or proxied.
+- Docker Compose host ports are configurable through `BOARDPILOT_API_HOST_PORT` and `BOARDPILOT_WEB_HOST_PORT`, so local private deployment can avoid existing services on 8000 or 3000.
+- API and web Docker build contexts now exclude local virtualenvs, caches, `.next`, and `node_modules` through `.dockerignore`.
 
 ## Verified
 
@@ -188,29 +191,35 @@ api/.venv/bin/pytest api/app/tests
 api/.venv/bin/pytest api/app/tests/test_db_schema.py -q
 cd api && PYTHONPATH=. .venv/bin/alembic upgrade head
 npm run build
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple docker compose up --build -d
+BOARDPILOT_WEB_HOST_PORT=3001 BOARDPILOT_CORS_ORIGINS=http://localhost:3001,http://127.0.0.1:3001 PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple docker compose up --build -d
 curl -sS http://127.0.0.1:8000/health
-curl -sS -I http://127.0.0.1:3000/ask
-curl -sS -I http://127.0.0.1:3000/sources
-curl -sS -I http://127.0.0.1:3000/eval
-curl -sS -I http://127.0.0.1:3000/review
+curl -sS -I http://127.0.0.1:3001/ask
+curl -sS -I http://127.0.0.1:3001/sources
+curl -sS -I http://127.0.0.1:3001/eval
+curl -sS -I http://127.0.0.1:3001/review
 headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 ```
 
 Results:
 
-- API tests: 152 passed on 2026-05-25.
+- API tests: 154 passed on 2026-05-25.
 - Targeted database-schema/hydration tests: 62 passed on 2026-05-25.
 - Alembic upgrade command: passed against the default local database URL.
 - Next.js production build: passed on 2026-05-25.
+- Live Docker Compose private stack: passed on 2026-05-25 with Colima, Postgres/pgvector, Redis, API, worker, and web services running.
+- Compose Alembic current: `0006_ocr_result_status (head)`.
+- Compose Eval smoke: `POST /eval-cases/seed` created 20 cases; `POST /eval-runs` completed with `case_count=20`, `recall_at_20=1.0`, `rerank_at_5=1.0`, `citation_support_rate=1.0`, and `failure_category_distribution={"none": 20}`.
 - API health: HTTP 200.
-- Web routes `/ask`, `/sources`, `/eval`, and `/review`: HTTP 200.
+- Web routes `/ask`, `/sources`, `/eval`, `/review`, and `/settings`: HTTP 200 through `BOARDPILOT_WEB_HOST_PORT=3001` because this Mac already had another service listening on host port 3000.
+- In-app browser verification: `/ask` rendered the BoardPilot shell, `Ask` page title, navigation, and Evidence Pack section.
 - Headless Chrome visual pass: screenshots captured for `/ask`, `/sources`, `/eval`, and `/review`; each page rendered expected route content with no application-error text detected in the captured HTML.
 - Static Docker Compose deployment contract tests: covered by the API test suite.
 
 ## Important MVP Gaps
 
 - API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, Docker startup applies migrations automatically, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
-- Docker Compose has static contract coverage, but live `docker compose up --build` verification could not be run on this machine because the Docker CLI is not installed in PATH.
+- Docker Compose now has live startup coverage on this machine through Colima; the default web host port `3000` can conflict with other local services, so `BOARDPILOT_WEB_HOST_PORT` is documented and verified as the escape hatch.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
 - File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; OCR can now use manual text, fake provider behavior, the optional local Tesseract adapter when installed, or OpenAI-compatible vision models.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline.
@@ -238,8 +247,7 @@ Results:
 
 ## Recommended Production Hardening
 
-1. Run live `docker compose up --build` verification on a machine with Docker installed.
-2. Continue replacing internal in-memory service hydration with direct SQLAlchemy service paths where it reduces complexity.
-3. Connect session issuance to a real identity provider if this moves beyond a trusted private deployment.
-4. Decide the audit-retention policy and enable durable JSONL/database retention for the deployment.
-5. Configure real external provider credentials only after validating privacy boundaries for source material.
+1. Continue replacing internal in-memory service hydration with direct SQLAlchemy service paths where it reduces complexity.
+2. Connect session issuance to a real identity provider if this moves beyond a trusted private deployment.
+3. Decide the audit-retention policy and enable durable JSONL/database retention for the deployment.
+4. Configure real external provider credentials only after validating privacy boundaries for source material.

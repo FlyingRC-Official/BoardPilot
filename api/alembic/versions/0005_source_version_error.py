@@ -1,7 +1,7 @@
 """Store source version ingestion error messages.
 
-Revision ID: 0005_source_version_error_message
-Revises: 0004_flexible_chunk_embedding_vectors
+Revision ID: 0005_source_version_error
+Revises: 0004_flex_chunk_embed_vec
 Create Date: 2026-05-20
 """
 
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
-revision = "0005_source_version_error_message"
-down_revision = "0004_flexible_chunk_embedding_vectors"
+revision = "0005_source_version_error"
+down_revision = "0004_flex_chunk_embed_vec"
 branch_labels = None
 depends_on = None
 

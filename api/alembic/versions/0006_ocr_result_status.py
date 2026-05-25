@@ -1,7 +1,7 @@
 """Store OCR provider status and errors.
 
 Revision ID: 0006_ocr_result_status
-Revises: 0005_source_version_error_message
+Revises: 0005_source_version_error
 Create Date: 2026-05-20
 """
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy import inspect
 
 revision = "0006_ocr_result_status"
-down_revision = "0005_source_version_error_message"
+down_revision = "0005_source_version_error"
 branch_labels = None
 depends_on = None
 

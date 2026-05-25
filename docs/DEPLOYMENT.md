@@ -18,7 +18,9 @@ docker compose up --build
 
 The API container runs `alembic upgrade head` before starting Uvicorn. Postgres and Redis have health checks, and the web and worker services wait for the API health endpoint, so a fresh private stack can bootstrap its schema from an empty database volume.
 
-The `.env.example` file documents the required private-deployment variables. `BOARDPILOT_API_HOST` and `BOARDPILOT_API_PORT` control the API bind address inside the container, while `NEXT_PUBLIC_API_BASE_URL` controls where the browser workbench sends API requests.
+The `.env.example` file documents the required private-deployment variables. `BOARDPILOT_API_HOST` and `BOARDPILOT_API_PORT` control the API bind address inside the container, `BOARDPILOT_API_HOST_PORT` and `BOARDPILOT_WEB_HOST_PORT` control the host ports exposed by Docker Compose, and `NEXT_PUBLIC_API_BASE_URL` controls where the browser workbench sends API requests.
+
+When running behind a slow or proxied Python package network, set `PIP_INDEX_URL` or `PIP_EXTRA_INDEX_URL` before `docker compose up --build`; the API and worker Docker builds pass those values through as build args without changing the default public PyPI behavior.
 
 ## Privacy Boundary
 
@@ -38,4 +40,4 @@ Set `BOARDPILOT_USERS_JSON` to an object such as `{"alice":"admin","support-1":"
 
 ## MVP Gaps
 
-The current implementation is a verified local MVP slice. Before production use, run live Docker Compose verification on a Docker-equipped machine, replace remaining internal in-memory service hydration where it still adds operational risk, connect session issuance to a full identity provider if needed, and enforce durable audit retention.
+The current implementation is a verified local MVP slice. Before production use, replace remaining internal in-memory service hydration where it still adds operational risk, connect session issuance to a full identity provider if needed, and enforce durable audit retention.

@@ -77,6 +77,7 @@ def test_env_example_documents_known_backend_settings():
     backend_vars = {name for name in env_vars if name.startswith("BOARDPILOT_")}
     known_backend_vars = {f"BOARDPILOT_{name.upper()}" for name in Settings.model_fields}
     known_backend_vars.add("BOARDPILOT_ENV")
+    known_backend_vars.update({"BOARDPILOT_API_HOST_PORT", "BOARDPILOT_WEB_HOST_PORT"})
 
     assert backend_vars <= known_backend_vars
     assert "BOARDPILOT_API_KEY" in env_vars
