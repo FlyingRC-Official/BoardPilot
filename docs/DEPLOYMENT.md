@@ -38,4 +38,4 @@ Set `BOARDPILOT_USERS_JSON` to an object such as `{"alice":"admin","support-1":"
 
 ## MVP Gaps
 
-The current implementation is a runnable development slice. Before production use, replace remaining in-memory service hydration, connect session issuance to a full identity provider if needed, and enforce durable audit retention.
+The current implementation is a verified local MVP slice. Before production use, run live Docker Compose verification on a Docker-equipped machine, replace remaining internal in-memory service hydration where it still adds operational risk, connect session issuance to a full identity provider if needed, and enforce durable audit retention.

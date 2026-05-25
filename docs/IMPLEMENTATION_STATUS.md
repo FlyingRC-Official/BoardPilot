@@ -1,6 +1,6 @@
 # BoardPilot Implementation Status
 
-Updated: 2026-05-21
+Updated: 2026-05-25
 
 ## Completed in Current MVP Slice
 
@@ -179,11 +179,13 @@ Updated: 2026-05-21
 - Redis ingestion worker failures now persist source-issue ReviewItems for failed SourceVersions, matching synchronous ingestion failure routing.
 - ChunkEmbedding records now read and mirror through SQLAlchemy when available, and embedding persistence is isolated so chunk persistence is not rolled back if embedding storage is unavailable.
 - Redis ingestion worker message processing now hydrates job/source context from SQLAlchemy and persists completed job, chunk, and embedding outputs back to SQLAlchemy.
+- Eval result persistence now rejects stale in-memory Questions when the linked database RetrievalRun or Answer exists but the persisted Question is missing, preventing eval saves from recreating inconsistent runtime context.
 
 ## Verified
 
 ```bash
 api/.venv/bin/pytest api/app/tests
+api/.venv/bin/pytest api/app/tests/test_db_schema.py -q
 cd api && PYTHONPATH=. .venv/bin/alembic upgrade head
 npm run build
 curl -sS http://127.0.0.1:8000/health
@@ -196,9 +198,10 @@ headless Chrome screenshots for `/ask`, `/sources`, `/eval`, and `/review`
 
 Results:
 
-- API tests: 112 passed.
+- API tests: 152 passed on 2026-05-25.
+- Targeted database-schema/hydration tests: 62 passed on 2026-05-25.
 - Alembic upgrade command: passed against the default local database URL.
-- Next.js production build: passed.
+- Next.js production build: passed on 2026-05-25.
 - API health: HTTP 200.
 - Web routes `/ask`, `/sources`, `/eval`, and `/review`: HTTP 200.
 - Headless Chrome visual pass: screenshots captured for `/ask`, `/sources`, `/eval`, and `/review`; each page rendered expected route content with no application-error text detected in the captured HTML.
@@ -207,7 +210,7 @@ Results:
 ## Important MVP Gaps
 
 - API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, Docker startup applies migrations automatically, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
-- Docker Compose has static contract coverage, but live `docker compose up --build` verification could not be run on this machine because the Docker CLI is not installed.
+- Docker Compose has static contract coverage, but live `docker compose up --build` verification could not be run on this machine because the Docker CLI is not installed in PATH.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
 - File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; OCR can now use manual text, fake provider behavior, the optional local Tesseract adapter when installed, or OpenAI-compatible vision models.
 - Tickets, logs, image manual descriptions, and OCR text now enter the source/chunk pipeline.
@@ -233,11 +236,10 @@ Results:
 - ApprovedFAQ conversion re-ingests reviewer-edited FAQ content into retrieval, EvalCase conversion keeps expected evidence, reviewers can save notes/failure categories, and Review detail shows linked question/answer/evidence/trace/eval metrics.
 - The web workbench is functional and has been visually checked with local headless Chrome screenshots for the four primary MVP pages.
 
-## Recommended Next Subtasks
+## Recommended Production Hardening
 
-1. Replace the in-memory API store with SQLAlchemy-backed repositories.
-2. Add parser-specific PDF extraction, CSV normalization, and image OCR handling for uploaded artifacts.
-3. Move ingestion and embedding jobs to Redis-backed workers.
-4. Replace header-based local role context with real authentication/session management.
-5. Replace failed non-fake provider placeholders with real provider adapters when credentials are configured.
-6. Add durable database-backed repositories for runtime data.
+1. Run live `docker compose up --build` verification on a machine with Docker installed.
+2. Continue replacing internal in-memory service hydration with direct SQLAlchemy service paths where it reduces complexity.
+3. Connect session issuance to a real identity provider if this moves beyond a trusted private deployment.
+4. Decide the audit-retention policy and enable durable JSONL/database retention for the deployment.
+5. Configure real external provider credentials only after validating privacy boundaries for source material.
