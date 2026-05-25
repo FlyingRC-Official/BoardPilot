@@ -1,0 +1,111 @@
+{
+  "products": [
+    {
+      "name": "FlyingRC F4 Flight Controller",
+      "slug": "flyingrc-f4-flight-controller",
+      "description": "FlyingRC F4 flight controller support knowledge for wiring, receiver setup, USB configuration, gyro troubleshooting, and Betaflight or ArduPilot setup.",
+      "aliases": ["FlyingRC F4", "F4 FC", "F405 flight controller", "F405飞控", "F4飞控"],
+      "sources": [
+        {
+          "title": "FlyingRC F4 support starter FAQ",
+          "source_type": "markdown",
+          "trust_level": "high",
+          "version_label": "flyingrc-initial-v1",
+          "content": "# FlyingRC F4 support starter FAQ\n\n## SBUS receiver wiring\nFor SBUS receivers, connect receiver signal to the UART RX pad documented for serial receiver input. In Betaflight, enable Serial RX on the matching UART and set receiver mode to Serial-based receiver with SBUS provider. Do not connect SBUS signal to a TX-only pad.\n\n## USB connects but no gyro appears\nIf USB connects but Betaflight shows no gyro, first confirm the target firmware matches the board. Then check boot mode, 3.3 V rail stability, solder bridges around IMU pins, and whether the board was flashed with a target for another layout. If the MCU enumerates but sensors are missing, treat it as firmware target or hardware IMU bus troubleshooting, not a USB cable issue.\n\n## Motor output does not work\nFor no motor output, check that the ESC signal wires are on motor output pads, the flight controller is armed safely, the mixer/resource mapping matches the firmware target, and the ESC protocol is supported. With DShot, no separate calibration is required, but bidirectional DShot needs compatible ESC firmware and timer/DMA support.\n\n## Customer answer policy\nWhen answering customers, cite the exact pad, UART, firmware target, and symptom evidence. If the source does not contain the board revision or pad name, route the answer to review instead of guessing."
+        },
+        {
+          "title": "FlyingRC F4 Betaflight setup checklist",
+          "source_type": "markdown",
+          "trust_level": "normal",
+          "version_label": "flyingrc-initial-v1",
+          "content": "# FlyingRC F4 Betaflight setup checklist\n\n## Before flashing\nRecord board revision, current target, and customer symptom. Save a CLI dump when possible. Confirm whether the customer uses PWM, SBUS, CRSF, ELRS, GPS, or CAN peripherals.\n\n## Receiver setup\nFor CRSF or ELRS, wire receiver TX to flight controller RX and receiver RX to flight controller TX on the selected UART. Enable Serial RX on that UART and choose CRSF as receiver provider. For SBUS, use the documented inverted or SBUS-capable input when required by the board revision.\n\n## DShot selection\nDShot300 is a conservative default for many builds. DShot600 can work on clean wiring and compatible timer resources, but if motors stutter or telemetry is unstable, test DShot300 first. Bidirectional DShot requires compatible ESC firmware and correct Betaflight settings.\n\n## Escalation\nIf the customer reports heat, smoke, reverse polarity, shorted 5 V, or damaged pads, stop normal setup guidance and ask for photos and measured voltage before further instructions."
+        }
+      ],
+      "eval_cases": [
+        {
+          "question_text": "F405飞控接收机 SBUS 应该接哪个口？",
+          "expected_source_title": "FlyingRC F4 support starter FAQ",
+          "expected_answer_points_json": ["connect SBUS signal to the documented UART RX or SBUS-capable input", "enable Serial RX on the matching UART", "set receiver provider to SBUS"],
+          "tags_json": ["flyingrc", "f4", "receiver", "sbus"],
+          "difficulty": "normal"
+        },
+        {
+          "question_text": "USB 能连接但是 Betaflight 没有陀螺仪，应该怎么排查？",
+          "expected_source_title": "FlyingRC F4 support starter FAQ",
+          "expected_answer_points_json": ["confirm firmware target matches the board", "check IMU bus or solder bridge issues", "do not treat it as only a USB cable issue"],
+          "tags_json": ["flyingrc", "f4", "gyro", "betaflight"],
+          "difficulty": "hard"
+        },
+        {
+          "question_text": "DShot300 和 DShot600 怎么选？",
+          "expected_source_title": "FlyingRC F4 Betaflight setup checklist",
+          "expected_answer_points_json": ["DShot300 is the conservative default", "DShot600 requires clean wiring and compatible resources", "fall back to DShot300 when motors stutter or telemetry is unstable"],
+          "tags_json": ["flyingrc", "f4", "dshot", "esc"],
+          "difficulty": "normal"
+        }
+      ]
+    },
+    {
+      "name": "FlyingRC AM32 ESC",
+      "slug": "flyingrc-am32-esc",
+      "description": "FlyingRC AM32 ESC support knowledge for flashing, motor output, DShot, telemetry, and startup troubleshooting.",
+      "aliases": ["FlyingRC AM32", "AM32 ESC", "AM32电调", "4in1 ESC", "BLHeli替代"],
+      "sources": [
+        {
+          "title": "FlyingRC AM32 ESC troubleshooting FAQ",
+          "source_type": "markdown",
+          "trust_level": "high",
+          "version_label": "flyingrc-initial-v1",
+          "content": "# FlyingRC AM32 ESC troubleshooting FAQ\n\n## ESC flashed AM32 but motor does not spin\nCheck input signal mapping, motor phase soldering, power supply current limit, firmware target, and whether the flight controller output is using a supported protocol. Verify with a known-good motor and a low-current bench supply. If the ESC arms but the motor only twitches, inspect phase wires and motor health.\n\n## DShot and PWM behavior\nDShot does not require throttle calibration. PWM or OneShot-style protocols may require endpoint calibration depending on firmware settings. If the customer uses DShot telemetry or bidirectional DShot, confirm the ESC firmware build supports telemetry and that the flight controller resource supports it.\n\n## Beep codes and no-start cases\nNo beep can indicate missing motor, no main battery voltage, damaged gate driver path, or firmware not running. Repeating startup beeps with no spin can indicate missing valid signal or safety lock. Ask for battery voltage, motor connection photo, firmware target, and configuration screenshot.\n\n## Safety policy\nDo not ask the customer to continue power testing when there is smoke, burning smell, visible short, or hot component. Request photos and resistance checks first."
+        }
+      ],
+      "eval_cases": [
+        {
+          "question_text": "电调刷 AM32 后电机不转怎么办？",
+          "expected_source_title": "FlyingRC AM32 ESC troubleshooting FAQ",
+          "expected_answer_points_json": ["check input signal mapping and firmware target", "verify motor phase soldering and motor health", "test with low-current bench supply"],
+          "tags_json": ["flyingrc", "am32", "esc", "motor-no-spin"],
+          "difficulty": "normal"
+        },
+        {
+          "question_text": "AM32 使用 DShot 需要油门校准吗？",
+          "expected_source_title": "FlyingRC AM32 ESC troubleshooting FAQ",
+          "expected_answer_points_json": ["DShot does not require throttle calibration", "PWM or OneShot may require endpoint calibration"],
+          "tags_json": ["flyingrc", "am32", "dshot"],
+          "difficulty": "easy"
+        }
+      ]
+    },
+    {
+      "name": "FlyingRC CAN Node",
+      "slug": "flyingrc-can-node",
+      "description": "FlyingRC CAN peripheral and AP_Periph support knowledge for ArduPilot CAN setup, GPS recognition, node IDs, and bus wiring.",
+      "aliases": ["FlyingRC CAN", "CAN Node", "CAN节点", "AP_Periph模块", "DroneCAN node"],
+      "sources": [
+        {
+          "title": "FlyingRC CAN Node ArduPilot troubleshooting FAQ",
+          "source_type": "markdown",
+          "trust_level": "high",
+          "version_label": "flyingrc-initial-v1",
+          "content": "# FlyingRC CAN Node ArduPilot troubleshooting FAQ\n\n## CAN GPS not detected in ArduPilot\nCheck CAN_H and CAN_L orientation, common ground, 5 V supply, termination at the bus ends, and ArduPilot CAN port parameters. Confirm the node has valid AP_Periph firmware and appears in the DroneCAN/UAVCAN device list. If no devices appear, troubleshoot wiring and power before changing GPS settings.\n\n## Node ID and firmware\nDuplicate node IDs can cause unstable detection. Use the CAN device list or DroneCAN tools to inspect node ID, firmware name, and health. Flash firmware that matches the hardware target and keep a record of the bootloader or application version.\n\n## Support evidence\nFor customer support, request a wiring photo, ArduPilot parameter file, CAN device list screenshot, and measured voltage at the node. If any of these are missing, mark the case as partial evidence and send it to review."
+        }
+      ],
+      "eval_cases": [
+        {
+          "question_text": "ArduPilot 里 CAN GPS 不识别怎么排查？",
+          "expected_source_title": "FlyingRC CAN Node ArduPilot troubleshooting FAQ",
+          "expected_answer_points_json": ["check CAN_H CAN_L orientation and termination", "confirm 5 V supply and common ground", "inspect DroneCAN device list and AP_Periph firmware"],
+          "tags_json": ["flyingrc", "can", "ardupilot", "gps"],
+          "difficulty": "normal"
+        }
+      ]
+    }
+  ],
+  "acceptance_questions": [
+    "F405飞控接收机 SBUS 应该接哪个口？",
+    "电调刷 AM32 后电机不转怎么办？",
+    "ArduPilot 里 CAN GPS 不识别怎么排查？",
+    "USB 能连接但 Betaflight 没陀螺仪是什么问题？",
+    "DShot300 和 DShot600 怎么选？"
+  ]
+}

@@ -55,3 +55,16 @@ docker compose up --build
 The API container runs Alembic migrations before serving, then the web and worker wait for API health. SQLAlchemy repositories persist the MVP record groups, the Redis worker handles queued ingestion jobs, and the service layer still uses some in-memory hydration as an internal compatibility bridge.
 
 Use `.env.example` as the documented deployment template. If local ports are already occupied, set `BOARDPILOT_API_HOST_PORT` or `BOARDPILOT_WEB_HOST_PORT` before running Compose. For private deployments, set `BOARDPILOT_API_KEY` and either mirror the same value to `NEXT_PUBLIC_BOARDPILOT_API_KEY` or issue a signed role-bound token with `POST /sessions` and provide it as `NEXT_PUBLIC_BOARDPILOT_SESSION_TOKEN` for the bundled workbench. Set `BOARDPILOT_USERS_JSON` when session issuance should be restricted to an operator-managed user/role map. `BOARDPILOT_API_HOST` and `BOARDPILOT_API_PORT` control the API bind address inside the container.
+
+## FlyingRC Internal Pilot
+
+This branch includes a FlyingRC deployment kit for using BoardPilot as an internal hardware-support knowledge workbench:
+
+```bash
+cp config/flyingrc.env.example .env
+# Edit BOARDPILOT_API_KEY and NEXT_PUBLIC_BOARDPILOT_API_KEY to the same secret.
+docker compose up --build
+python3 scripts/seed_flyingrc.py --api-base http://127.0.0.1:8000 --api-key "<your secret>"
+```
+
+See `docs/FLYINGRC_OPERATIONS.md` for the full deployment, seed, smoke-test, and daily support workflow.

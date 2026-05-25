@@ -22,6 +22,19 @@ The `.env.example` file documents the required private-deployment variables. `BO
 
 When running behind a slow or proxied Python package network, set `PIP_INDEX_URL` or `PIP_EXTRA_INDEX_URL` before `docker compose up --build`; the API and worker Docker builds pass those values through as build args without changing the default public PyPI behavior.
 
+## FlyingRC Internal Profile
+
+For FlyingRC's internal pilot, use the checked-in profile instead of starting from the generic example:
+
+```bash
+cp config/flyingrc.env.example .env
+# Replace BOARDPILOT_API_KEY and NEXT_PUBLIC_BOARDPILOT_API_KEY with the same long secret.
+docker compose up --build
+python3 scripts/seed_flyingrc.py --api-base http://127.0.0.1:8000 --api-key "<your secret>"
+```
+
+That profile keeps the stack private, uses host web port `3001`, enables an operator role map for FlyingRC users, and keeps fake/local providers as the default privacy boundary. The operational workflow is documented in `docs/FLYINGRC_OPERATIONS.md`.
+
 ## Privacy Boundary
 
 The default provider config is fake/local. Source content should not leave the deployment unless an admin intentionally enables an external LLM, embedding, reranker, or OCR provider.
