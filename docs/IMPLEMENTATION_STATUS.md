@@ -216,9 +216,9 @@ Results:
 - Headless Chrome visual pass: screenshots captured for `/ask`, `/sources`, `/eval`, and `/review`; each page rendered expected route content with no application-error text detected in the captured HTML.
 - Static Docker Compose deployment contract tests: covered by the API test suite.
 
-## Important MVP Gaps
+## Production Hardening Notes
 
-- API runtime persistence is still partly in-memory; SQLAlchemy models, Alembic migrations, and repositories now cover the MVP record groups, Docker startup applies migrations automatically, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware, but parts of the service layer still hydrate the in-memory store before using existing domain services.
+- API runtime persistence still uses some in-memory service hydration as an internal compatibility bridge; SQLAlchemy models, Alembic migrations, and repositories cover the MVP record groups, Docker startup applies migrations automatically, and product/source/version/ask/review/eval/support-import/provider/job/audit surfaces are database-aware.
 - Docker Compose now has live startup coverage on this machine through Colima; the default web host port `3000` can conflict with other local services, so `BOARDPILOT_WEB_HOST_PORT` is documented and verified as the escape hatch.
 - IngestionJob APIs and the Redis worker now hydrate source-version context from SQLAlchemy, support retry, enqueue Redis worker messages, and mirror job state plus completed chunk/embedding outputs to SQLAlchemy when available.
 - File upload handling exists for parser-aware text sources, PDFs, webpage snapshots, and image assets with manual descriptions; OCR can now use manual text, fake provider behavior, the optional local Tesseract adapter when installed, or OpenAI-compatible vision models.
